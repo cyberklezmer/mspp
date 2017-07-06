@@ -78,6 +78,8 @@ void twostagetest(unsigned int N, const lpsolver& cps)
     scenariotree_ptr<omega> sp(new modularscenariotree<omega>(xp,pp));
     linearproblem_ptr<omega> prp(new tsproblem());
 
+    printvarnames(*prp);
+
     biglpsolution<omega> b(prp,sp);
     treesolution_ptr s;
     double ov;
@@ -325,6 +327,7 @@ void almtest(double alpha, double lambda, const lpsolver& cps)
 
     linearproblem_ptr<double> cvp(new mmpcvarproblem<double>(prp,alpha,lambda));
 
+    printvarnames(*cvp);
     biglpsolution<double> b(cvp,ss);
 
     treesolution_ptr s;
@@ -377,6 +380,6 @@ int main(int argc, char *argv[])
   csvlpsolver csvs;
 
   twostagetest(3,cps);
-  cvartest(0.05,0.5,cps);
+//  cvartest(0.05,0.5,cps);
   almtest(0.05,0.5,cps);
 }

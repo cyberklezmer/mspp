@@ -25,6 +25,21 @@ public:
         flp(lp), falpha(alpha), flambda(lambda)
     {
     }
+    virtual std::string varname(unsigned int stage, unsigned int i) const
+    {
+        if(i<flp->stagedim(stage))
+            return flp->varname(stage,i);
+        if(stage == 0)
+            return "u";
+        if(stage == this->T())
+            return "theta";
+        else if(i==flp->stagedim(stage))
+            return "theta";
+        else
+            return "u";
+    }
+
+
     virtual void f(
             unsigned int stage,
             const scenario<Xi>& xih,

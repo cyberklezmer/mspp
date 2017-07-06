@@ -138,6 +138,17 @@ inline void printstats(treesolution& ts)
     std::cout << ")" << std::endl;
 }
 
-
+template<typename O, typename C, typename Xi>
+inline void printvarnames(problem<O,C,Xi>& p)
+{
+    for(unsigned int i=0;;)
+    {
+        std::cout << p.varname(i);
+        if(++i==p.totaldim())
+            break;
+        std::cout << ",";
+    }
+    std::cout << std::endl;
+}
 
 #endif // TESTS_H

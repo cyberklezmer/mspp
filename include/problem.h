@@ -5,6 +5,7 @@
 #include "probability.h"
 #include <limits>
 #include <string>
+#include <sstream>
 
 static_assert(std::numeric_limits<double>::is_iec559, "IEEE 754 required");
 
@@ -71,9 +72,6 @@ class problem : public object
 
         unsigned int T() const { return fstagedims.size()-1; }
 
-        const std::vector<unsigned int>& stagedims() const
-           { return fstagedims; }
-
         unsigned int totaldim() const { return dimupto(T()); }
 
         unsigned int stagedim(unsigned int k) const
@@ -81,10 +79,32 @@ class problem : public object
             assert(k<fstagedims.size());
             return fstagedims[k];
         }
-        const std::vector<unsigned int>& stagedims()
+        const std::vector<unsigned int>& stagedims() const
         {
             return fstagedims;
         }
+
+        virtual std::string varname(unsigned int k)
+        {
+            assert(k<totaldim());
+            unsigned int s;
+            for(s=0; s<T();s++)
+            {
+                if(stageoffset(s+1) > k)
+                    break;
+            }
+            std::ostringstream st;
+            st << varname(s,k-stageoffset(s)) << "_" << s;
+            return st.str();
+        }
+
+        virtual std::string varname(unsigned int stage, unsigned int i) const
+        {
+            std::ostringstream s;
+            s << "x" << i;
+            return s.str();
+        }
+
 protected:
         virtual void f(
                 unsigned int stage,
