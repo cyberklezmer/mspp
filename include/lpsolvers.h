@@ -9,7 +9,7 @@ class cplexlpsolver : public lpsolver
 public:
     virtual void solve(const varinfo_list& vars,
             const linearfunction& objective,
-            const constraint_list<linearconstraint>& constraints,
+            const constraint_list<linearconstraint_ptr>& constraints,
             std::vector<double>& sol,
             double& objvalue) const;
 };

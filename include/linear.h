@@ -1,11 +1,12 @@
 #ifndef LINEAR_H
 #define LINEAR_H
 
-#include "problem.h"
-#include "probability.h"
 #include <sstream>
 #include <iostream>
 #include <iterator>
+#include "problem.h"
+#include "probability.h"
+#include "solution.h"
 
 class linearfunction: public object
 {
@@ -40,6 +41,8 @@ public:
     unsigned int dim() { return lhs.size(); }
 };
 
+using linearconstraint_ptr = std::shared_ptr<linearconstraint>;
+
 using linearconstraint_list = std::vector<linearconstraint>;
 using linearconstraint_list_ptr = std::shared_ptr<linearconstraint_list>;
 
@@ -55,7 +58,7 @@ class lpsolver
 public:
     virtual void solve(const varinfo_list& vars,
             const linearfunction& objective,
-            const constraint_list<linearconstraint>& constraints,
+            const constraint_list<linearconstraint_ptr>& constraints,
             std::vector<double>& sol,
             double& objvalue) const = 0;
 };
@@ -63,7 +66,6 @@ public:
 template<class Xi>
 class biglpsolution : public treecallback
 {
-    enum callbackmode {msolve, mlist };
 public:
     biglpsolution(const linearproblem_ptr<Xi>& pp,
                    const scenariotree_ptr<Xi>& sp)
@@ -72,8 +74,6 @@ public:
     }
 
 private:
-    /// state variables
-    callbackmode fmode;
 
     std::vector<unsigned int> foffsets;
 
@@ -82,7 +82,7 @@ private:
     unsigned int fdim;
     linearfunction fobj;
     varinfo_list fvars;
-    linearconstraint_list fconstraints;
+    std::vector<linearconstraint_ptr> fconstraints;
 
     //list
     unsigned int fvindex;
@@ -133,8 +133,7 @@ public:
             {
                 linearconstraint& s = (*constraints)[j];
 
-                fconstraints.push_back(linearconstraint(fdim));
-                linearconstraint& d = fconstraints[fconstraints.size()-1];
+                linearconstraint_ptr d(new linearconstraint(fdim));
 
                 unsigned int src=0;
                 for(unsigned int i=0; i<=stage; i++)
@@ -143,14 +142,15 @@ public:
                     for(unsigned int r=0;
                           r<fp->stagedim(i) && src<s.lhs.size();
                           r++)
-                        d.lhs[dst++] = s.lhs[src++];
-                    d.rhs = s.rhs;
-                    d.t = s.t;
+                        d->lhs[dst++] = s.lhs[src++];
+                    d->rhs = s.rhs;
+                    d->t = s.t;
                 }
+                fconstraints.push_back(d);
             }
     }
 
-    void solve(const lpsolver& lps)
+    void solve(const lpsolver& lps, treesolution_ptr& sol, double& optimal)
     {
         foffsets.resize(fp->T()+1);
         fdim = 0;
@@ -161,19 +161,9 @@ public:
 
         fs->t()->foreachnode(this);
         std::vector<double> x(fdim);
-        double ov;
-        try
-        {
-            lps.solve(fvars,fobj,fconstraints,x,ov);
-        }
-        catch(...)
-        {
-            std::cerr << "Exception caught" << std::endl;
-        }
 
-        for(int i=0; i<x.size(); i++)
-            std::cout << fvars[i].n << "=" << x[i] << std::endl;
-        std::cout << "optimal:" << ov << std::endl;
+        lps.solve(fvars,fobj,fconstraints,x,optimal);
+        sol.reset(new treesolution(fp->stagedims(),fs->tp(),x));
     }
 
 private:

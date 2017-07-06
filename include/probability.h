@@ -53,47 +53,41 @@ public:
     scenariotree()
       {}
 
-    virtual unsigned int depth() const = 0;
+    virtual const treemapping_ptr<Xi>& tm() const = 0;
+    virtual const treeprobability_ptr& tp() const = 0;
 
-    virtual Xi x(const path&) const = 0;
-    virtual scenario<Xi> s(const path&) const = 0;
-    virtual prob p(const path&) const = 0;
-    virtual prob up(const path&) const = 0;
-
-    virtual const tree_ptr& t() const = 0;
+    const tree_ptr& t() const { return tp()->t(); }
+    virtual unsigned int depth() const { return tp()->t()->depth();}
+    Xi x(const path& p) const  { return (*tm())(p); }
+    scenario<Xi> s(const path& p) const { return tm()->s(p); }
+    virtual prob p(const path& p) const { return (*tp())(p); }
+    virtual prob up(const path& p) const { return tp()->up(p); }
 };
 
 template<class Xi>
 using scenariotree_ptr=std::shared_ptr<scenariotree<Xi>>;
 
+
+
 template<class Xi>
 class modularscenariotree : public scenariotree<Xi>
 {
 public:
-    modularscenariotree(const treemapping_ptr<Xi>& x, const treeprobability_ptr& p)
+    modularscenariotree(const treemapping_ptr<Xi>& x,
+                        const treeprobability_ptr& p)
          : fx(x), fp(p)
-      {
-          assert(fx->t().get()==fp->t().get());
-      }
-    virtual unsigned int depth() const
-       { return fp->t()->depth(); }
-    virtual Xi x(const path& p) const
-       { return (*fx)(p); }
-    virtual scenario<Xi> s(const path& p) const
-       { return fx->s(p); }
-    virtual prob p(const path& p) const
-        { return (*fp)(p); }
-    virtual prob up(const path& p) const
-        { return fp->up(p); }
-    const tree_ptr& t() const
-        { return fp->t(); }
-private:
+    {
+    }
+
+    virtual const treemapping_ptr<Xi>& tm() const { return fx; }
+    virtual const treeprobability_ptr& tp() const { return fp; }
+
+protected:
     treemapping_ptr<Xi> fx;
     treeprobability_ptr fp;
 };
 
 template<class Xi>
 using modularscenariotree_ptr=std::shared_ptr<modularscenariotree<Xi>>;
-
 
 #endif // PROBABILITY_H

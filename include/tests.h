@@ -12,7 +12,7 @@ public:
 
     virtual void solve(const varinfo_list& vars,
             const linearfunction& objective,
-            const constraint_list<linearconstraint>& constraints,
+            const constraint_list<linearconstraint_ptr>& constraints,
             std::vector<double>& x,
             double& ) const
     {
@@ -65,7 +65,7 @@ public:
             f << endl;
             for(int i=0; i<constraints.size(); i++)
             {
-                const linearconstraint& c = constraints[i];
+                const linearconstraint& c = *constraints[i];
                 if(c.t == t)
                 {
                     int j=0;
@@ -77,9 +77,66 @@ public:
                 }
              }
         }
-        throw "Test solver only produces a csv file";
+        std::cout << "Test solver only produces problem.csv file.";
     }
 };
+
+
+template<typename Xi>
+class scenariolister : public treecallback
+{
+public:
+    scenariolister(const scenariotree_ptr<Xi>& s, std::ostream& o)
+        : fs(s), fo(o)
+    {}
+    void callback(const path& p)
+    {
+        for(unsigned int i=0; i<p.size(); i++)
+        {
+            fo << p[i] <<"-";
+        }
+        fo << "p=" << fs->p(p) << " ";
+        fo << fs->x(p) << std::endl;
+    }
+    void list()
+    {
+        fs->t()->foreachnode(this);
+    }
+
+private:
+    scenariotree_ptr<Xi> fs;
+    std::ostream& fo;
+};
+
+inline void printstats(treesolution& ts)
+{
+    std::vector<double> E,var;
+    ts.stats(E,var);
+    assert(E.size());
+    assert(var.size());
+
+    std::cout << "E=(";
+
+    for(unsigned int i=0;;)
+    {
+        std::cout << E[i];
+        if(++i==E.size())
+            break;
+        std::cout << ",";
+    }
+    std::cout << ")" << std::endl;
+
+    std::cout << "var=(";
+
+    for(unsigned int i=0;;)
+    {
+        std::cout << var[i];
+        if(++i==var.size())
+            break;
+        std::cout << ",";
+    }
+    std::cout << ")" << std::endl;
+}
 
 
 

@@ -83,6 +83,8 @@ private:
     unsigned int fnumnodes;
 };
 
+using nxtree_ptr = std::shared_ptr<nxtree>;
+
 
 class uniformtreeprobability: public treeprobability
 {
@@ -149,6 +151,36 @@ private:
 
 using iidtreeprobability_ptr = std::shared_ptr<iidtreeprobability>;
 
+
+template <typename Xi>
+class idtreemapping: public treemapping<Xi>
+{
+    static tree_ptr maketree(const std::vector<std::vector<Xi>>& av)
+    {
+        std::vector<unsigned int> n;
+        for(unsigned int i=0; i<av.size(); i++)
+            n.push_back(av[i].size());
+        return tree_ptr(new nxtree(n));
+    }
+
+public:
+    idtreemapping(const std::vector<std::vector<Xi>>& av) :
+       treemapping<Xi>(maketree(av)), fv(av) {}
+    virtual Xi operator()(const path& p) const
+    {
+        assert(p.size()>0);
+        assert(p.size()<=this->ft->depth());
+        assert(p[p.size()-1]<fv[p.size()-1].size());
+        return fv[p.size()-1][p[p.size()-1]];
+    }
+private:
+    std::vector<std::vector<Xi>> fv;
+};
+
+template<typename Xi>
+using idtreemapping_ptr = std::shared_ptr<idtreemapping<Xi>>;
+
+
 template <typename Xi>
 class iidtreemapping: public treemapping<Xi>
 {
@@ -168,139 +200,6 @@ private:
 
 template<typename Xi>
 using iidtreemapping_ptr = std::shared_ptr<iidtreemapping<Xi>>;
-
-
-template <typename Xi>
-class idscenariotree : public scenariotree<Xi>
-{
-    static std::vector<unsigned int> nx(const std::vector<std::vector<Xi>>& axs )
-    {
-        std::vector<unsigned int> r;
-        for(unsigned int i=0; i<axs.size(); i++)
-            r.push_back(axs[i].size());
-        return r;
-    }
-
-public:
-    idscenariotree(const std::vector<std::vector<Xi>>& axs ) :
-        ft(new nxtree(nx(axs))), fxs(axs), fprobs(axs.size())
-    {
-        for(unsigned int i=0; i<fxs.size();i++)
-            fprobs[i]=1.0 / (double) fxs[i].size();
-    }
-
-    virtual unsigned int depth() const { return ft->depth(); }
-
-    virtual Xi x(const path& p)  const
-    {
-        assert(p.size()>0);
-        assert(p.size()<=this->ft->depth());
-        assert(p[p.size()-1]<fxs[p.size()-1].size());
-        return fxs[p.size()-1][p[p.size()-1]];
-    }
-
-    virtual scenario<Xi> s(const path& p) const
-    {
-        assert(p.size()>0);
-        assert(p.size()<=this->ft->depth());
-        assert(p[p.size()-1]<fxs[p.size()-1].size());
-
-        scenario<Xi> r;
-        for(unsigned int i=0; i<p.size(); i++)
-        {
-            r.push_back(fxs[i][p[i]]);
-        }
-        return r;
-    }
-
-    virtual prob p(const path& p) const
-    {
-        assert(p.size()>0);
-        assert(p.size()<=this->ft->depth());
-        assert(p[p.size()-1]<fxs[p.size()-1].size());
-        return fprobs[p.size()-1];
-    }
-    virtual prob up(const path& p) const
-    {
-        assert(p.size()>0);
-        assert(p.size()<=this->ft->depth());
-        assert(p[p.size()-1]<fxs[p.size()-1].size());
-        prob pr = 1.0;
-        for(unsigned int i=0; i<p.size(); i++)
-            pr *= this->fprobs[i];
-        return pr;
-    }
-
-    virtual const tree_ptr& t() const { return ft; }
-
-private:
-    tree_ptr ft;
-    std::vector<std::vector<Xi>> fxs;
-    std::vector<prob> fprobs;
-};
-
-template<typename Xi>
-using idscenariotree_ptr = std::shared_ptr<idscenariotree<Xi>>;
-
-
-template <typename Xi>
-class iidscenariotree : public scenariotree<Xi>
-{
-public:
-    iidscenariotree(unsigned int depth, std::vector<Xi>& ax ) :
-        ft(new homogeneoustree(depth,ax.size())), fx(ax),
-         fprob(1.0 / (double) fx.size())
-      {}
-
-    virtual unsigned int depth() const { return ft->depth(); }
-
-    virtual Xi x(const path& p)  const
-    {
-        assert(p.size()>0);
-        assert(p.size()<=this->ft->depth());
-        assert(p[p.size()-1]<fx.size());
-        return fx[p[p.size()-1]];
-    }
-
-    virtual scenario<Xi> s(const path& p) const
-    {
-        assert(p.size()>0);
-        assert(p.size()<=this->ft->depth());
-        assert(p[p.size()-1]<fx.size());
-
-        scenario<Xi> r;
-        for(unsigned int i=0; i<p.size(); i++)
-        {
-            r.push_back(fx[p[i]]);
-        }
-        return r;
-    }
-
-    virtual prob p(const path& p) const
-    {
-        assert(p.size()>0);
-        assert(p.size()<=this->ft->depth());
-        assert(p[p.size()-1]<fx.size());
-        return fprob;
-    }
-    virtual prob up(const path& p) const
-    {
-        assert(p.size()>0);
-        assert(p.size()<=this->ft->depth());
-        assert(p[p.size()-1]<fx.size());
-        return pow(this->fprob,p.size());
-    }
-
-    virtual const tree_ptr& t() const { return ft; }
-
-private:
-    tree_ptr ft;
-    std::vector<Xi>& fx;
-    prob fprob;
-};
-
-template<typename Xi>
-using iidscenariotree_ptr = std::shared_ptr<iidscenariotree<Xi>>;
 
 
 class shiftedtree: public tree
@@ -330,74 +229,67 @@ private:
 
 using shiftedtree_ptr = std::shared_ptr<shiftedtree>;
 
-
-template<typename Xi>
-class shiftedscenariotree : public scenariotree<Xi>
+template <typename L>
+class shiftedtreemapping : public treemapping<L>
 {
 public:
-    shiftedscenariotree(const scenariotree_ptr<Xi>& orig, const Xi& x0 ) :
-        forig(orig), fx0(x0), fst(new shiftedtree(orig->t()))
+    shiftedtreemapping(const treemapping_ptr<L>& orig, const L& x0) :
+        treemapping<L>(tree_ptr(new shiftedtree(orig->t()))),
+        forig(orig), fx0(x0)
     {}
 
-    virtual unsigned int depth() const
-    {
-        return fst->depth();
-    }
+    virtual L operator()(const path& p) const
+     { return p.size()==1 ? fx0 : (*forig)(shiftedtree::orig(p)) ; }
+protected:
+    treemapping_ptr<L> forig;
+    L fx0;
+};
 
-    virtual Xi x(const path& p)  const
-    {
-        if(p.size()==1)
-        {
-            assert(p[0]==0);
-            return fx0;
-        }
-        else
-            return forig->x(shiftedtree::orig(p));
-    }
 
-    virtual scenario<Xi> s(const path& p) const
-    {
-        assert(p.size()>0);
-        if(p.size()==1)
-        {
-            scenario<Xi> r;
-            r.push_back(fx0);
-            return r;
-        }
-        else
-        {
-            scenario<Xi> r = forig->s(shiftedtree::orig(p));
-            r.insert(r.begin(),fx0);
-            return r;
-        }
-    }
+class shiftedtreeprobability : public treeprobability
+{
+public:
+    shiftedtreeprobability(const treeprobability_ptr& orig) :
+        treeprobability(tree_ptr(new shiftedtree(orig->t()))), forig(orig)
+    {}
 
-    virtual prob p(const path& p) const
-    {
-        if(p.size()==1)
-        {
-            assert(p[0]==0);
-            return 1.0;
-        }
-        else
-            return forig->p(shiftedtree::orig(p));
-    }
-    virtual prob up(const path& p) const
-    {
-        assert(p.size()>0);
-        return p.size() == 1 ? 1.0 : forig->up(shiftedtree::orig(p));
-    }
+    virtual prob operator()(const path& p) const
+     { return p.size()==1 ? 1.0 : (*forig)(shiftedtree::orig(p)) ; }
 
-    virtual const tree_ptr& t() const { return fst; }
+protected:
+    treeprobability_ptr forig;
+};
 
-private:
-    scenariotree_ptr<Xi> forig;
-    tree_ptr fst;
-    Xi fx0;
+
+
+template<typename Xi>
+class shiftedscenariotree : public modularscenariotree<Xi>
+{
+public:
+    shiftedscenariotree(const treemapping_ptr<Xi>& x,
+                        const treeprobability_ptr& p,
+                        const Xi& x0 ) :
+        modularscenariotree<Xi>(
+            treemapping_ptr<Xi>(new shiftedtreemapping<Xi>(x,x0)),
+            treeprobability_ptr(new shiftedtreeprobability(p)))
+    {}
 };
 
 template<typename Xi>
 using shiftedscenariotree_ptr = std::shared_ptr<shiftedscenariotree<Xi>>;
+
+template<typename Xi>
+inline modularscenariotree_ptr<Xi>
+      idscenariotree(std::vector<std::vector<Xi>>& dist)
+{
+      std::vector<unsigned int> n;
+      for(unsigned int i=0; i<dist.size(); i++)
+          n.push_back(dist[i].size());
+      nxtree_ptr t(new nxtree(dist));
+      uniformtreeprobability_ptr p(new uniformtreeprobability(t) );
+      idtreemapping_ptr<Xi> m(p,idtreemapping<Xi>(dist));
+      return new modularscenariotree<Xi>(m,p);
+}
 
 
 #endif // SCENARIOS_H

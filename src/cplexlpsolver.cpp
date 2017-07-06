@@ -5,7 +5,7 @@ using namespace std;
 
 void cplexlpsolver::solve(const varinfo_list& vars,
         const linearfunction& objective,
-        const constraint_list<linearconstraint>& constraints,
+        const constraint_list<linearconstraint_ptr>& constraints,
         std::vector<double>& sol,
         double& objvalue) const
 {
@@ -41,7 +41,7 @@ void cplexlpsolver::solve(const varinfo_list& vars,
         {
             IloExpr v(env);
 
-            const linearconstraint& c = constraints[k];
+            const linearconstraint& c = *constraints[k];
 
 //            assert(c.lhs.size()==vars.size());
 
@@ -70,6 +70,8 @@ void cplexlpsolver::solve(const varinfo_list& vars,
         }
 
         IloCplex cplex(model);
+        cplex.setOut(sys::log());
+        cplex.setWarning(sys::log());
         cplex.exportModel("model.lp"); //lp, mps, sav
 
 

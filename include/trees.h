@@ -51,7 +51,6 @@ private:
 using tree_ptr = std::shared_ptr<tree>;
 
 
-
 class indexedtree : public tree
 {
 public:
