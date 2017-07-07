@@ -59,6 +59,7 @@ public:
     virtual void solve(const varinfo_list& vars,
             const linearfunction& objective,
             const constraint_list<linearconstraint_ptr>& constraints,
+            const std::vector<std::string>& varnames,
             std::vector<double>& sol,
             double& objvalue) const = 0;
 };
@@ -83,6 +84,7 @@ private:
     linearfunction fobj;
     varinfo_list fvars;
     std::vector<linearconstraint_ptr> fconstraints;
+    std::vector<std::string> fvarnames;
 
     //list
     unsigned int fvindex;
@@ -113,11 +115,7 @@ public:
             const varinfo& v = (*vars)[i];
             fvars.push_back(v);
             std::ostringstream s;
-            if(v.n == "")
-                s << "x" << i;
-            else
-                s << v.n;
-            s << "@";
+            s << fp->varname(stage,i) << "@";
             for(unsigned int j=0;;)
             {
                 s << p[j];
@@ -125,7 +123,7 @@ public:
                     break;
                 s << "-";
             }
-            fvars.rbegin()->n = s.str();
+            fvarnames.push_back(s.str());
             fdim++;
         }
         if(constraints)
@@ -147,6 +145,7 @@ public:
                     d->t = s.t;
                 }
                 fconstraints.push_back(d);
+std::cout << fconstraints.size() << std::endl;
             }
     }
 
@@ -157,12 +156,13 @@ public:
         fobj.coefs.clear();
         fvars.clear();
         fconstraints.clear();
+        fvarnames.clear();
         assert(fs->depth() == fp->T()+1);
 
         fs->t()->foreachnode(this);
         std::vector<double> x(fdim);
 
-        lps.solve(fvars,fobj,fconstraints,x,optimal);
+        lps.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
         sol.reset(new treesolution(fp->stagedims(),fs->tp(),x));
     }
 

@@ -282,11 +282,11 @@ public:
         vars.reset(new varinfo_list);
         if(stage==0)
         {
-           vars->push_back(varinfo(0,1,"x"));
+           vars->push_back(varinfo(0,1));
         }
         else if(stage==1)
         {
-           vars->push_back(varinfo(varinfo::Rplus,"x"));
+           vars->push_back(varinfo(varinfo::Rplus));
            constraints.reset(new linearconstraint_list);
            constraints->push_back(linearconstraint({1.0,1.0},
                                     linearconstraint::geq, 0.0));
@@ -295,7 +295,7 @@ public:
         }
         else if(stage==2)
         {
-           vars->push_back(varinfo(varinfo::Rplus,"x"));
+           vars->push_back(varinfo(varinfo::Rplus));
            constraints.reset(new linearconstraint_list);
            constraints->push_back(linearconstraint({1.0,1.0,1.0},
                                     linearconstraint::geq, 0.0));
@@ -304,7 +304,7 @@ public:
         }
         else
         {
-            vars->push_back(varinfo(varinfo::Rplus,"x"));
+            vars->push_back(varinfo(varinfo::Rplus));
             constraints.reset(new linearconstraint_list);
             constraints->push_back(linearconstraint({1.0,1.0,1.0,1.0},
                                      linearconstraint::eq, 1.0));
@@ -379,7 +379,7 @@ int main(int argc, char *argv[])
   cplexlpsolver cps;
   csvlpsolver csvs;
 
-  twostagetest(3,cps);
+//  twostagetest(3,cps);
 //  cvartest(0.05,0.5,cps);
   almtest(0.05,0.5,cps);
 }

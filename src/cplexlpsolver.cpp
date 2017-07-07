@@ -6,6 +6,7 @@ using namespace std;
 void cplexlpsolver::solve(const varinfo_list& vars,
         const linearfunction& objective,
         const constraint_list<linearconstraint_ptr>& constraints,
+        const std::vector<std::string>& varnames,
         std::vector<double>& sol,
         double& objvalue) const
 {
@@ -24,7 +25,7 @@ void cplexlpsolver::solve(const varinfo_list& vars,
             const IloNum l = v.l == -inf ? -IloInfinity : v.l;
             const IloNum h = v.h == inf ? IloInfinity : v.h;
 
-            x.add(IloNumVar(env,l,h,IloNumVar::Float,v.n.c_str()));
+            x.add(IloNumVar(env,l,h,IloNumVar::Float,varnames[i].c_str()));
         }
 
         IloObjective obj = IloMinimize(env);

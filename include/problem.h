@@ -19,10 +19,10 @@ public:
     double l;
     double h;
 
-    varinfo(double al=minf, double ah=inf, const char* an=0)
-      : l(al),h(ah),n(an ? an : "")
+    varinfo(double al=minf, double ah=inf)
+      : l(al),h(ah)
     {}
-    varinfo(type at,const char* an=0) : n(an ? an : "")
+    varinfo(type at)
     {
         switch(at)
         {
@@ -31,7 +31,6 @@ public:
         case Rminus: l=minf; h=0; break;
         }
     }
-    std::string n;
 };
 
 using varinfo_list = std::vector<varinfo>;

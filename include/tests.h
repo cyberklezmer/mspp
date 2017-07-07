@@ -13,6 +13,7 @@ public:
     virtual void solve(const varinfo_list& vars,
             const linearfunction& objective,
             const constraint_list<linearconstraint_ptr>& constraints,
+            const std::vector<std::string>& varnames,
             std::vector<double>& x,
             double& ) const
     {
@@ -20,7 +21,7 @@ public:
         ofstream f("problem.csv");
         f << "variables" << endl;
         for(int i=0;i<vars.size(); i++)
-            f << vars[i].n << ",";
+            f << varnames[i] << ",";
         f << endl;
         f << endl;
 
@@ -108,6 +109,19 @@ private:
     std::ostream& fo;
 };
 
+template<typename T>
+void output(const std::vector<T>& v, std::ostream& os)
+{
+    for(unsigned int i=0;;)
+    {
+        os << v[i];
+        if(++i==v.size())
+            break;
+        os << ",";
+    }
+}
+
+
 inline void printstats(treesolution& ts)
 {
     std::vector<double> E,var;
@@ -117,24 +131,13 @@ inline void printstats(treesolution& ts)
 
     std::cout << "E=(";
 
-    for(unsigned int i=0;;)
-    {
-        std::cout << E[i];
-        if(++i==E.size())
-            break;
-        std::cout << ",";
-    }
+    output(E,std::cout);
     std::cout << ")" << std::endl;
 
     std::cout << "var=(";
 
-    for(unsigned int i=0;;)
-    {
-        std::cout << var[i];
-        if(++i==var.size())
-            break;
-        std::cout << ",";
-    }
+    output(var,std::cout);
+
     std::cout << ")" << std::endl;
 }
 

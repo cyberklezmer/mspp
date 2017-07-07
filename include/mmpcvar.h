@@ -73,9 +73,9 @@ public:
         flp->get_constraints(stage,xih,vars,constraints);
 
         if(stage >0)
-            vars->push_back(varinfo(varinfo::R,"theta"));
+            vars->push_back(varinfo(varinfo::R));
         if(!laststage)
-            vars->push_back(varinfo(varinfo::R,"u"));
+            vars->push_back(varinfo(varinfo::R));
 
         if(constraints)
         {
