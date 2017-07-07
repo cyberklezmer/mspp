@@ -379,7 +379,7 @@ int main(int argc, char *argv[])
   cplexlpsolver cps;
   csvlpsolver csvs;
 
-//  twostagetest(3,cps);
-//  cvartest(0.05,0.5,cps);
+  twostagetest(3,cps);
+  cvartest(0.05,0.5,cps);
   almtest(0.05,0.5,cps);
 }

@@ -5,7 +5,7 @@ using namespace std;
 
 void cplexlpsolver::solve(const varinfo_list& vars,
         const linearfunction& objective,
-        const constraint_list<linearconstraint_ptr>& constraints,
+        const constraint_list<sparselinearconstraint_ptr>& constraints,
         const std::vector<std::string>& varnames,
         std::vector<double>& sol,
         double& objvalue) const
@@ -42,16 +42,15 @@ void cplexlpsolver::solve(const varinfo_list& vars,
         {
             IloExpr v(env);
 
-            const linearconstraint& c = *constraints[k];
+            const sparselinearconstraint& c = *constraints[k];
 
 //            assert(c.lhs.size()==vars.size());
 
-            int i=0;
-            for(; i<c.lhs.size(); i++)
+            for(int i=0; i<c.numnz(); i++)
             {
-                const double& l = c.lhs[i];
-                if(l)
-                    v+= l*x[i];
+                const sparselinearconstraint::iitem& it = c.nz(i);
+                if(it.value) // tbd ensure in lc
+                    v+= it.value*x[it.index];
             }
             switch(c.t)
             {

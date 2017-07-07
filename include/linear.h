@@ -47,6 +47,52 @@ using linearconstraint_list = std::vector<linearconstraint>;
 using linearconstraint_list_ptr = std::shared_ptr<linearconstraint_list>;
 
 
+class sparselinearconstraint
+{
+public:
+//    enum type {eq, geq, leq};
+
+    struct iitem
+    {
+        unsigned int index;
+        double value;
+    };
+
+    sparselinearconstraint(unsigned int lhsdim,
+       linearconstraint::type at = linearconstraint::eq, double arhs=0.0 )
+        : flhsdim(lhsdim), t(at), rhs(arhs) {}
+
+    linearconstraint::type t;
+    double rhs;
+    unsigned int numnz() const { return fnzs.size(); }
+    const iitem& nz(unsigned int i) const { return fnzs[i]; }
+    unsigned int lhsdim() { return flhsdim; }
+
+    std::shared_ptr<std::vector<double>> lhs() const
+    {
+        std::shared_ptr<std::vector<double>> r(new std::vector<double>(flhsdim,0));
+        for(unsigned int i=0; i < fnzs.size(); i++)
+        {
+            const iitem& it = fnzs[i];
+            (*r)[it.index] = it.value;
+        }
+        return r;
+    }
+
+
+    void set_lhs(unsigned int i, double v) { fnzs.push_back({i,v}); /*tbd sort*/ }
+private:
+    std::vector<iitem> fnzs;
+    unsigned int flhsdim;
+};
+
+using sparselinearconstraint_ptr = std::shared_ptr<sparselinearconstraint>;
+
+//using sparselinearconstraint_list = std::vector<sparselinearconstraint>;
+//using sparselinearconstraint_list_ptr = std::shared_ptr<sparselinearconstraint_list>;
+
+
+
 template<class Xi>
 using linearproblem = problem<linearfunction,linearconstraint,Xi>;
 
@@ -58,7 +104,7 @@ class lpsolver
 public:
     virtual void solve(const varinfo_list& vars,
             const linearfunction& objective,
-            const constraint_list<linearconstraint_ptr>& constraints,
+            const constraint_list<sparselinearconstraint_ptr>& constraints, // tbd predef constraintslist
             const std::vector<std::string>& varnames,
             std::vector<double>& sol,
             double& objvalue) const = 0;
@@ -83,7 +129,7 @@ private:
     unsigned int fdim;
     linearfunction fobj;
     varinfo_list fvars;
-    std::vector<linearconstraint_ptr> fconstraints;
+    std::vector<sparselinearconstraint_ptr> fconstraints;
     std::vector<std::string> fvarnames;
 
     //list
@@ -131,8 +177,8 @@ public:
             {
                 linearconstraint& s = (*constraints)[j];
 
-                linearconstraint_ptr d(new linearconstraint(fdim));
 
+                sparselinearconstraint_ptr d(new sparselinearconstraint(fdim));
                 unsigned int src=0;
                 for(unsigned int i=0; i<=stage; i++)
                 {
@@ -140,7 +186,12 @@ public:
                     for(unsigned int r=0;
                           r<fp->stagedim(i) && src<s.lhs.size();
                           r++)
-                        d->lhs[dst++] = s.lhs[src++];
+                    {
+                        double v = s.lhs[src++];
+                        if(v)
+                           d->set_lhs(dst,v);
+                        dst++;
+                    }
                     d->rhs = s.rhs;
                     d->t = s.t;
                 }
