@@ -1,0 +1,20 @@
+
+
+class scenariolister : public scenariocallback<double>
+{
+public:
+    virtual void callback(
+                   const tree* t,
+                   const path& p)
+    {
+        const scenario<Xi>& s =
+                (dynamic_cast<const scenario<Xi>*>(t));
+        history<Xi> xi = s.x().h(p);
+
+        std::cout << k << " " << h[k] << " " << ph[k] << std::endl;
+    }
+};
+
+
+
+

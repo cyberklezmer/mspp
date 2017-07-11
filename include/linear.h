@@ -196,7 +196,6 @@ public:
                     d->t = s.t;
                 }
                 fconstraints.push_back(d);
-std::cout << fconstraints.size() << std::endl;
             }
     }
 
