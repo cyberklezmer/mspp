@@ -5,53 +5,62 @@
 #include "probability.h"
 
 
-class meanvardistribution: public discretizabledistribution<std::vector<double>>
+class meanvardistribution: virtual public distribution<std::vector<double>>
 {
 public:
     meanvardistribution(const std::vector<double>& m,
-                        const std::vector<std::vector<double>>& sqV)
-        : fm(m), fsqV(sqV)
-    {}
-    virtual std::vector<std::vector<double>> d(unsigned int n)
+                        const std::vector<std::vector<double>>& sqV,
+                        const std::vector<std::vector<double>>& stddists = {})
+        : fm(m), fsqV(sqV), fstddists(stddists)
     {
-        assert(n==1 || n==pow(2,fm.size()));
-
-        std::vector<std::vector<double>> r;
-        if(n==1)
-            r.push_back(fm);
-        else
+        assert(fm.size() == fsqV.size());
+        for(unsigned int i=0; i<fsqV.size(); i++)
+            assert(fsqV[i].size()==m.size());
+        if(fstddists.size() == 0)
         {
-            std::vector<int> x;
-            grid(x,r);
+            for(unsigned int i=0; i<m.size(); i++)
+                fstddists.push_back({-1,1});
         }
+        else
+            assert(fstddists.size() == fm.size());
+    }
+    virtual std::vector<std::vector<double>> d()
+    {
+        std::vector<std::vector<double>> r;
+        std::vector<double> x;
+        grid(x,r);
         return r;
     }
 private:
-    void grid(std::vector<int> x, std::vector<std::vector<double>>& r)
+    void grid(std::vector<double> x, std::vector<std::vector<double>>& r)
     {
-        if(x.size()==fm.size())
+        unsigned int k=x.size();
+        if(k==fm.size())
         {
-            std::vector<double> y(fm.size(),0);
-            for(unsigned int i=0; i<fm.size(); i++)
-                for(unsigned int j=0; j<fm.size(); j++)
+            std::vector<double> y(k,0);
+            for(unsigned int i=0; i<k; i++)
+                for(unsigned int j=0; j<k; j++)
                     y[i] += fsqV[i][j]*x[j];
-            for(unsigned int i=0; i<fm.size(); i++)
+            for(unsigned int i=0; i<k; i++)
                 y[i] += fm[i];
             r.push_back(y);
         }
         else
         {
-            std::vector<int> hi(x), lo(x);
-            hi.push_back(1);
-            lo.push_back(-1);
-            grid(hi,r);
-            grid(lo,r);
+            for(unsigned int i=0; i<fstddists[k].size(); i++)
+            {
+                std::vector<double> y(x);
+                y.push_back(fstddists[k][i]);
+                grid(y,r);
+            }
         }
     }
     const std::vector<double> fm;
     std::vector<std::vector<double>> fsqV;
+    std::vector<std::vector<double>> fstddists;
 };
 
+/*
 class gaussiandistribution:
          public mcdistribution<std::vector<double>>,
          public discretizabledistribution<std::vector<double>>
@@ -67,7 +76,7 @@ public:
             assert(fsqV[i].size()==fm.size());
     }
 
-    virtual std::vector<std::vector<double>> d(unsigned int n)
+    virtual std::vector<std::vector<double>> d()
     {
         meanvardistribution mvd(fm,fsqV);
         return mvd.d(n);
@@ -84,5 +93,5 @@ private:
     const std::vector<double> fm;
     std::vector<std::vector<double>> fsqV;
 };
-
+*/
 #endif // DISTRIBUTIONS_H

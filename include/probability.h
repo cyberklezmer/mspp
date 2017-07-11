@@ -43,7 +43,7 @@ template <typename Xi>
 class discretizabledistribution : virtual public distribution<Xi>
 {
 public:
-    virtual std::vector<Xi> d( unsigned int n) = 0;
+    virtual std::vector<Xi> d() = 0;
 };
 
 template <typename Xi>

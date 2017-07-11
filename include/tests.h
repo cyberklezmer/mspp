@@ -4,6 +4,7 @@
 #include "linear.h"
 #include "scenarios.h"
 #include "mmpcvar.h"
+//#include "io.h"
 #include <fstream>
 
 class csvlpsolver : public lpsolver
@@ -93,12 +94,18 @@ public:
     {}
     void callback(const path& p)
     {
-        for(unsigned int i=0; i<p.size(); i++)
+        for(unsigned int i=0; ; i++)
         {
-            fo << p[i] <<"-";
+            fo << p[i];
+            if(i==p.size()-1)
+                break;
+            fo <<"-";
         }
-        fo << "p=" << fs->p(p) << " ";
-        fo << fs->x(p) << std::endl;
+        fo << ",p=" << fs->p(p) ;
+        scenario<Xi> sc = fs->s(p);
+        for(unsigned int i=0; i<p.size(); i++)
+            fo << "," << sc[i];
+        fo << std::endl;
     }
     void list()
     {

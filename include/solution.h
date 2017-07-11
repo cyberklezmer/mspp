@@ -6,6 +6,7 @@
 
 class treesolution: public object, public treecallback
 {
+    enum foreachnodemode {elist, estats};
 public:
     treesolution(const std::vector<unsigned int>& stagedims,
                  const treeprobability_ptr& tp,
@@ -19,6 +20,16 @@ public:
             o += fsd[i];
         }
     }
+    void list(std::ostream& os)
+    {
+        fimode = elist;
+        fos = &os;
+        fi = 0;
+        ftp->t()->foreachnode(this);
+        assert(fi==fx.size());
+
+    }
+
     void stats(std::vector<double>& E, std::vector<double>& var)
     {
         unsigned int totaldim = 0;
@@ -33,16 +44,18 @@ public:
 
         fi=0;
 
+        fimode = estats;
         ftp->t()->foreachnode(this);
 
         assert(fi==fx.size());
 
         E.resize(totaldim);
         var.resize(totaldim);
-
+std::cout << std::endl << "E=";
         for(unsigned int i=0; i<totaldim; i++)
         {
             E[i] = fs[i];
+std::cout << E[i] << " ";
             var[i] = fs2[i] - E[i]*E[i];
         }
     }
@@ -53,6 +66,8 @@ public:
     }
 
 private:
+
+
     std::vector<unsigned int> fsd;
     std::vector<unsigned int> fso;
     treeprobability_ptr ftp;
@@ -60,22 +75,60 @@ private:
 
 // state variables
 
+    foreachnodemode fimode;
     unsigned int fi;
+    std::ostream* fos;
     std::vector<double> fs;
     std::vector<double> fs2;
 
+
     virtual void callback(const path& p)
     {
+std::cout << fimode << ":";
+
+for(unsigned int i=0; ; i++)
+{
+    std::cout << p[i];
+    if(i== p.size()-1)
+        break;
+    std::cout << "-";
+}
         prob pr = ftp->up(p);
         unsigned int s = p.size()-1;
-        for(unsigned int i=0; i<fsd[s]; i++)
+        if(fimode==elist)
         {
-            unsigned int k = fso[s]+i;
-            fs[k] += pr * fx[fi];
-            fs2[k] += pr * fx[fi]*fx[fi];
-            fi++;
+            for(unsigned int i=0; ; i++)
+            {
+                (*fos) << p[i];
+                if(i== p.size()-1)
+                    break;
+                *fos << "-";
+            }
+
+            for(unsigned int i=0; i<s; i++)
+                for(unsigned int j=0; j<fsd[i]; j++)
+                    (*fos) << ",";
+            for(unsigned int i=0; i<fsd[s] ; i++)
+            {
+std::cout << " " << fx[fi];
+                *fos << "," << fx[fi++];
+            }
+            *fos << std::endl;
+        }
+        else if(fimode==estats)
+        {
+std::cout << "(" << fso[s] << ") ";
+            for(unsigned int i=0; i<fsd[s]; i++)
+            {
+                unsigned int k = fso[s]+i;
+                fs[k] += pr * fx[fi];
+                fs2[k] += pr * fx[fi]*fx[fi];
+std::cout << " " << fx[fi] << "(" << k << " " << fx[fi] << ")";
+                fi++;
+            }
         }
         assert(fi <= fx.size());
+std::cout << std::endl;
     }
 };
 
