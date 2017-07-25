@@ -51,11 +51,9 @@ public:
 
         E.resize(totaldim);
         var.resize(totaldim);
-std::cout << std::endl << "E=";
         for(unsigned int i=0; i<totaldim; i++)
         {
             E[i] = fs[i];
-std::cout << E[i] << " ";
             var[i] = fs2[i] - E[i]*E[i];
         }
     }
@@ -84,15 +82,6 @@ private:
 
     virtual void callback(const path& p)
     {
-std::cout << fimode << ":";
-
-for(unsigned int i=0; ; i++)
-{
-    std::cout << p[i];
-    if(i== p.size()-1)
-        break;
-    std::cout << "-";
-}
         prob pr = ftp->up(p);
         unsigned int s = p.size()-1;
         if(fimode==elist)
@@ -110,25 +99,21 @@ for(unsigned int i=0; ; i++)
                     (*fos) << ",";
             for(unsigned int i=0; i<fsd[s] ; i++)
             {
-std::cout << " " << fx[fi];
                 *fos << "," << fx[fi++];
             }
             *fos << std::endl;
         }
         else if(fimode==estats)
         {
-std::cout << "(" << fso[s] << ") ";
             for(unsigned int i=0; i<fsd[s]; i++)
             {
                 unsigned int k = fso[s]+i;
                 fs[k] += pr * fx[fi];
                 fs2[k] += pr * fx[fi]*fx[fi];
-std::cout << " " << fx[fi] << "(" << k << " " << fx[fi] << ")";
                 fi++;
             }
         }
         assert(fi <= fx.size());
-std::cout << std::endl;
     }
 };
 

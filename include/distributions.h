@@ -22,7 +22,31 @@ public:
                 fstddists.push_back({-1,1});
         }
         else
-            assert(fstddists.size() == fm.size());
+        {
+            for(unsigned int i=0; i<m.size(); i++)
+            {
+                const double tol = 0.0001;
+                unsigned int n = fstddists[i].size();
+                if(!n)
+                    assert(1);
+                else if(n>1)
+                {
+                    double s=0;
+                    double s2=0;
+                    for(unsigned int j=0; j< n; j++)
+                    {
+                        double x = fstddists[i][j];
+                        s+=x;
+                        s2+=x*x;
+                    }
+                    assert(fabs(s) < tol);
+                    assert(fabs(s2-n) < tol);
+                }
+                else
+                    assert(fabs(fstddists[i][0]) < tol);
+            }
+        }
+        assert(fstddists.size() == fm.size());
     }
     virtual std::vector<std::vector<double>> d()
     {
