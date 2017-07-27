@@ -143,7 +143,7 @@ public:
             if(constraints) // tbd presunout  do linearproblemu., udelat precheck a postcheck
             {
                 for(unsigned int i=0; i<constraints->size(); i++)
-                    assert((*constraints)[i].lhs.size()==this->dimupto(stage));
+                    assert((*constraints)[i].lhs.size()>=this->dimupto(stage));
             }
         }
     private:

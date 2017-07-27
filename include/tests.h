@@ -70,10 +70,14 @@ public:
                 const sparselinearconstraint& c = *constraints[i];
                 if(c.t == t)
                 {
-                    shared_ptr<std::vector<double>> clhs(c.lhs());
+/*                    shared_ptr<std::vector<double>> clhs(c.lhs());
                     int j=0;
                     for(; j<clhs->size(); j++)
-                        f << (*clhs)[j] << ",";
+                        f << (*clhs)[j] << ",";*/
+
+                    int j=0;
+                    for(; j<c.lhs()->size(); j++)
+                        f << (*c.lhs())[j] << ",";
                     for(; j<vars.size(); j++)
                         f << "0,";
                     f << c.rhs << endl;

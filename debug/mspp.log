@@ -1,29 +1,23 @@
 Warning:  Output names have been modified to conform to LP format.
 Default row names c1, c2 ... being created.
 Tried aggregator 1 time.
-No LP presolve or aggregator reductions.
-Presolve time = 0.00 sec. (0.01 ticks)
+LP Presolve eliminated 6 rows and 0 columns.
+Aggregator did 12 substitutions.
+Reduced LP has 30 rows, 24 columns, and 84 nonzeros.
+Presolve time = 0.00 sec. (0.04 ticks)
+Initializing dual steep norms . . .
 
 Iteration log . . .
-Iteration:     1   Dual objective     =             0.777778
-Warning:  Output names have been modified to conform to LP format.
-Default row names c1, c2 ... being created.
-Tried aggregator 1 time.
-LP Presolve eliminated 7 rows and 3 columns.
-Aggregator did 25 substitutions.
-Reduced LP has 5 rows, 2 columns, and 10 nonzeros.
-Presolve time = 0.00 sec. (0.03 ticks)
-
-Iteration log . . .
-Iteration:     1   Dual infeasibility =             0.000000
+Iteration:     1   Scaled dual infeas =             1.750000
+Iteration:    10   Dual objective     =       -499999.904000
 Warning:  Output names have been modified to conform to LP format.
 Default row names c1, c2 ... being created.
 Tried aggregator 1 time.
 LP Presolve eliminated 6 rows and 0 columns.
-Aggregator did 14 substitutions.
-Reduced LP has 28 rows, 22 columns, and 76 nonzeros.
-Presolve time = 0.00 sec. (0.04 ticks)
+Reduced LP has 42 rows, 36 columns, and 242 nonzeros.
+Presolve time = 0.00 sec. (0.03 ticks)
+Initializing dual steep norms . . .
 
 Iteration log . . .
 Iteration:     1   Scaled dual infeas =             1.000000
-Iteration:     8   Dual objective     =             0.096000
+Iteration:    24   Dual objective     =        -54420.768707

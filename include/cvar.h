@@ -60,7 +60,11 @@ protected:
         flp->get_constraints(stage,xih,vars,constraints);
 
         if(stage >0)
-            vars->push_back(varinfo(varinfo::R));
+//            vars->push_back(varinfo(varinfo::R));
+if(stage==1)
+    vars->push_back(varinfo(-1000000,inf));
+else
+     vars->push_back(varinfo(varinfo::R));
         if(!laststage)
             vars->push_back(varinfo(varinfo::R));
 
@@ -195,7 +199,12 @@ public:
             f->coefs[i] = 1;
         }
         else if(stage==1)
-            f->coefs[k-2] = 1;
+        {
+            if(this->T() == 1)
+                f->coefs[k-1] = 1;
+            else
+                f->coefs[k-2] = 1;
+        }
     }
 
     virtual void constraints(
@@ -209,7 +218,7 @@ public:
 
         unsigned int newsize = this->dimupto(laststage ? stage : stage+1);
 
-        origvarsandconstraints(stage, xih, vars, constraints);
+        this->origvarsandconstraints(stage, xih, vars, constraints);
 
         if(stage)
         {
@@ -222,7 +231,7 @@ public:
             linearconstraint_list::reverse_iterator muc = constraints->rbegin();
             linearconstraint_list::reverse_iterator nuc = muc + 1;
 
-            unsigned int i = this->stageoffest(stage)-1;
+            unsigned int i = this->stageoffset(stage)-1;
             muc->lhs[i] = this->mu();
             nuc->lhs[i++] = this->nu();
 

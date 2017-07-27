@@ -18,13 +18,10 @@ class tree : public object
 public:
     virtual unsigned int depth() const = 0;
     virtual unsigned int numbranches(const path& p) const = 0;
-    void foreachnode(treecallback *callee)
+    void foreachnode(treecallback *callee, path p=path(0))
     {
-         if(depth()>0)
-         {
-             path p(0);
+         if(depth()>p.size())
              doforeachnode(callee,p);
-         }
      }
 
 private:

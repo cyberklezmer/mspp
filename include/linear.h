@@ -58,9 +58,9 @@ public:
         double value;
     };
 
-    sparselinearconstraint(unsigned int lhsdim,
+    sparselinearconstraint(
        linearconstraint::type at = linearconstraint::eq, double arhs=0.0 )
-        : flhsdim(lhsdim), t(at), rhs(arhs) {}
+        : flhsdim(0), t(at), rhs(arhs) {}
 
     linearconstraint::type t;
     double rhs;
@@ -80,7 +80,12 @@ public:
     }
 
 
-    void set_lhs(unsigned int i, double v) { fnzs.push_back({i,v}); /*tbd sort*/ }
+    void set_lhs(unsigned int i, double v)
+    {
+        fnzs.push_back({i,v}); /*tbd sort*/
+        if(i+1 > flhsdim)
+            flhsdim = i+1;
+    }
 private:
     std::vector<iitem> fnzs;
     unsigned int flhsdim;
@@ -124,7 +129,6 @@ private:
 
     std::vector<unsigned int> foffsets;
 
-    //solve
 
     unsigned int fdim;
     linearfunction fobj;
@@ -132,17 +136,25 @@ private:
     std::vector<sparselinearconstraint_ptr> fconstraints;
     std::vector<std::string> fvarnames;
 
-    //list
+    // stored expectation constraints
+    std::vector<linearconstraint> fsrcexpconstraints;
+    std::vector<sparselinearconstraint*> fdstexpconstraints;
+    std::vector<prob> fups;
+
+
+    // list
     unsigned int fvindex;
 
 public:
     virtual void callback(const path& p)
     {
         unsigned int stage = p.size()-1;
-        unsigned int thisstagedim = fp->stagedim(stage);
-
+        prob up = fs->up(p);
         scenario<Xi> xi = fs->s(p);
 
+        unsigned int thisstagedim = fp->stagedim(stage);
+
+        // calling original problems \p constraints
         varinfo_list_ptr vars;
         constraint_list_ptr<linearconstraint> constraints;
 
@@ -153,7 +165,8 @@ public:
 
         foffsets[stage] = fdim;
         fobj.coefs.resize(fdim + thisstagedim);
-        prob up = fs->up(p);
+
+        // this stage variables and objective
 
         for(unsigned int i=0; i<thisstagedim; i++)
         {
@@ -172,15 +185,35 @@ public:
             fvarnames.push_back(s.str());
             fdim++;
         }
+
+        // stored constraints with expectations
+        for(unsigned int i=0; i<fsrcexpconstraints.size(); i++)
+        {
+            assert(i<fdstexpconstraints.size());
+
+            for(unsigned int src=fp->stageoffset(stage), dst=foffsets[stage];
+                src<fp->dimupto(stage); src++,dst++)
+            {
+                if(src < fsrcexpconstraints[i].lhs.size())
+                {
+                     double coef = fsrcexpconstraints[i].lhs[src];
+                     if(coef)
+                        fdstexpconstraints[i]->set_lhs(dst,coef*up/fups[i]);
+                }
+            }
+
+        }
+
+        // this stage constraints
         if(constraints)
             for(unsigned int j=0; j<constraints->size(); j++)
             {
                 linearconstraint& s = (*constraints)[j];
 
-
-                sparselinearconstraint_ptr d(new sparselinearconstraint(fdim));
+                sparselinearconstraint_ptr d(new sparselinearconstraint());
                 unsigned int src=0;
-                for(unsigned int i=0; i<=stage; i++)
+                unsigned int i=0;
+                for(; i<=stage; i++)
                 {
                     unsigned int dst=foffsets[i];
                     for(unsigned int r=0;
@@ -195,6 +228,13 @@ public:
                     d->rhs = s.rhs;
                     d->t = s.t;
                 }
+                if(s.lhs.size() > fp->dimupto(stage))
+                {
+                    assert(stage < fp->T());
+                    fsrcexpconstraints.push_back(s);
+                    fdstexpconstraints.push_back(d.get());
+                    fups.push_back(up);
+                }
                 fconstraints.push_back(d);
             }
     }
@@ -208,6 +248,11 @@ public:
         fconstraints.clear();
         fvarnames.clear();
         assert(fs->depth() == fp->T()+1);
+
+        fsrcexpconstraints.clear();
+        fdstexpconstraints.clear();
+        fups.clear();
+
 
         fs->t()->foreachnode(this);
         std::vector<double> x(fdim);
