@@ -3,7 +3,7 @@
 
 #include "linear.h"
 #include "scenarios.h"
-#include "cvar.h"
+#include "mmpcvar.h"
 //#include "io.h"
 #include <fstream>
 

@@ -189,79 +189,71 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
     scenariotree_ptr<omega> sp(new modularscenariotree<omega>(xp,pp));
     linearproblem_ptr<omega> prp(new psproblem());
 
-    for(unsigned int i=0; i<2; i++)
+    std::cout << "CVaRtest "  << std::endl;
+
+    linearproblem_ptr<omega> cvp;
+    cvp.reset(new mmpcvarproblem<omega>(prp,alpha,lambda));
+
+    biglpsolution<omega> b(cvp ,sp);
+
+    treesolution_ptr s;
+    double ov;
+    b.solve(cps,s,ov);
+
+    const double tol = 1e-5;
+
+    // brought from testproblems.xlsx
+    // x0_1,x_02,u0,theta_1,theta_2,theta_3,theta_4,theta_5,theta_6,theta_7,theta_8,theta_9,,,
+
+    double cvarsol[]={0,1,-0.1}; // x0_1,x_02,u0
+    double cvarthetas[]={0,-0.166666666666666,-0.333333333333335,
+                      0,-0.166666666666669,-0.333333333333333,
+                      0,-0.166666666666667,-0.333333333333332};
+
+    double cvarobj = -0.266666666666667;
+
+    if(fabs(ov-cvarobj) > tol)
     {
-        std::cout << "CVaRtest " << (i ? "(nested)..." : "(mp)...") << std::endl;
+        std::cerr << "cvartest: opt="
+             << cvarobj << " expected, " << ov << " achieved." << std::endl;
 
-        linearproblem_ptr<omega> cvp;
-        if(i)
-            cvp.reset(new mncvarproblem<omega>(prp,alpha,lambda));
-        else
-            cvp.reset(new mmpcvarproblem<omega>(prp,alpha,lambda));
-
-        biglpsolution<omega> b(cvp ,sp);
-
-        treesolution_ptr s;
-        double ov;
-        b.solve(cps,s,ov);
-
-        const double tol = 1e-5;
-
-        // brought from testproblems.xlsx
-        // x0_1,x_02,u0,theta_1,theta_2,theta_3,theta_4,theta_5,theta_6,theta_7,theta_8,theta_9,,,
-
-        double cvarsol[]={0,1,-0.1}; // x0_1,x_02,u0
-        double cvarthetas[]={0,-0.166666666666666,-0.333333333333335,
-                          0,-0.166666666666669,-0.333333333333333,
-                          0,-0.166666666666667,-0.333333333333332};
-
-        double cvarobj = -0.266666666666667;
-
-        if(fabs(ov-cvarobj) > tol)
-        {
-            std::cerr << "cvartest: opt="
-                 << cvarobj << " expected, " << ov << " achieved." << std::endl;
-
-            throw;
-        }
-
-
-        unsigned int k = sizeof(cvarsol)/sizeof(cvarsol[0]);
-        for(unsigned int i=0; i<k; i++)
-        {
-            if(fabs(s->x(i)-cvarsol[i]) > tol)
-            {
-                std::cerr << "cvartest: x[" << i << "]="
-                     << cvarsol[i] << " expected, " << s->x(i)
-                     << " achieved." << std::endl;
-
-                for(unsigned int j=0; j<s->nx(); j++)
-                    std::cerr << "x[" << j << "]=" << s->x(j) << std::endl;
-
-                throw;
-            }
-        }
-
-        unsigned int l = sizeof(cvarthetas)/sizeof(cvarthetas[0]);
-        for(unsigned int i=0; i<l; i++)
-        {
-            if(fabs(s->x(k+2+3*i)-cvarthetas[i]) > tol)
-            {
-                std::cerr << "cvartest: x[" << i << "]="
-                     << cvarthetas[i] << " expected, " << s->x(k+2+3*i)
-                     << " achieved." << std::endl;
-
-                for(unsigned int j=0; j<s->nx(); j++)
-                    std::cerr << "x[" << j << "]=" << s->x(j) << std::endl;
-
-                throw;
-            }
-        }
-        printstats(*s);
-        std::cout << (i? "NCVaRtest passed." : "MPCVaRtest passed.") << std::endl;
+        throw;
     }
 
 
+    unsigned int k = sizeof(cvarsol)/sizeof(cvarsol[0]);
+    for(unsigned int i=0; i<k; i++)
+    {
+        if(fabs(s->x(i)-cvarsol[i]) > tol)
+        {
+            std::cerr << "cvartest: x[" << i << "]="
+                 << cvarsol[i] << " expected, " << s->x(i)
+                 << " achieved." << std::endl;
+
+            for(unsigned int j=0; j<s->nx(); j++)
+                std::cerr << "x[" << j << "]=" << s->x(j) << std::endl;
+
+            throw;
+        }
+    }
+
+    unsigned int l = sizeof(cvarthetas)/sizeof(cvarthetas[0]);
+    for(unsigned int i=0; i<l; i++)
+    {
+        if(fabs(s->x(k+2+3*i)-cvarthetas[i]) > tol)
+        {
+            std::cerr << "cvartest: x[" << i << "]="
+                 << cvarthetas[i] << " expected, " << s->x(k+2+3*i)
+                 << " achieved." << std::endl;
+
+            for(unsigned int j=0; j<s->nx(); j++)
+                std::cerr << "x[" << j << "]=" << s->x(j) << std::endl;
+
+            throw;
+        }
+    }
+    printstats(*s);
+    std::cout <<  "MPCVaRtest passed." << std::endl;
 }
 
 
@@ -334,60 +326,53 @@ void almtest(double alpha, double lambda, const lpsolver& cps)
 
     linearproblem_ptr<double> prp(new almproblem());
 
-    for(unsigned int i=0; i<2; i++)
+    std::cout <<"ALMtest..." << std::endl;
+
+    linearproblem_ptr<double> cvp;
+    cvp.reset(new mmpcvarproblem<double>(prp,alpha,lambda));
+
+    printvarnames(*cvp);
+    biglpsolution<double> b(cvp,ss);
+
+    treesolution_ptr s;
+    double ov;
+    b.solve(cps,s,ov);
+
+    printstats(*s);
+
+    const double tol = 1e-5;
+
+    double almsol[]={0,0,0,0,0.64,1,0,0,0,0,0,0,0.727273,0,0.264,0.272727,-0.036,0.272727,0,0,
+                     0,0.88,1,0,0,0,0,0,0,0.727273,0,0.363,0.272727,-0.0495,0.272727,0};
+    double almobj = 0.906063;
+
+    if(fabs(ov-almobj) > tol)
     {
-        std::cout << (i ? "Nested" : "MP") << "ALMtest..." << std::endl;
+        std::cerr << "almtest: opt="
+             << almobj << " expected, " << ov << " achieved." << std::endl;
+        throw;
+    }
 
-        linearproblem_ptr<double> cvp;
-        if(i)
-            cvp.reset(new mncvarproblem<double>(prp,alpha,lambda));
-        else
-            cvp.reset(new mmpcvarproblem<double>(prp,alpha,lambda));
-
-        printvarnames(*cvp);
-        biglpsolution<double> b(cvp,ss);
-
-        treesolution_ptr s;
-        double ov;
- csvlpsolver csvs;
-        b.solve(0 ? csvs : cps,s,ov);
-
-        printstats(*s);
-
-        const double tol = 1e-5;
-
-        double almsol[]={0,0,0,0,0.64,1,0,0,0,0,0,0,0.727273,0,0.264,0.272727,-0.036,0.272727,0,0,
-                         0,0.88,1,0,0,0,0,0,0,0.727273,0,0.363,0.272727,-0.0495,0.272727,0};
-        double almobj = 0.906063;
-
-        if(fabs(ov-almobj) > tol)
+    unsigned int k = sizeof(almsol)/sizeof(almsol[0]);
+    for(unsigned int i=0; i<k; i++)
+    {
+        if(fabs(s->x(i)-almsol[i]) > tol)
         {
-            std::cerr << "almtest: opt="
-                 << almobj << " expected, " << ov << " achieved." << std::endl;
+            std::cerr << "almtest: x[" << i << "]="
+                 << almsol[i] << " expected, " << s->x(i)
+                 << " achieved." << std::endl;
+            std::cerr << "x=";
+
+            for(unsigned int j=0; j<s->nx(); j++)
+            {
+                std::cerr << s->x(j) << ",";
+                if((j+1)%20 == 0)
+                     std::cerr << std::endl;
+            }
             throw;
         }
-
-        unsigned int k = sizeof(almsol)/sizeof(almsol[0]);
-        for(unsigned int i=0; i<k; i++)
-        {
-            if(fabs(s->x(i)-almsol[i]) > tol)
-            {
-                std::cerr << "almtest: x[" << i << "]="
-                     << almsol[i] << " expected, " << s->x(i)
-                     << " achieved." << std::endl;
-                std::cerr << "x=";
-
-                for(unsigned int j=0; j<s->nx(); j++)
-                {
-                    std::cerr << s->x(j) << ",";
-                    if((j+1)%20 == 0)
-                         std::cerr << std::endl;
-                }
-                throw;
-            }
-        }
-        std::cout << (i ? "Nested" : "MP") << " ALMtest passed." << std::endl;
     }
+    std::cout <<  " ALMtest passed." << std::endl;
 }
 
 

@@ -65,9 +65,9 @@ CMakeFiles/mspp.dir/src/cplexlpsolver.cpp.o
  /opt/ibm/ILOG/CPLEX_Studio1263/cplex/include/ilcplex/iloparam.h
 CMakeFiles/mspp.dir/src/test.cpp.o
  ../include/commons.h
- ../include/cvar.h
  ../include/linear.h
  ../include/lpsolvers.h
+ ../include/mmpcvar.h
  ../include/probability.h
  ../include/problem.h
  ../include/scenarios.h

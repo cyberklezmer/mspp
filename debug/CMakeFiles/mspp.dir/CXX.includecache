@@ -20,10 +20,6 @@ memory
 assert.h
 -
 
-../include/cvar.h
-linear.h
-../include/linear.h
-
 ../include/linear.h
 sstream
 -
@@ -39,6 +35,10 @@ solution.h
 ../include/solution.h
 
 ../include/lpsolvers.h
+linear.h
+../include/linear.h
+
+../include/mmpcvar.h
 linear.h
 ../include/linear.h
 
@@ -71,8 +71,8 @@ linear.h
 ../include/linear.h
 scenarios.h
 ../include/scenarios.h
-cvar.h
-../include/cvar.h
+mmpcvar.h
+../include/mmpcvar.h
 fstream
 -
 
