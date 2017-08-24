@@ -62,9 +62,13 @@ public:
     {
         return fx.size();
     }
+    const treeprobability_ptr& tp() { return ftp; }
 
-private:
+    unsigned int sd(unsigned int i) { return fsd[i];}
+    unsigned int so(unsigned int i) { return fso[i];}
+    unsigned int numstages() { return fsd.size();}
 
+protected:
 
     std::vector<unsigned int> fsd;
     std::vector<unsigned int> fso;
@@ -73,13 +77,15 @@ private:
 
 // state variables
 
-    foreachnodemode fimode;
+protected:
     unsigned int fi;
+private:
+    foreachnodemode fimode;
     std::ostream* fos;
     std::vector<double> fs;
     std::vector<double> fs2;
 
-
+protected:
     virtual void callback(const path& p)
     {
         prob pr = ftp->up(p);
