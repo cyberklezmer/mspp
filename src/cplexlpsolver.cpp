@@ -2,6 +2,7 @@
 #include <ilcplex/ilocplex.h>
 
 using namespace std;
+using namespace mspp;
 
 void cplexlpsolver::solve(const varinfo_list& vars,
         const linearfunction& objective,

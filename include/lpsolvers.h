@@ -3,6 +3,8 @@
 
 #include "linear.h"
 
+namespace mspp
+{
 
 class cplexlpsolver : public lpsolver
 {
@@ -15,5 +17,6 @@ public:
             double& objvalue) const;
 };
 
+}
 
 #endif // LPSOLVERS_H

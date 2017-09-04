@@ -3,6 +3,9 @@
 
 #include "linear.h"
 
+namespace mspp
+{
+
 template<class Xi>
 class mmpcvarproblem: public linearproblem<Xi>
 {
@@ -51,7 +54,7 @@ public:
         if(!stage)
         {
             linearfunction_ptr orig;
-            flp->get_f(0,xih,orig);
+            flp->f(0,xih,orig);
             for(unsigned int i=0; i<k-1; i++)
                 f->coefs[i]=orig->coefs[i];
         }
@@ -71,7 +74,7 @@ public:
 
         unsigned int newsize = this->dimupto(stage);
 
-        flp->get_constraints(stage,xih,vars,constraints);
+        flp->constraints(stage,xih,vars,constraints);
 
         if(stage >0)
             vars->push_back(varinfo(varinfo::R));
@@ -108,7 +111,7 @@ public:
             if(!constraints)
                  constraints.reset(new linearconstraint_list);
             linearfunction_ptr c;
-            flp->get_f(stage,xih,c);
+            flp->f(stage,xih,c);
 
             constraints->push_back(linearconstraint(newsize,linearconstraint::geq));
             constraints->push_back(linearconstraint(newsize,linearconstraint::geq));
@@ -140,5 +143,6 @@ public:
 template<class Xi>
 using mmpcvarproblem_ptr = std::shared_ptr<mmpcvarproblem<Xi>>;
 
+}
 
 #endif // MMPCVAR_H

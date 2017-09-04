@@ -3,6 +3,43 @@
 
 #include "probability.h"
 
+namespace mspp
+{
+
+class indexedtree : public tree
+{
+public:
+    virtual unsigned int totalnumnodes() const = 0;
+    virtual unsigned int nodeindex(const path& p) const = 0;
+};
+
+using indexedtree_ptr = std::shared_ptr<indexedtree>;
+
+template <typename L>
+class generalprocess: public process<L>
+{
+public:
+    generalprocess(const indexedtree_ptr& t) :
+       process<L>(t), fdata(t->totalnumnodes()) {}
+    virtual L operator()(const path& p) const
+    {
+        return fdata[it().nodeindex(p)];
+    }
+    virtual L& operator()(const path& p)
+    {
+        return fdata[it().nodeindex(p)];
+    }
+protected:
+    const indexedtree& it() const
+       { return dynamic_cast<indexedtree&> (*process<L>::ft); }
+private:
+    std::vector<L> fdata;
+};
+
+template<typename L>
+using generalprocess_ptr = std::shared_ptr<generalprocess<L>>;
+
+
 
 class nxtree: public indexedtree
 {
@@ -153,7 +190,7 @@ using iidtreeprobability_ptr = std::shared_ptr<iidtreeprobability>;
 
 
 template <typename Xi>
-class idtreemapping: public treemapping<Xi>
+class idprocess: public process<Xi>
 {
     static tree_ptr maketree(const std::vector<std::vector<Xi>>& av)
     {
@@ -164,8 +201,8 @@ class idtreemapping: public treemapping<Xi>
     }
 
 public:
-    idtreemapping(const std::vector<std::vector<Xi>>& av) :
-       treemapping<Xi>(maketree(av)), fv(av) {}
+    idprocess(const std::vector<std::vector<Xi>>& av) :
+       process<Xi>(maketree(av)), fv(av) {}
     virtual Xi operator()(const path& p) const
     {
         assert(p.size()>0);
@@ -178,15 +215,15 @@ private:
 };
 
 template<typename Xi>
-using idtreemapping_ptr = std::shared_ptr<idtreemapping<Xi>>;
+using idprocess_ptr = std::shared_ptr<idprocess<Xi>>;
 
 
 template <typename Xi>
-class iidtreemapping: public treemapping<Xi>
+class iidprocess: public process<Xi>
 {
 public:
-    iidtreemapping(const homogeneoustree_ptr& t, const std::vector<Xi>& av) :
-       treemapping<Xi>(t), fv(av) {}
+    iidprocess(const homogeneoustree_ptr& t, const std::vector<Xi>& av) :
+       process<Xi>(t), fv(av) {}
     virtual Xi operator()(const path& p) const
     {
         assert(p.size()>0);
@@ -199,7 +236,7 @@ private:
 };
 
 template<typename Xi>
-using iidtreemapping_ptr = std::shared_ptr<iidtreemapping<Xi>>;
+using iidprocess_ptr = std::shared_ptr<iidprocess<Xi>>;
 
 
 class shiftedtree: public tree
@@ -230,18 +267,18 @@ private:
 using shiftedtree_ptr = std::shared_ptr<shiftedtree>;
 
 template <typename L>
-class shiftedtreemapping : public treemapping<L>
+class shiftedprocess : public process<L>
 {
 public:
-    shiftedtreemapping(const treemapping_ptr<L>& orig, const L& x0) :
-        treemapping<L>(tree_ptr(new shiftedtree(orig->t()))),
+    shiftedprocess(const process_ptr<L>& orig, const L& x0) :
+        process<L>(tree_ptr(new shiftedtree(orig->t()))),
         forig(orig), fx0(x0)
     {}
 
     virtual L operator()(const path& p) const
      { return p.size()==1 ? fx0 : (*forig)(shiftedtree::orig(p)) ; }
 protected:
-    treemapping_ptr<L> forig;
+    process_ptr<L> forig;
     L fx0;
 };
 
@@ -266,11 +303,11 @@ template<typename Xi>
 class shiftedscenariotree : public modularscenariotree<Xi>
 {
 public:
-    shiftedscenariotree(const treemapping_ptr<Xi>& x,
+    shiftedscenariotree(const process_ptr<Xi>& x,
                         const treeprobability_ptr& p,
                         const Xi& x0 ) :
         modularscenariotree<Xi>(
-            treemapping_ptr<Xi>(new shiftedtreemapping<Xi>(x,x0)),
+            process_ptr<Xi>(new shiftedprocess<Xi>(x,x0)),
             treeprobability_ptr(new shiftedtreeprobability(p)))
     {}
 };
@@ -287,10 +324,11 @@ inline modularscenariotree_ptr<Xi>
           n.push_back(dist[i].size());
       nxtree_ptr t(new nxtree(dist));
       uniformtreeprobability_ptr p(new uniformtreeprobability(t) );
-      idtreemapping_ptr<Xi> m(p,idtreemapping<Xi>(dist));
+      idprocess_ptr<Xi> m(p,idprocess<Xi>(dist));
       return new modularscenariotree<Xi>(m,p);
 }
 
+}
 
 #endif // SCENARIOS_H
 

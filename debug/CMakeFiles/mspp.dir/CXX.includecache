@@ -13,11 +13,15 @@ iostream
 -
 string
 -
+sstream
+-
 vector
 -
 memory
 -
 assert.h
+-
+limits
 -
 
 ../include/linear.h
@@ -51,12 +55,6 @@ commons.h
 ../include/commons.h
 probability.h
 ../include/probability.h
-limits
--
-string
--
-sstream
--
 
 ../include/scenarios.h
 probability.h

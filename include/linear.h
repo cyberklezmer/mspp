@@ -8,6 +8,9 @@
 #include "probability.h"
 #include "solution.h"
 
+namespace mspp
+{
+
 class linearfunction: public object
 {
 public:
@@ -158,10 +161,10 @@ public:
         varinfo_list_ptr vars;
         constraint_list_ptr<linearconstraint> constraints;
 
-        fp->get_constraints(stage,xi,vars,constraints);
+        fp->constraints(stage,xi,vars,constraints);
 
         linearfunction_ptr objective;
-        fp->get_f(stage,xi,objective);
+        fp->f(stage,xi,objective);
 
         foffsets[stage] = fdim;
         fobj.coefs.resize(fdim + thisstagedim);
@@ -266,4 +269,5 @@ private:
     scenariotree_ptr<Xi> fs;
 };
 
+}
 #endif // LINEAR_H

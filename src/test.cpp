@@ -6,6 +6,7 @@
 #include "linear.h"
 #include "tests.h"
 
+using namespace mspp;
 
 struct omega
 {
@@ -63,7 +64,7 @@ void twostagetest(unsigned int N, const lpsolver& cps)
     indexedtree_ptr tp(new nxtree({1,numleaves*numleaves}));
     uniformtreeprobability_ptr pp(new uniformtreeprobability(tp));
 
-    generaltreemapping_ptr<omega> xp(new generaltreemapping<omega>(tp) );
+    generalprocess_ptr<omega> xp(new generalprocess<omega>(tp) );
 
     for(unsigned int i=0; i<numleaves; i++)
     {
@@ -174,7 +175,7 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
     indexedtree_ptr tp(new nxtree({1,numleaves*numleaves}));
     uniformtreeprobability_ptr pp(new uniformtreeprobability(tp));
 
-    generaltreemapping_ptr<omega> xp(new generaltreemapping<omega>(tp) );
+    generalprocess_ptr<omega> xp(new generalprocess<omega>(tp) );
 
     for(unsigned int i=0; i<numleaves; i++)
     {
@@ -320,7 +321,7 @@ void almtest(double alpha, double lambda, const lpsolver& cps)
     const int numleaves = 2;
     homogeneoustree_ptr tp(new homogeneoustree(3,numleaves));
     iidtreeprobability_ptr pp(new iidtreeprobability(tp,{0.5,0.5}));
-    iidtreemapping_ptr<double> xp(new iidtreemapping<double>(tp,{0.8,1.1}));
+    iidprocess_ptr<double> xp(new iidprocess<double>(tp,{0.8,1.1}));
 
     shiftedscenariotree_ptr<double> ss(new shiftedscenariotree<double>(xp,pp,1.0));
 
@@ -383,7 +384,9 @@ int main(int argc, char *argv[])
   cplexlpsolver cps;
   csvlpsolver csvs;
 
-//  twostagetest(3,cps);
-//  cvartest(0.05,0.5,cps);
+  twostagetest(3,cps);
+  cvartest(0.05,0.5,cps);
   almtest(0.05,0.5,cps);
 }
+
+

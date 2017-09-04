@@ -7,6 +7,9 @@
 //#include "io.h"
 #include <fstream>
 
+namespace mspp
+{
+
 class csvlpsolver : public lpsolver
 {
 public:
@@ -166,4 +169,5 @@ inline void printvarnames(problem<O,C,Xi>& p)
     std::cout << std::endl;
 }
 
+}
 #endif // TESTS_H
