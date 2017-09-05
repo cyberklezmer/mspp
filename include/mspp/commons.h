@@ -252,11 +252,20 @@ public:
     double h;
 };
 
-using varinfo_list = std::vector<varinfo>;
+class varinfo_list : public std::vector<varinfo>
+{
+public:
+    void add(const varinfo& v) { push_back(v);}
+};
+
 using varinfo_list_ptr = std::shared_ptr<varinfo_list>;
 
 template<typename C>
-using constraint_list=std::vector<C>;
+class constraint_list : public std::vector<C>
+{
+public:
+    void add(const C& c) { this->push_back(c);}
+};
 
 template<typename C>
 using constraint_list_ptr = std::shared_ptr<constraint_list<C>>;

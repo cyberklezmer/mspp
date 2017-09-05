@@ -58,7 +58,7 @@ class lpsolver
 public:
     virtual void solve(const varinfo_list& vars,
             const linearfunction& objective,
-            const constraint_list<sparselinearconstraint_ptr>& constraints, // tbd predef constraintslist
+            const std::vector<sparselinearconstraint_ptr>& constraints, // tbd predef constraintslist
             const std::vector<std::string>& varnames,
             std::vector<double>& sol,
             double& objvalue) const = 0;

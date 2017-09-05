@@ -41,7 +41,7 @@ public:
 
 using linearconstraint_ptr = std::shared_ptr<linearconstraint>;
 
-using linearconstraint_list = std::vector<linearconstraint>;
+using linearconstraint_list = constraint_list<linearconstraint>;
 using linearconstraint_list_ptr = std::shared_ptr<linearconstraint_list>;
 
 template<class Xi>

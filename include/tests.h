@@ -17,7 +17,7 @@ public:
 
     virtual void solve(const varinfo_list& vars,
             const linearfunction& objective,
-            const constraint_list<sparselinearconstraint_ptr>& constraints,
+            const std::vector<sparselinearconstraint_ptr>& constraints,
             const std::vector<std::string>& varnames,
             std::vector<double>& x,
             double& ) const

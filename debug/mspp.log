@@ -2,7 +2,7 @@ Warning:  Output names have been modified to conform to LP format.
 Default row names c1, c2 ... being created.
 Tried aggregator 1 time.
 No LP presolve or aggregator reductions.
-Presolve time = 0.01 sec. (0.01 ticks)
+Presolve time = 0.00 sec. (0.01 ticks)
 
 Iteration log . . .
 Iteration:     1   Dual objective     =             0.777778

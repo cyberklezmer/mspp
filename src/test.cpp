@@ -282,27 +282,27 @@ public:
                 constraint_list<linearconstraint>& csts) const
     {
         if(stage==0)
-           vars.push_back(varinfo(0,1));
+           vars.add(varinfo(0,1));
         else if(stage==1)
         {
-           vars.push_back(varinfo(varinfo::Rplus));
-           csts.push_back(linearconstraint({1.0,1.0},
+           vars.add(varinfo(varinfo::Rplus));
+           csts.add(linearconstraint({1.0,1.0},
                                     linearconstraint::geq, 0.0));
-           csts.push_back(linearconstraint({1.0,1.0},
+           csts.add(linearconstraint({1.0,1.0},
                                     linearconstraint::leq, 1.0));
         }
         else if(stage==2)
         {
-           vars->push_back(varinfo(varinfo::Rplus));
-           csts.push_back(linearconstraint({1.0,1.0,1.0},
+           vars.add(varinfo(varinfo::Rplus));
+           csts.add(linearconstraint({1.0,1.0,1.0},
                                     linearconstraint::geq, 0.0));
-           csts.push_back(linearconstraint({1.0,1.0,1.0},
+           csts.add(linearconstraint({1.0,1.0,1.0},
                                     linearconstraint::leq, 1.0));
         }
         else
         {
-            vars.push_back(varinfo(varinfo::Rplus));
-            csts.push_back(linearconstraint({1.0,1.0,1.0,1.0},
+            vars.add(varinfo(varinfo::Rplus));
+            csts.add(linearconstraint({1.0,1.0,1.0,1.0},
                                      linearconstraint::eq, 1.0));
         }
     }
