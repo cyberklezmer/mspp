@@ -6,7 +6,13 @@
 
 #IncludeRegexTransform: 
 
-../include/commons.h
+../include/mspp/biglp.h
+mspp/linear.h
+../include/mspp/mspp/linear.h
+mspp/lpsolver.h
+../include/mspp/mspp/lpsolver.h
+
+../include/mspp/commons.h
 fstream
 -
 iostream
@@ -24,67 +30,49 @@ assert.h
 limits
 -
 
-../include/linear.h
-sstream
--
-iostream
--
-iterator
--
-problem.h
-../include/problem.h
-probability.h
-../include/probability.h
-solution.h
-../include/solution.h
+../include/mspp/cplex.h
+mspp/lpsolver.h
+../include/mspp/mspp/lpsolver.h
 
-../include/lpsolvers.h
+../include/mspp/linear.h
+mspp/commons.h
+../include/mspp/mspp/commons.h
+
+../include/mspp/lpsolver.h
+mspp/linear.h
+../include/mspp/mspp/linear.h
+
+../include/mspp/mmpcvar.h
 linear.h
-../include/linear.h
+../include/mspp/linear.h
 
-../include/mmpcvar.h
-linear.h
-../include/linear.h
+../include/mspp/scenarios.h
+mspp/commons.h
+../include/mspp/mspp/commons.h
 
-../include/probability.h
-trees.h
-../include/trees.h
-
-../include/problem.h
-commons.h
-../include/commons.h
-probability.h
-../include/probability.h
-
-../include/scenarios.h
-probability.h
-../include/probability.h
-
-../include/solution.h
-probability.h
-../include/probability.h
+../include/mspp/shifted.h
+mspp/commons.h
+../include/mspp/mspp/commons.h
 
 ../include/tests.h
-linear.h
-../include/linear.h
-scenarios.h
-../include/scenarios.h
-mmpcvar.h
-../include/mmpcvar.h
+mspp/linear.h
+../include/mspp/linear.h
+mspp/scenarios.h
+../include/mspp/scenarios.h
+mspp/mmpcvar.h
+../include/mspp/mmpcvar.h
+mspp/lpsolver.h
+../include/mspp/lpsolver.h
 fstream
 -
 
-../include/trees.h
-commons.h
-../include/commons.h
-
 /home/martin/Documents/s/mspp/mspp/src/commons.cpp
-commons.h
-/home/martin/Documents/s/mspp/mspp/src/commons.h
+mspp/commons.h
+/home/martin/Documents/s/mspp/mspp/src/mspp/commons.h
 
 /home/martin/Documents/s/mspp/mspp/src/cplexlpsolver.cpp
-lpsolvers.h
-/home/martin/Documents/s/mspp/mspp/src/lpsolvers.h
+mspp/cplex.h
+/home/martin/Documents/s/mspp/mspp/src/mspp/cplex.h
 ilcplex/ilocplex.h
 -
 
@@ -93,14 +81,14 @@ iostream
 -
 cmath
 -
-probability.h
-/home/martin/Documents/s/mspp/mspp/src/probability.h
-scenarios.h
-/home/martin/Documents/s/mspp/mspp/src/scenarios.h
-lpsolvers.h
-/home/martin/Documents/s/mspp/mspp/src/lpsolvers.h
-linear.h
-/home/martin/Documents/s/mspp/mspp/src/linear.h
+mspp/biglp.h
+/home/martin/Documents/s/mspp/mspp/src/mspp/biglp.h
+mspp/mmpcvar.h
+/home/martin/Documents/s/mspp/mspp/src/mspp/mmpcvar.h
+mspp/cplex.h
+/home/martin/Documents/s/mspp/mspp/src/mspp/cplex.h
+mspp/shifted.h
+/home/martin/Documents/s/mspp/mspp/src/mspp/shifted.h
 tests.h
 /home/martin/Documents/s/mspp/mspp/src/tests.h
 

@@ -1,9 +1,10 @@
 #ifndef TESTS_H
 #define TESTS_H
 
-#include "linear.h"
-#include "scenarios.h"
-#include "mmpcvar.h"
+#include "mspp/linear.h"
+#include "mspp/scenarios.h"
+#include "mspp/mmpcvar.h"
+#include "mspp/lpsolver.h"
 //#include "io.h"
 #include <fstream>
 

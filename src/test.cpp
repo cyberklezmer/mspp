@@ -1,9 +1,9 @@
 #include <iostream>
 #include <cmath>
-#include "probability.h"
-#include "scenarios.h"
-#include "lpsolvers.h"
-#include "linear.h"
+#include "mspp/biglp.h"
+#include "mspp/mmpcvar.h"
+#include "mspp/cplex.h"
+#include "mspp/shifted.h"
 #include "tests.h"
 
 using namespace mspp;
@@ -56,13 +56,13 @@ public:
 };
 
 
-void twostagetest(unsigned int N, const lpsolver& cps)
+void twostagetest(unsigned int N, const lpsolver_ptr& cps)
 {
     std::cout << "Twostagetest..." << std::endl;
 
     const unsigned int numleaves = N;
-    indexedtree_ptr tp(new nxtree({1,numleaves*numleaves}));
-    uniformtreeprobability_ptr pp(new uniformtreeprobability(tp));
+    indexedtree_ptr tp(new nktree({1,numleaves*numleaves}));
+    uniformprobability_ptr pp(new uniformprobability(tp));
 
     generalprocess_ptr<omega> xp(new generalprocess<omega>(tp) );
 
@@ -81,10 +81,10 @@ void twostagetest(unsigned int N, const lpsolver& cps)
 
     printvarnames(*prp);
 
-    biglpsolution<omega> b(prp,sp);
+    biglpmethod<omega> b(prp,sp,cps);
     treesolution_ptr s;
     double ov;
-    b.solve(cps,s,ov);
+    b.solve(s,ov);
 
     // brought from testproblems.xlsx
     // x0_0,x0_1,x1_0_0,x1_1_0,x1_0_1,x1_1_1,x1_0_2,x1_1_2,x1_0_3,x1_1_3,x1_0_4,x1_1_4,x1_0_5,x1_1_5,x1_0_6,x1_1_6,x1_0_7,x1_1_7,x1_0_8,x1_1_8,,,
@@ -169,11 +169,11 @@ public:
 };
 
 
-void cvartest(double alpha, double lambda, const lpsolver& cps)
+void cvartest(double alpha, double lambda, const lpsolver_ptr& cps)
 {
     const int numleaves = 3;
-    indexedtree_ptr tp(new nxtree({1,numleaves*numleaves}));
-    uniformtreeprobability_ptr pp(new uniformtreeprobability(tp));
+    indexedtree_ptr tp(new nktree({1,numleaves*numleaves}));
+    uniformprobability_ptr pp(new uniformprobability(tp));
 
     generalprocess_ptr<omega> xp(new generalprocess<omega>(tp) );
 
@@ -195,11 +195,11 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
     linearproblem_ptr<omega> cvp;
     cvp.reset(new mmpcvarproblem<omega>(prp,alpha,lambda));
 
-    biglpsolution<omega> b(cvp ,sp);
+    biglpmethod<omega> b(cvp ,sp, cps);
 
     treesolution_ptr s;
     double ov;
-    b.solve(cps,s,ov);
+    b.solve(s,ov);
 
     const double tol = 1e-5;
 
@@ -267,6 +267,47 @@ public:
     {}
     virtual void f(unsigned int stage,
                    const scenario<double>& xi,
+                   linearfunction& r) const
+    {
+       double c=xi[0];
+       for(unsigned int i=1; i<=stage; i++)
+          c *= xi[i];
+       r.coefs[0] = c;
+    }
+
+    virtual void constraints(
+                unsigned int stage,
+                const scenario<double>& xi,
+                varinfo_list& vars,
+                constraint_list<linearconstraint>& csts) const
+    {
+        if(stage==0)
+           vars.push_back(varinfo(0,1));
+        else if(stage==1)
+        {
+           vars.push_back(varinfo(varinfo::Rplus));
+           csts.push_back(linearconstraint({1.0,1.0},
+                                    linearconstraint::geq, 0.0));
+           csts.push_back(linearconstraint({1.0,1.0},
+                                    linearconstraint::leq, 1.0));
+        }
+        else if(stage==2)
+        {
+           vars->push_back(varinfo(varinfo::Rplus));
+           csts.push_back(linearconstraint({1.0,1.0,1.0},
+                                    linearconstraint::geq, 0.0));
+           csts.push_back(linearconstraint({1.0,1.0,1.0},
+                                    linearconstraint::leq, 1.0));
+        }
+        else
+        {
+            vars.push_back(varinfo(varinfo::Rplus));
+            csts.push_back(linearconstraint({1.0,1.0,1.0,1.0},
+                                     linearconstraint::eq, 1.0));
+        }
+    }
+    /*     virtual void f(unsigned int stage,
+                   const scenario<double>& xi,
                    linearfunction_ptr& r) const
     {
        r.reset(new linearfunction(1));
@@ -312,15 +353,15 @@ public:
             constraints->push_back(linearconstraint({1.0,1.0,1.0,1.0},
                                      linearconstraint::eq, 1.0));
         }
-    }
+    } */
 };
 
 
-void almtest(double alpha, double lambda, const lpsolver& cps)
+void almtest(double alpha, double lambda, const lpsolver_ptr& cps)
 {
     const int numleaves = 2;
-    homogeneoustree_ptr tp(new homogeneoustree(3,numleaves));
-    iidtreeprobability_ptr pp(new iidtreeprobability(tp,{0.5,0.5}));
+    ntree_ptr tp(new ntree(3,numleaves));
+    iidprobability_ptr pp(new iidprobability(tp,{0.5,0.5}));
     iidprocess_ptr<double> xp(new iidprocess<double>(tp,{0.8,1.1}));
 
     shiftedscenariotree_ptr<double> ss(new shiftedscenariotree<double>(xp,pp,1.0));
@@ -333,11 +374,11 @@ void almtest(double alpha, double lambda, const lpsolver& cps)
     cvp.reset(new mmpcvarproblem<double>(prp,alpha,lambda));
 
     printvarnames(*cvp);
-    biglpsolution<double> b(cvp,ss);
+    biglpmethod<double> b(cvp,ss,cps);
 
     treesolution_ptr s;
     double ov;
-    b.solve(cps,s,ov);
+    b.solve(s,ov);
 
     printstats(*s);
 
@@ -381,12 +422,14 @@ int main(int argc, char *argv[])
 {
   sys::set_log("mspp.log");
 
-  cplexlpsolver cps;
-  csvlpsolver csvs;
+  lpsolver_ptr cps(new cplexlpsolver);
+
+//  csvlpsolver csvs;
 
   twostagetest(3,cps);
   cvartest(0.05,0.5,cps);
   almtest(0.05,0.5,cps);
 }
+
 
 
