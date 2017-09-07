@@ -117,21 +117,17 @@ private:
 using tree_ptr = std::shared_ptr<tree>;
 
 
-
 template <typename L>
-using branch = std::vector<L>;
-
-template <typename L>
-class treemapping : public object
+class weightedtree : public object
 {
 public:
-    treemapping(const tree_ptr& t) : ft(t) {}
+    weightedtree(const tree_ptr& t) : ft(t) {}
 
     // tbd possibly make a reference
     virtual L operator()(const path& p) const = 0;
-    virtual branch<L> s(const path& p) const
+    virtual std::vector<L> s(const path& p) const
     {
-        branch<L> r;
+        std::vector<L> r;
         path np;
         for(unsigned int i=0; i<p.size(); i++)
         {
@@ -146,14 +142,14 @@ protected:
 };
 
 template <typename L>
-using treemapping_ptr = std::shared_ptr<treemapping<L>>;
+using weightedtree_ptr = std::shared_ptr<weightedtree<L>>;
 
 
 template <typename Xi>
-using process=treemapping<Xi>;
+using process=weightedtree<Xi>;
 
 template <typename Xi>
-using scenario = branch<Xi>;
+using scenario = std::vector<Xi>;
 
 
 template <typename Xi>
@@ -162,10 +158,10 @@ using process_ptr = std::shared_ptr<process<Xi>>;
 
 using prob = double;
 
-class probability: public treemapping<prob>
+class probability: public weightedtree<prob>
 {
 public:
-    probability(const tree_ptr& t) : treemapping(t) {}
+    probability(const tree_ptr& t) : weightedtree(t) {}
     virtual prob up(const path& ap) const
     {
         prob pr=1.0;
@@ -180,8 +176,6 @@ public:
 };
 
 using probability_ptr = std::shared_ptr<probability>;
-
-
 
 
 template <typename Xi>
@@ -229,16 +223,16 @@ template<class Xi>
 using modularscenariotree_ptr=std::shared_ptr<modularscenariotree<Xi>>;
 
 
-struct varinfo
+struct varrange
 {
 public:
     enum type { R, Rplus, Rminus };
 
-    varinfo(double al=minf, double ah=inf)
+    varrange(double al=minf, double ah=inf)
       : l(al),h(ah)
     {}
 
-    varinfo(type at)
+    varrange(type at)
     {
         switch(at)
         {
@@ -252,13 +246,9 @@ public:
     double h;
 };
 
-class varinfo_list : public std::vector<varinfo>
-{
-public:
-    void add(const varinfo& v) { push_back(v);}
-};
+using varrange_list = std::vector<varrange>;
 
-using varinfo_list_ptr = std::shared_ptr<varinfo_list>;
+using varrange_list_ptr = std::shared_ptr<varrange_list>;
 
 template<typename C>
 class constraint_list : public std::vector<C>
@@ -319,14 +309,7 @@ class problem : public object
         unsigned int totaldim() const { return dimupto(T()); }
 
 
-        virtual std::string varname(unsigned int stage, unsigned int i) const
-        {
-            std::ostringstream s;
-            s << "x" << i;
-            return s.str();
-        }
-
-        virtual std::string varname(unsigned int k)
+        std::string varname(unsigned int k)
         {
             assert(k<totaldim());
             unsigned int s;
@@ -339,15 +322,25 @@ class problem : public object
             st << varname(s,k-stageoffset(s)) << "_" << s;
             return st.str();
         }
+        virtual std::string varname(unsigned int stage, unsigned int i) const
+        {
+            std::ostringstream s;
+            s << "x" << i;
+            return s.str();
+        }
 
 protected:
+
+
+        virtual O* newobjective(unsigned int k=0) const
+         { return new O; }
         /**
-         * @brief f  should return the objective function
+         * @brief objective  should return the objective function
          * @param k  the stage
          * @param barxi  history of the random vector up to #k
          * @param f  return value
          */
-        virtual void f(unsigned int k,const scenario<Xi>& barxi,O& f) const
+        virtual void objective(unsigned int k,const scenario<Xi>& barxi,O& f) const
         {
             assert(0);
         }
@@ -355,39 +348,44 @@ protected:
          * @brief constraints should return
          * @param k stage
          * @param barxi history of the random vector up to #k
-         * @param xs return value - variable ranges
+         * @param xsStrančice,Kašovice return value - variable ranges
          * @param c return value - constraints
          */
         virtual void constraints(
                 unsigned int k,
                 const scenario<Xi>& barxi,
-                varinfo_list& xs,
+                varrange_list& xs,
                 constraint_list<C>& c
                 ) const
         {
             assert(0);
         }
 
+        virtual void checkconstraints(unsigned int k,
+                                        const constraint_list<C>& c) const
+        {}
+
 public:
-        virtual void f(
+        virtual void objective(
                 unsigned int stage,
                 const scenario<Xi>& xi,
                 objective_ptr<O>& af) const
         {
-            af.reset(new O);
-            f(stage,xi,*af);
+            af.reset(newobjective(stage)); //.reset(new O);
+            objective(stage,xi,*af);
         }
 
         virtual void constraints(
                 unsigned int stage,
                 const scenario<Xi>& xi,
-                varinfo_list_ptr& xs,
+                varrange_list_ptr& xs,
                 constraint_list_ptr<C>& csts
                 ) const
         {
-            xs.reset(new varinfo_list);
+            xs.reset(new varrange_list(fstagedims[stage]));
             csts.reset(new constraint_list<C>);
             this->constraints(stage,xi,*xs,*csts);
+            this->checkconstraints(stage,*csts);
             assert(xs->size()==this->fstagedims[stage]);
         }
 

@@ -4,7 +4,7 @@
 using namespace std;
 using namespace mspp;
 
-void cplexlpsolver::solve(const varinfo_list& vars,
+void cplexlpsolver::solve(const varrange_list& vars,
         const linearfunction& objective,
         const std::vector<sparselinearconstraint_ptr>& constraints,
         const std::vector<std::string>& varnames,
@@ -21,7 +21,7 @@ void cplexlpsolver::solve(const varinfo_list& vars,
 
         for(int i=0; i<vars.size(); i++)
         {
-            const varinfo& v = vars[i];
+            const varrange& v = vars[i];
 
             const IloNum l = v.l == -inf ? -IloInfinity : v.l;
             const IloNum h = v.h == inf ? IloInfinity : v.h;

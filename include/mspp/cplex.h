@@ -9,7 +9,7 @@ namespace mspp
 class cplexlpsolver : public lpsolver
 {
 public:
-    virtual void solve(const varinfo_list& vars,
+    virtual void solve(const varrange_list& vars,
             const linearfunction& objective,
             const std::vector<sparselinearconstraint_ptr>& constraints,
             const std::vector<std::string>& varnames,

@@ -56,7 +56,7 @@ using sparselinearconstraint_ptr = std::shared_ptr<sparselinearconstraint>;
 class lpsolver
 {
 public:
-    virtual void solve(const varinfo_list& vars,
+    virtual void solve(const varrange_list& vars,
             const linearfunction& objective,
             const std::vector<sparselinearconstraint_ptr>& constraints, // tbd predef constraintslist
             const std::vector<std::string>& varnames,

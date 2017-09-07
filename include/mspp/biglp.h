@@ -27,7 +27,7 @@ private:
 
     unsigned int fdim;
     linearfunction fobj;
-    varinfo_list fvars;
+    varrange_list fvars;
     std::vector<sparselinearconstraint_ptr> fconstraints;
     std::vector<std::string> fvarnames;
 
@@ -50,13 +50,13 @@ public:
         unsigned int thisstagedim = this->fp->stagedim(stage);
 
         // calling original problems \p constraints
-        varinfo_list_ptr vars;
+        varrange_list_ptr vars;
         constraint_list_ptr<linearconstraint> constraints;
 
         this->fp->constraints(stage,xi,vars,constraints);
 
         linearfunction_ptr objective;
-        this->fp->f(stage,xi,objective);
+        this->fp->objective(stage,xi,objective);
 
         foffsets[stage] = fdim;
         fobj.coefs.resize(fdim + thisstagedim);
@@ -66,7 +66,7 @@ public:
         for(unsigned int i=0; i<thisstagedim; i++)
         {
             fobj.coefs[fdim] = up * objective->coefs[i];
-            const varinfo& v = (*vars)[i];
+            const varrange& v = (*vars)[i];
             fvars.push_back(v);
             std::ostringstream s;
             s << this->fp->varname(stage,i) << "@";

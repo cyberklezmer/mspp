@@ -44,7 +44,7 @@ public:
     }
 
 
-    virtual void f(
+    virtual void objective(
             unsigned int stage,
             const scenario<Xi>& xih,
             linearfunction_ptr& f) const
@@ -54,7 +54,7 @@ public:
         if(!stage)
         {
             linearfunction_ptr orig;
-            flp->f(0,xih,orig);
+            flp->objective(0,xih,orig);
             for(unsigned int i=0; i<k-1; i++)
                 f->coefs[i]=orig->coefs[i];
         }
@@ -66,7 +66,7 @@ public:
     virtual void constraints(
             unsigned int stage,
             const scenario<Xi>& xih,
-            varinfo_list_ptr& vars,
+            varrange_list_ptr& vars,
             linearconstraint_list_ptr& constraints
             ) const
     {
@@ -77,9 +77,9 @@ public:
         flp->constraints(stage,xih,vars,constraints);
 
         if(stage >0)
-            vars->push_back(varinfo(varinfo::R));
+            vars->push_back(varrange(varrange::R));
         if(!laststage)
-            vars->push_back(varinfo(varinfo::R));
+            vars->push_back(varrange(varrange::R));
 
         if(constraints)
         {
@@ -111,7 +111,7 @@ public:
             if(!constraints)
                  constraints.reset(new linearconstraint_list);
             linearfunction_ptr c;
-            flp->f(stage,xih,c);
+            flp->objective(stage,xih,c);
 
             constraints->push_back(linearconstraint(newsize,linearconstraint::geq));
             constraints->push_back(linearconstraint(newsize,linearconstraint::geq));

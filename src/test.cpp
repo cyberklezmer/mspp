@@ -20,7 +20,7 @@ class tsproblem: public linearproblem<omega>
 public:
     tsproblem() : linearproblem<omega>({2,2})
     {}
-    virtual void f(unsigned int stage,
+    virtual void objective(unsigned int stage,
                    const scenario<omega>& xih,
                    linearfunction_ptr& r) const
     {
@@ -30,21 +30,21 @@ public:
     virtual void constraints(
                 unsigned int stage,
                 const scenario<omega>& xi,
-                varinfo_list_ptr& vars,
+                varrange_list_ptr& vars,
                 constraint_list_ptr<linearconstraint>& constraints
                 ) const
     {
         if(stage==0)
         {
-            vars.reset(new varinfo_list);
-            vars->push_back(varinfo(varinfo::Rplus));
-            vars->push_back(varinfo(varinfo::Rplus));
+            vars.reset(new varrange_list);
+            vars->push_back(varrange(varrange::Rplus));
+            vars->push_back(varrange(varrange::Rplus));
         }
         else if(stage==1)
         {
-            vars.reset(new varinfo_list);
-            vars->push_back(varinfo(varinfo::Rplus));
-            vars->push_back(varinfo(varinfo::Rplus));
+            vars.reset(new varrange_list);
+            vars->push_back(varrange(varrange::Rplus));
+            vars->push_back(varrange(varrange::Rplus));
 
             constraints.reset(new linearconstraint_list);
             constraints->push_back(linearconstraint({xi[1].o1,1,1,0},
@@ -123,7 +123,7 @@ class psproblem: public linearproblem<omega>
 public:
     psproblem() : linearproblem<omega>({2,2})
     {}
-    virtual void f(unsigned int stage,
+    virtual void objective(unsigned int stage,
                    const scenario<omega>& xih,
                    linearfunction_ptr& r) const
     {
@@ -143,15 +143,15 @@ public:
     virtual void constraints(
                 unsigned int stage,
                 const scenario<omega>& xi,
-                varinfo_list_ptr& vars,
+                varrange_list_ptr& vars,
                 constraint_list_ptr<linearconstraint>& constraints
                 ) const
     {
         assert(stage<=1);
 
-        vars.reset(new varinfo_list);
-        vars->push_back(varinfo(varinfo::Rplus));
-        vars->push_back(varinfo(varinfo::Rplus));
+        vars.reset(new varrange_list);
+        vars->push_back(varrange(varrange::Rplus));
+        vars->push_back(varrange(varrange::Rplus));
 
         constraints.reset(new linearconstraint_list);
 
@@ -265,7 +265,7 @@ class almproblem: public linearproblem<double>
 public:
     almproblem() : linearproblem<double>({1,1,1,1})
     {}
-    virtual void f(unsigned int stage,
+    virtual void objective(unsigned int stage,
                    const scenario<double>& xi,
                    linearfunction& r) const
     {
@@ -278,14 +278,14 @@ public:
     virtual void constraints(
                 unsigned int stage,
                 const scenario<double>& xi,
-                varinfo_list& vars,
+                varrange_list& vars,
                 constraint_list<linearconstraint>& csts) const
     {
         if(stage==0)
-           vars.add(varinfo(0,1));
+           vars[0]=varrange(0,1);
         else if(stage==1)
         {
-           vars.add(varinfo(varinfo::Rplus));
+           vars[0]=varrange(varrange::Rplus);
            csts.add(linearconstraint({1.0,1.0},
                                     linearconstraint::geq, 0.0));
            csts.add(linearconstraint({1.0,1.0},
@@ -293,7 +293,7 @@ public:
         }
         else if(stage==2)
         {
-           vars.add(varinfo(varinfo::Rplus));
+           vars[0]=varrange(varrange::Rplus);
            csts.add(linearconstraint({1.0,1.0,1.0},
                                     linearconstraint::geq, 0.0));
            csts.add(linearconstraint({1.0,1.0,1.0},
@@ -301,61 +301,12 @@ public:
         }
         else
         {
-            vars.add(varinfo(varinfo::Rplus));
+            vars[0]=varrange(varrange::Rplus);
             csts.add(linearconstraint({1.0,1.0,1.0,1.0},
                                      linearconstraint::eq, 1.0));
         }
     }
-    /*     virtual void f(unsigned int stage,
-                   const scenario<double>& xi,
-                   linearfunction_ptr& r) const
-    {
-       r.reset(new linearfunction(1));
-       double x=xi[0];
-       for(unsigned int i=1; i<=stage; i++)
-          x *= xi[i];
-       r->coefs[0] = x;
-    }
-
-    virtual void constraints(
-                unsigned int stage,
-                const scenario<double>& xi,
-                varinfo_list_ptr& vars,
-                constraint_list_ptr<linearconstraint>& constraints) const
-    {
-        vars.reset(new varinfo_list);
-        if(stage==0)
-        {
-           vars->push_back(varinfo(0,1));
-        }
-        else if(stage==1)
-        {
-           vars->push_back(varinfo(varinfo::Rplus));
-           constraints.reset(new linearconstraint_list);
-           constraints->push_back(linearconstraint({1.0,1.0},
-                                    linearconstraint::geq, 0.0));
-           constraints->push_back(linearconstraint({1.0,1.0},
-                                    linearconstraint::leq, 1.0));
-        }
-        else if(stage==2)
-        {
-           vars->push_back(varinfo(varinfo::Rplus));
-           constraints.reset(new linearconstraint_list);
-           constraints->push_back(linearconstraint({1.0,1.0,1.0},
-                                    linearconstraint::geq, 0.0));
-           constraints->push_back(linearconstraint({1.0,1.0,1.0},
-                                    linearconstraint::leq, 1.0));
-        }
-        else
-        {
-            vars->push_back(varinfo(varinfo::Rplus));
-            constraints.reset(new linearconstraint_list);
-            constraints->push_back(linearconstraint({1.0,1.0,1.0,1.0},
-                                     linearconstraint::eq, 1.0));
-        }
-    } */
 };
-
 
 void almtest(double alpha, double lambda, const lpsolver_ptr& cps)
 {

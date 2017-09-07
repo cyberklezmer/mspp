@@ -45,7 +45,19 @@ using linearconstraint_list = constraint_list<linearconstraint>;
 using linearconstraint_list_ptr = std::shared_ptr<linearconstraint_list>;
 
 template<class Xi>
-using linearproblem = problem<linearfunction,linearconstraint,Xi>;
+class linearproblem: public problem<linearfunction,linearconstraint,Xi>
+{
+public:
+    linearproblem(const std::vector<unsigned int>& stagedims)
+        : problem<linearfunction,linearconstraint,Xi>( stagedims) {}
+
+
+protected:
+    virtual linearfunction* newobjective(unsigned int k) const
+    {
+        return new linearfunction(this->stagedim(k));
+    }
+};
 
 template<class Xi>
 using linearproblem_ptr  = std::shared_ptr<linearproblem<Xi>>;
