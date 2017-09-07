@@ -30,7 +30,7 @@ public:
                        type at, double arhs) :
          lhs(alhs), t(at), rhs(arhs) {}
 
-    linearconstraint(unsigned int lhsdim, type at = eq, double arhs=0.0 )
+    linearconstraint(unsigned int lhsdim=0, type at = eq, double arhs=0.0 )
         : lhs(lhsdim,0), t(at), rhs(arhs) {}
     std::vector<double> lhs;
 
@@ -53,10 +53,28 @@ public:
 
 
 protected:
-    virtual linearfunction* newobjective(unsigned int k) const
+    virtual void initobjective(unsigned int k, linearfunction& f) const
     {
-        return new linearfunction(this->stagedim(k));
+        f.coefs.resize(this->stagedim(k));
     }
+    virtual void addconstraint(unsigned int k, constraint_list<linearconstraint>& l) const
+    {
+        l.push_back(linearconstraint(this->dimupto(k)));
+    }
+
+    virtual void checkobjective(unsigned int k, const linearfunction& o) const
+    {
+        if(o.coefs.size() != this->stagedim(k))
+            throw exception("o.coefs.size() != this->dimupto(k)");
+    }
+
+
+    virtual void checkconstraint(unsigned int k, const linearconstraint& c) const
+    {
+        if(c.lhs.size() != this->dimupto(k))
+            throw exception("linearconstraint.lhs().size()!=dimupto(k)");
+    }
+
 };
 
 template<class Xi>

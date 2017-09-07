@@ -251,10 +251,13 @@ using varrange_list = std::vector<varrange>;
 using varrange_list_ptr = std::shared_ptr<varrange_list>;
 
 template<typename C>
-class constraint_list : public std::vector<C>
+class constraint_list: virtual public std::vector<C>
 {
 public:
-    void add(const C& c) { this->push_back(c);}
+    void add(const C& c)
+    {
+        this->push_back(c);
+    }
 };
 
 template<typename C>
@@ -332,14 +335,24 @@ class problem : public object
 protected:
 
 
-        virtual O* newobjective(unsigned int k=0) const
-         { return new O; }
+        virtual void initobjective(unsigned int k,O& f) const
+         {  }
         /**
          * @brief objective  should return the objective function
          * @param k  the stage
-         * @param barxi  history of the random vector up to #k
-         * @param f  return value
          */
+
+
+        virtual void addconstraint(unsigned int k, constraint_list<C>& l) const
+        {
+            l.push_back(C());
+        }
+
+
+        virtual void checkconstraint(unsigned int k, const C& c) const
+        {}
+
+
         virtual void objective(unsigned int k,const scenario<Xi>& barxi,O& f) const
         {
             assert(0);
@@ -351,6 +364,10 @@ protected:
          * @param xsStrančice,Kašovice return value - variable ranges
          * @param c return value - constraints
          */
+
+        virtual void checkobjective(unsigned int k, const O& c) const
+        {}
+
         virtual void constraints(
                 unsigned int k,
                 const scenario<Xi>& barxi,
@@ -361,21 +378,19 @@ protected:
             assert(0);
         }
 
-        virtual void checkconstraints(unsigned int k,
-                                        const constraint_list<C>& c) const
-        {}
 
 public:
-        virtual void objective(
+        virtual void get_objective(
                 unsigned int stage,
                 const scenario<Xi>& xi,
-                objective_ptr<O>& af) const
+                O& f) const
         {
-            af.reset(newobjective(stage)); //.reset(new O);
-            objective(stage,xi,*af);
+            initobjective(stage,f);
+            objective(stage,xi,f);
+            checkobjective(stage,f);
         }
 
-        virtual void constraints(
+        virtual void get_constraints(
                 unsigned int stage,
                 const scenario<Xi>& xi,
                 varrange_list_ptr& xs,
@@ -385,7 +400,10 @@ public:
             xs.reset(new varrange_list(fstagedims[stage]));
             csts.reset(new constraint_list<C>);
             this->constraints(stage,xi,*xs,*csts);
-            this->checkconstraints(stage,*csts);
+
+            for(typename constraint_list<C>::iterator  i = csts->begin();
+                                              i != csts->end(); i++)
+                this->checkconstraint(stage,*i);
             assert(xs->size()==this->fstagedims[stage]);
         }
 

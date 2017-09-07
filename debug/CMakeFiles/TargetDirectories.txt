@@ -1,3 +1,0 @@
-/home/martin/Documents/s/mspp/mspp/debug/CMakeFiles/rebuild_cache.dir
-/home/martin/Documents/s/mspp/mspp/debug/CMakeFiles/edit_cache.dir
-/home/martin/Documents/s/mspp/mspp/debug/CMakeFiles/mspp.dir

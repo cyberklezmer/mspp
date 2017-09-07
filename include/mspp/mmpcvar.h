@@ -47,23 +47,22 @@ public:
     virtual void objective(
             unsigned int stage,
             const scenario<Xi>& xih,
-            linearfunction_ptr& f) const
+            linearfunction& f) const
     {
         unsigned int k = this->stagedim(stage);
-        f.reset(new linearfunction(k));
         if(!stage)
         {
-            linearfunction_ptr orig;
-            flp->objective(0,xih,orig);
+            linearfunction orig;
+            flp->get_objective(0,xih,orig);
             for(unsigned int i=0; i<k-1; i++)
-                f->coefs[i]=orig->coefs[i];
+                f.coefs[i]=orig.coefs[i];
         }
-        f->coefs[k-1]=1;
+        f.coefs[k-1]=1;
         if(stage > 0 && stage < this->T())
-            f->coefs[k-2]=1;
+            f.coefs[k-2]=1;
     }
 
-    virtual void constraints(
+    virtual void get_constraints(
             unsigned int stage,
             const scenario<Xi>& xih,
             varrange_list_ptr& vars,
@@ -74,7 +73,7 @@ public:
 
         unsigned int newsize = this->dimupto(stage);
 
-        flp->constraints(stage,xih,vars,constraints);
+        flp->get_constraints(stage,xih,vars,constraints);
 
         if(stage >0)
             vars->push_back(varrange(varrange::R));
@@ -110,8 +109,8 @@ public:
         {
             if(!constraints)
                  constraints.reset(new linearconstraint_list);
-            linearfunction_ptr c;
-            flp->objective(stage,xih,c);
+            linearfunction c;
+            flp->get_objective(stage,xih,c);
 
             constraints->push_back(linearconstraint(newsize,linearconstraint::geq));
             constraints->push_back(linearconstraint(newsize,linearconstraint::geq));
@@ -124,8 +123,8 @@ public:
 
             for(int j=flp->stagedim(stage)-1; j>=0; j--)
             {
-                muc->lhs[i] = -mu() * c->coefs[j];
-                nuc->lhs[i--] = -nu() * c->coefs[j];
+                muc->lhs[i] = -mu() * c.coefs[j];
+                nuc->lhs[i--] = -nu() * c.coefs[j];
             }
 
             muc->lhs[i] = mu();

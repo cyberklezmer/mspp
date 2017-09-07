@@ -53,10 +53,10 @@ public:
         varrange_list_ptr vars;
         constraint_list_ptr<linearconstraint> constraints;
 
-        this->fp->constraints(stage,xi,vars,constraints);
+        this->fp->get_constraints(stage,xi,vars,constraints);
 
-        linearfunction_ptr objective;
-        this->fp->objective(stage,xi,objective);
+        linearfunction objective;
+        this->fp->get_objective(stage,xi,objective);
 
         foffsets[stage] = fdim;
         fobj.coefs.resize(fdim + thisstagedim);
@@ -65,7 +65,7 @@ public:
 
         for(unsigned int i=0; i<thisstagedim; i++)
         {
-            fobj.coefs[fdim] = up * objective->coefs[i];
+            fobj.coefs[fdim] = up * objective.coefs[i];
             const varrange& v = (*vars)[i];
             fvars.push_back(v);
             std::ostringstream s;

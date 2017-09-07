@@ -22,12 +22,12 @@ public:
     {}
     virtual void objective(unsigned int stage,
                    const scenario<omega>& xih,
-                   linearfunction_ptr& r) const
+                   linearfunction& r) const
     {
-       r.reset(new linearfunction({1.0,1.0}));
+       r = linearfunction({1.0,1.0});
     }
 
-    virtual void constraints(
+    virtual void get_constraints(
                 unsigned int stage,
                 const scenario<omega>& xi,
                 varrange_list_ptr& vars,
@@ -125,22 +125,21 @@ public:
     {}
     virtual void objective(unsigned int stage,
                    const scenario<omega>& xih,
-                   linearfunction_ptr& r) const
+                   linearfunction& r) const
     {
-       r.reset(new linearfunction(2));
        if(stage)
        {
-           r->coefs[0] = -xih[1].o1;
-           r->coefs[1] = -xih[1].o2;
+           r.coefs[0] = -xih[1].o1;
+           r.coefs[1] = -xih[1].o2;
        }
        else
        {
-           r->coefs[0] = 0;
-           r->coefs[1] = 0;
+           r.coefs[0] = 0;
+           r.coefs[1] = 0;
        }
     }
 
-    virtual void constraints(
+    virtual void get_constraints(
                 unsigned int stage,
                 const scenario<omega>& xi,
                 varrange_list_ptr& vars,
@@ -286,10 +285,8 @@ public:
         else if(stage==1)
         {
            vars[0]=varrange(varrange::Rplus);
-           csts.add(linearconstraint({1.0,1.0},
-                                    linearconstraint::geq, 0.0));
-           csts.add(linearconstraint({1.0,1.0},
-                                    linearconstraint::leq, 1.0));
+           csts.add(linearconstraint({1.0,1.0},linearconstraint::geq, 0.0));
+           csts.add(linearconstraint({1.0,1.0},linearconstraint::leq, 1.0));
         }
         else if(stage==2)
         {
