@@ -1,9 +1,8 @@
 #ifndef COMMONS_H
 #define COMMONS_H
 
-#include <fstream>
-#include <iostream>
 #include <string>
+#include <iostream>
 #include <sstream>
 #include <vector>
 #include <memory>
@@ -15,7 +14,6 @@
 
 static_assert(std::numeric_limits<double>::is_iec559, "IEEE 754 required");
 
-
 namespace mspp
 {
 
@@ -26,16 +24,18 @@ const double minf = -inf;
 class object
 {
 public:
-    virtual ~object() {};
+    virtual ~object() {}
 };
 
 // tbd use this
+
+using ostream_ptr = std::shared_ptr<std::ostream>;
 
 class exception : public std::exception
 {
 
 public:
-    exception(std::string error = "unknown mspp error")
+    exception(const std::string &error = "unknown mspp error")
         : fmsg(error)
     {
     }
@@ -50,28 +50,33 @@ class sys : public object
 {
     static sys* fself;
 public:
-    sys() : flog(0) { fself=this; }
-    ~sys() { delete flog; fself = 0; }
-    static void set_log(const std::string& s)
+    sys() { fself=this; }
+    ~sys() { fself = 0; }
+    static void set_log(const ostream_ptr& l)
     {
-        delete fself->flog;
-        fself->flog = new std::ofstream(s);
-        if(!(fself->flog ))
-        {
-            std::cerr << "Cannot initialize log file " << s << std::endl;
-            throw;
-        }
+        fself->flog = l;
     }
     static void reset_log()
     {
-        delete fself->flog;
-        fself->flog = 0;
+        fself->flog.reset();
+    }
+
+    static void set_err(const ostream_ptr& e)
+    {
+        fself->ferr = e;
+    }
+    static void reset_err()
+    {
+        fself->ferr.reset();
     }
 
     static std::ostream& log()
     {  return fself->flog ? *(fself->flog) : std::cout; }
+    static std::ostream& err()
+    {  return fself->ferr ? *(fself->ferr) : std::cerr; }
 private:
-    std::ostream* flog;
+    ostream_ptr flog;
+    ostream_ptr ferr;
 };
 
 
@@ -145,16 +150,6 @@ template <typename L>
 using weightedtree_ptr = std::shared_ptr<weightedtree<L>>;
 
 
-template <typename Xi>
-using process=weightedtree<Xi>;
-
-template <typename Xi>
-using scenario = std::vector<Xi>;
-
-
-template <typename Xi>
-using process_ptr = std::shared_ptr<process<Xi>>;
-
 
 using prob = double;
 
@@ -177,6 +172,16 @@ public:
 
 using probability_ptr = std::shared_ptr<probability>;
 
+template <typename Xi>
+using process=weightedtree<Xi>;
+
+template <typename Xi>
+using process_ptr = std::shared_ptr<process<Xi>>;
+
+
+template <typename Xi>
+using scenario = std::vector<Xi>;
+
 
 template <typename Xi>
 class scenariotree : public object
@@ -190,6 +195,7 @@ public:
 
     const tree_ptr& t() const { return tp()->t(); }
     virtual unsigned int depth() const { return tp()->t()->depth();}
+
     Xi x(const path& p) const  { return (*tm())(p); }
     scenario<Xi> s(const path& p) const { return tm()->s(p); }
     virtual prob p(const path& p) const { return (*tp())(p); }
@@ -198,7 +204,6 @@ public:
 
 template<class Xi>
 using scenariotree_ptr=std::shared_ptr<scenariotree<Xi>>;
-
 
 
 template<class Xi>
@@ -221,6 +226,7 @@ protected:
 
 template<class Xi>
 using modularscenariotree_ptr=std::shared_ptr<modularscenariotree<Xi>>;
+
 
 
 struct varrange
@@ -268,25 +274,29 @@ using objective_ptr = std::shared_ptr<O>;
 
 /// Base class for MSSPP implementations.
 /**
- * Even though it is not abstract, it itself cannot be used
- * (if used, it raises an assertion error).
+ * Even though it is not formally abstract, it itself cannot be used itself
+ * (it raises an assertion error).
 */
 template<class O, class C, class Xi>
 class problem : public object
 {
     public:
-        problem(const std::vector<unsigned int>& stagedims)
-            : fstagedims(stagedims)
+        problem(const std::vector<unsigned int>& d)
+            : fstagedims(d)
         {
-            assert(stagedims.size());
+            assert(d.size());
         }
 
+        ///@{
+        /// @name Accessors
         unsigned int T() const { return fstagedims.size()-1; }
 
-        const std::vector<unsigned int>& stagedims() const
+        const std::vector<unsigned int>& stagedim() const
         {
             return fstagedims;
         }
+
+        ///@}
 
         unsigned int dimupto(unsigned int k) const
         {
@@ -311,7 +321,6 @@ class problem : public object
 
         unsigned int totaldim() const { return dimupto(T()); }
 
-
         std::string varname(unsigned int k)
         {
             assert(k<totaldim());
@@ -332,15 +341,12 @@ class problem : public object
             return s.str();
         }
 
+
 protected:
 
 
         virtual void initobjective(unsigned int k,O& f) const
          {  }
-        /**
-         * @brief objective  should return the objective function
-         * @param k  the stage
-         */
 
 
         virtual void addconstraint(unsigned int k, constraint_list<C>& l) const
@@ -357,6 +363,10 @@ protected:
         {
             assert(0);
         }
+
+        virtual void checkobjective(unsigned int k, const O& c) const
+        {}
+
         /**
          * @brief constraints should return
          * @param k stage
@@ -364,10 +374,6 @@ protected:
          * @param xsStrančice,Kašovice return value - variable ranges
          * @param c return value - constraints
          */
-
-        virtual void checkobjective(unsigned int k, const O& c) const
-        {}
-
         virtual void constraints(
                 unsigned int k,
                 const scenario<Xi>& barxi,

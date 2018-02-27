@@ -368,7 +368,7 @@ void almtest(double alpha, double lambda, const lpsolver_ptr& cps)
 
 int main(int argc, char *argv[])
 {
-  sys::set_log("mspp.log");
+//  sys::set_log("mspp.log");
 
   lpsolver_ptr cps(new cplexlpsolver);
 

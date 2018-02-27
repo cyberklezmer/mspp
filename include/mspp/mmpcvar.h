@@ -24,7 +24,7 @@ class mmpcvarproblem: public linearproblem<Xi>
 
 public:
     mmpcvarproblem(const linearproblem_ptr<Xi>& lp, double alpha, double lambda) :
-        linearproblem<Xi>(dims(lp->stagedims())), // tbd ordering
+        linearproblem<Xi>(dims(lp->stagedim())), // tbd ordering
         flp(lp), falpha(alpha), flambda(lambda)
     {
         assert(flp->T()>0);

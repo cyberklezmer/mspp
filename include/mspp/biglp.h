@@ -153,7 +153,7 @@ public:
         std::vector<double> x(fdim);
 
         flps->solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
-        sol.reset(new treesolution(this->fp->stagedims(),this->fd->tp(),x));
+        sol.reset(new treesolution(this->fp->stagedim(),this->fd->tp(),x));
     }
 
 private:
