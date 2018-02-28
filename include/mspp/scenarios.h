@@ -75,7 +75,7 @@ private:
         return fstagesizes[k];
     }
 
-    virtual unsigned int stageoffset(unsigned int k) const
+    virtual unsigned int dupto(unsigned int k) const
     {
         assert(k < depth());
 
@@ -105,7 +105,7 @@ protected:
     virtual unsigned int nodeindex(const path& p) const
     {
         unsigned int k=p.size()-1;
-        return stageoffset(k)+relnodeindex(p,k);
+        return dupto(k)+relnodeindex(p,k);
     }
 
     virtual unsigned int totalnumnodes() const

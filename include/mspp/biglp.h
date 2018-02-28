@@ -47,7 +47,7 @@ public:
         prob up = this->fd->up(p);
         scenario<Xi> xi = this->fd->s(p);
 
-        unsigned int thisstagedim = this->fp->stagedim(stage);
+        unsigned int thisstagedim = this->fp->d(stage);
 
         // calling original problems \p constraints
         varrange_list_ptr vars;
@@ -86,8 +86,8 @@ public:
         {
             assert(i<fdstexpconstraints.size());
 
-            for(unsigned int src=this->fp->stageoffset(stage), dst=foffsets[stage];
-                src<this->fp->dimupto(stage); src++,dst++)
+            for(unsigned int src=this->fp->dupto(stage), dst=foffsets[stage];
+                src<this->fp->sumd(stage); src++,dst++)
             {
                 if(src < fsrcexpconstraints[i].lhs.size())
                 {
@@ -112,7 +112,7 @@ public:
                 {
                     unsigned int dst=foffsets[i];
                     for(unsigned int r=0;
-                          r<this->fp->stagedim(i) && src<s.lhs.size();
+                          r<this->fp->d(i) && src<s.lhs.size();
                           r++)
                     {
                         double v = s.lhs[src++];
@@ -123,7 +123,7 @@ public:
                     d->rhs = s.rhs;
                     d->t = s.t;
                 }
-                if(s.lhs.size() > this->fp->dimupto(stage))
+                if(s.lhs.size() > this->fp->sumd(stage))
                 {
                     assert(stage < this->fp->T());
                     fsrcexpconstraints.push_back(s);
@@ -153,7 +153,7 @@ public:
         std::vector<double> x(fdim);
 
         flps->solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
-        sol.reset(new treesolution(this->fp->stagedim(),this->fd->tp(),x));
+        sol.reset(new treesolution(this->fp->d(),this->fd->tp(),x));
     }
 
 private:

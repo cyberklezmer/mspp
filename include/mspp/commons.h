@@ -291,14 +291,18 @@ class problem : public object
         /// @name Accessors
         unsigned int T() const { return fstagedims.size()-1; }
 
-        const std::vector<unsigned int>& stagedim() const
+        unsigned int d(unsigned int k) const
+        {
+            assert(k<fstagedims.size());
+            return fstagedims[k];
+        }
+
+        const std::vector<unsigned int>& d() const
         {
             return fstagedims;
         }
 
-        ///@}
-
-        unsigned int dimupto(unsigned int k) const
+        unsigned int sumd(unsigned int k) const
         {
             assert(k < fstagedims.size());
             unsigned int s=0;
@@ -307,43 +311,74 @@ class problem : public object
             return s;
         }
 
-        unsigned int stageoffset(unsigned int k) const
+        unsigned int sumd() const { return sumd(T()); }
+
+        unsigned int dupto(unsigned int k) const
         {
             assert(k < fstagedims.size());
-            return k==0 ? 0 : dimupto(k-1);
+            return k==0 ? 0 : sumd(k-1);
         }
 
-        unsigned int stagedim(unsigned int k) const
+        std::string varname(unsigned int k) const
         {
-            assert(k<fstagedims.size());
-            return fstagedims[k];
-        }
-
-        unsigned int totaldim() const { return dimupto(T()); }
-
-        std::string varname(unsigned int k)
-        {
-            assert(k<totaldim());
+            assert(k<sumd());
             unsigned int s;
             for(s=0; s<T();s++)
             {
-                if(stageoffset(s+1) > k)
+                if(dupto(s+1) > k)
                     break;
             }
             std::ostringstream st;
-            st << varname(s,k-stageoffset(s)) << "_" << s;
+            st << varname(s,k-dupto(s)) << "_" << s;
             return st.str();
         }
-        virtual std::string varname(unsigned int stage, unsigned int i) const
+        std::string varname(unsigned int stage, unsigned int i) const
+        {
+            return varname_is(stage,i);
+        }
+
+        virtual void get_objective(
+                unsigned int stage,
+                const scenario<Xi>& xi,
+                O& f) const
+        {
+            initobjective(stage,f);
+            objective(stage,xi,f);
+            checkobjective(stage,f);
+        }
+
+        virtual void get_constraints(
+                unsigned int stage,
+                const scenario<Xi>& xi,
+                varrange_list_ptr& xs,
+                constraint_list_ptr<C>& csts
+                ) const
+        {
+            xs.reset(new varrange_list(fstagedims[stage]));
+            csts.reset(new constraint_list<C>);
+            this->constraints(stage,xi,*xs,*csts);
+
+            for(typename constraint_list<C>::iterator  i = csts->begin();
+                                              i != csts->end(); i++)
+                this->checkconstraint(stage,*i);
+            assert(xs->size()==this->fstagedims[stage]);
+        }
+
+        ///@}
+
+protected:
+
+        ///@{
+        /// @name Interface towards descendants
+
+        virtual std::string varname_is(unsigned int stage, unsigned int i) const
         {
             std::ostringstream s;
             s << "x" << i;
             return s.str();
         }
 
-
-protected:
-
+        ///@}
 
         virtual void initobjective(unsigned int k,O& f) const
          {  }
@@ -386,35 +421,8 @@ protected:
 
 
 public:
-        virtual void get_objective(
-                unsigned int stage,
-                const scenario<Xi>& xi,
-                O& f) const
-        {
-            initobjective(stage,f);
-            objective(stage,xi,f);
-            checkobjective(stage,f);
-        }
 
-        virtual void get_constraints(
-                unsigned int stage,
-                const scenario<Xi>& xi,
-                varrange_list_ptr& xs,
-                constraint_list_ptr<C>& csts
-                ) const
-        {
-            xs.reset(new varrange_list(fstagedims[stage]));
-            csts.reset(new constraint_list<C>);
-            this->constraints(stage,xi,*xs,*csts);
-
-            for(typename constraint_list<C>::iterator  i = csts->begin();
-                                              i != csts->end(); i++)
-                this->checkconstraint(stage,*i);
-            assert(xs->size()==this->fstagedims[stage]);
-        }
-
-public:
-    private:
+private:
         std::vector<unsigned int> fstagedims;
 };
 
@@ -446,14 +454,14 @@ public:
 
     void stats(std::vector<double>& E, std::vector<double>& var)
     {
-        unsigned int totaldim = 0;
+        unsigned int sumd = 0;
         for(unsigned int i=0; i<fsd.size(); i++)
-            totaldim += fsd[i];
+            sumd += fsd[i];
 
-        fs.resize(totaldim);
+        fs.resize(sumd);
         std::fill(fs.begin(), fs.end(), 0);
 
-        fs2.resize(totaldim);
+        fs2.resize(sumd);
         std::fill(fs2.begin(), fs2.end(), 0);
 
         fi=0;
@@ -463,9 +471,9 @@ public:
 
         assert(fi==fx.size());
 
-        E.resize(totaldim);
-        var.resize(totaldim);
-        for(unsigned int i=0; i<totaldim; i++)
+        E.resize(sumd);
+        var.resize(sumd);
+        for(unsigned int i=0; i<sumd; i++)
         {
             E[i] = fs[i];
             var[i] = fs2[i] - E[i]*E[i];

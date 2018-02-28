@@ -24,20 +24,20 @@ class mmpcvarproblem: public linearproblem<Xi>
 
 public:
     mmpcvarproblem(const linearproblem_ptr<Xi>& lp, double alpha, double lambda) :
-        linearproblem<Xi>(dims(lp->stagedim())), // tbd ordering
+        linearproblem<Xi>(dims(lp->d())), // tbd ordering
         flp(lp), falpha(alpha), flambda(lambda)
     {
         assert(flp->T()>0);
     }
-    virtual std::string varname(unsigned int stage, unsigned int i) const
+    virtual std::string varname_is(unsigned int stage, unsigned int i) const
     {
-        if(i<flp->stagedim(stage))
+        if(i<flp->d(stage))
             return flp->varname(stage,i);
         if(stage == 0)
             return "u";
         if(stage == this->T())
             return "theta";
-        else if(i==flp->stagedim(stage))
+        else if(i==flp->d(stage))
             return "theta";
         else
             return "u";
@@ -49,7 +49,7 @@ public:
             const scenario<Xi>& xih,
             linearfunction& f) const
     {
-        unsigned int k = this->stagedim(stage);
+        unsigned int k = this->d(stage);
         if(!stage)
         {
             linearfunction orig;
@@ -71,7 +71,7 @@ public:
     {
         bool laststage = stage == this->T();
 
-        unsigned int newsize = this->dimupto(stage);
+        unsigned int newsize = this->sumd(stage);
 
         flp->get_constraints(stage,xih,vars,constraints);
 
@@ -85,12 +85,12 @@ public:
             for(linearconstraint_list::iterator p = constraints->begin();
                  p != constraints->end(); p++)
             {
-//                    std::cout << "sd: " << flp->dimupto(stage) << std::endl;
+//                    std::cout << "sd: " << flp->sumd(stage) << std::endl;
 
-                assert(p->lhs.size()==flp->dimupto(stage));
+                assert(p->lhs.size()==flp->sumd(stage));
                 p->lhs.resize(newsize);
 
-                unsigned int src = flp->dimupto(stage)-1;
+                unsigned int src = flp->sumd(stage)-1;
                 unsigned int dst = newsize-1;
 
                 for(unsigned int i=stage; i>0; i--)
@@ -98,7 +98,7 @@ public:
                     p->lhs[dst--] = 0;
                     if(i<this->T())
                         p->lhs[dst--] = 0;
-                    for(int j=0; j<flp->stagedim(i); j++)
+                    for(int j=0; j<flp->d(i); j++)
                         p->lhs[dst--] = p->lhs[src--];
                 }
                 p->lhs[dst] = 0; // the rest of the constraint is in the right place
@@ -121,7 +121,7 @@ public:
             muc->lhs[i] = 1;
             nuc->lhs[i--] = 1;
 
-            for(int j=flp->stagedim(stage)-1; j>=0; j--)
+            for(int j=flp->d(stage)-1; j>=0; j--)
             {
                 muc->lhs[i] = -mu() * c.coefs[j];
                 nuc->lhs[i--] = -nu() * c.coefs[j];

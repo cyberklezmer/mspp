@@ -55,24 +55,24 @@ public:
 protected:
     virtual void initobjective(unsigned int k, linearfunction& f) const
     {
-        f.coefs.resize(this->stagedim(k));
+        f.coefs.resize(this->d(k));
     }
     virtual void addconstraint(unsigned int k, constraint_list<linearconstraint>& l) const
     {
-        l.push_back(linearconstraint(this->dimupto(k)));
+        l.push_back(linearconstraint(this->sumd(k)));
     }
 
     virtual void checkobjective(unsigned int k, const linearfunction& o) const
     {
-        if(o.coefs.size() != this->stagedim(k))
-            throw exception("o.coefs.size() != this->dimupto(k)");
+        if(o.coefs.size() != this->d(k))
+            throw exception("o.coefs.size() != this->sumd(k)");
     }
 
 
     virtual void checkconstraint(unsigned int k, const linearconstraint& c) const
     {
-        if(c.lhs.size() != this->dimupto(k))
-            throw exception("linearconstraint.lhs().size()!=dimupto(k)");
+        if(c.lhs.size() != this->sumd(k))
+            throw exception("linearconstraint.lhs().size()!=sumd(k)");
     }
 
 };
