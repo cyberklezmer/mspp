@@ -1,12 +1,15 @@
-#ifndef LPSOLVER_H
-#define LPSOLVER_H
+#ifndef SOLVER_H
+#define SOLVER_H
 
-#include "mspp/linear.h"
+#include "mspp/problem.h"
 
 namespace mspp
 {
 
-class sparselinearconstraint
+/// \addtogroup solvers Solvers
+/// @{
+
+class sparselinearconstraint // tbd sjednotit s linearconstraintem
 {
 public:
 //    enum type {eq, geq, leq};
@@ -53,23 +56,19 @@ private:
 using sparselinearconstraint_ptr = std::shared_ptr<sparselinearconstraint>;
 
 
-class lpsolver
+class lpsolver : public object
 {
 public:
-    virtual void solve(const varrange_list& vars,
-            const linearfunction& objective,
+    virtual void solve(const vardefs<realvar>& vrs,
+            const std::vector<double>& f,
             const std::vector<sparselinearconstraint_ptr>& constraints, // tbd predef constraintslist
             const std::vector<std::string>& varnames,
             std::vector<double>& sol,
             double& objvalue) const = 0;
 };
 
-using lpsolver_ptr  = std::shared_ptr<lpsolver>;
+/// @}
 
+} // mspp
 
-
-
-}
-
-
-#endif // LPSOLVER_H
+#endif // SOLVER_H

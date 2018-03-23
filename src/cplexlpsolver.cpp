@@ -1,11 +1,11 @@
-#include "mspp/cplex.h"
+/*#include "mspp/cplex.h"
 #include <ilcplex/ilocplex.h>
 
 using namespace std;
 using namespace mspp;
 
-void cplexlpsolver::solve(const varrange_list& vars,
-        const linearfunction& objective,
+void cplexlpsolver::solve(const varranges& vars,
+        const linearobjective& f,
         const std::vector<sparselinearconstraint_ptr>& constraints,
         const std::vector<std::string>& varnames,
         std::vector<double>& sol,
@@ -31,10 +31,10 @@ void cplexlpsolver::solve(const varrange_list& vars,
 
         IloObjective obj = IloMinimize(env);
 
-        assert(objective.coefs.size()==vars.size());
+        assert(f.coefs.size()==vars.size());
 
-        for(int i=0; i<objective.coefs.size(); i++)
-            obj.setLinearCoef(x[i], objective.coefs[i]);
+        for(int i=0; i<f.coefs.size(); i++)
+            obj.setLinearCoef(x[i], f.coefs[i]);
 
         model.add(obj);
 
@@ -101,3 +101,4 @@ void cplexlpsolver::solve(const varrange_list& vars,
 
     env.end();
 }
+*/

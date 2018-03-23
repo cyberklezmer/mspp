@@ -2,8 +2,7 @@
 #define TESTS_H
 
 #include "mspp/linear.h"
-#include "mspp/scenarios.h"
-#include "mspp/mmpcvar.h"
+//#include "mspp/mmpcvar.h"
 #include "mspp/lpsolver.h"
 //#include "io.h"
 #include <fstream>
@@ -15,60 +14,60 @@ class csvlpsolver : public lpsolver
 {
 public:
 
-    virtual void solve(const varrange_list& vars,
-            const linearfunction& objective,
+    virtual void solve(const std::vector<realvar>& vars,
+            const std::vector<double>& f,
             const std::vector<sparselinearconstraint_ptr>& constraints,
             const std::vector<std::string>& varnames,
             std::vector<double>& x,
             double& ) const
     {
         using namespace std;
-        ofstream f("problem.csv");
-        f << "variables" << endl;
+        ofstream os("problem.csv");
+        os << "variables" << endl;
         for(int i=0;i<vars.size(); i++)
-            f << varnames[i] << ",";
-        f << endl;
-        f << endl;
+            os << varnames[i] << ",";
+        os << endl;
+        os << endl;
 
-        f << "objective function" << endl;
-        for(int i=0;i<objective.coefs.size(); i++)
-           f << objective.coefs[i] << ",";
-        f << endl;
+        os << "f function" << endl;
+        for(int i=0;i<f.size(); i++)
+           os << f[i] << ",";
+        os << endl;
 
-        f << "lower consttraints" << endl;
+        os << "lower consttraints" << endl;
         for(int i=0;i<vars.size(); i++)
-            if(vars[i].l == minf)
-                f << ",";
+            if(vars[i].l() == minf)
+                os << ",";
             else
-                f << vars[i].l << ",";
-        f << endl;
+                os << vars[i].l()<< ",";
+        os << endl;
 
-        f << "upper consttraints" << endl;
+        os << "upper consttraints" << endl;
         for(int i=0;i<vars.size(); i++)
-            if(vars[i].h == inf)
-                f << ",";
+            if(vars[i].h() == inf)
+                os << ",";
             else
-                f << vars[i].h << ",";
+                os << vars[i].h() << ",";
 
-        f << endl;
+        os << endl;
 
         for(int y=0; y<3; y++)
         {
             linearconstraint::type t = (linearconstraint::type) y;
-            f << "consttraints ";
+            os << "consttraints ";
             switch(t)
             {
                 case linearconstraint::eq:
-                    f << "=";
+                    os << "=";
                 break;
                 case linearconstraint::geq:
-                    f << ">=";
+                    os << ">=";
                 break;
                 case linearconstraint::leq:
-                    f << "<=";
+                    os << "<=";
                 break;
             }
-            f << endl;
+            os << endl;
             for(int i=0; i<constraints.size(); i++)
             {
                 const sparselinearconstraint& c = *constraints[i];
@@ -77,21 +76,22 @@ public:
 /*                    shared_ptr<std::vector<double>> clhs(c.lhs());
                     int j=0;
                     for(; j<clhs->size(); j++)
-                        f << (*clhs)[j] << ",";*/
+                        os << (*clhs)[j] << ",";*/
 
                     int j=0;
                     for(; j<c.lhs()->size(); j++)
-                        f << (*c.lhs())[j] << ",";
+                        os << (*c.lhs())[j] << ",";
                     for(; j<vars.size(); j++)
-                        f << "0,";
-                    f << c.rhs << endl;
+                        os << "0,";
+                    os << c.rhs << endl;
                 }
              }
         }
-        std::cout << "Test solver only produces problem.csv file.";
+        std::cout << "Test solver only produces problem.csv osile.";
     }
 };
 
+/*
 
 template<typename Xi>
 class scenariolister : public treecallback
@@ -169,6 +169,7 @@ inline void printvarnames(problem<O,C,Xi>& p)
     }
     std::cout << std::endl;
 }
+*/
 
 }
 #endif // TESTS_H

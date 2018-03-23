@@ -1,12 +1,56 @@
-#include <iostream>
 #include <cmath>
-#include "mspp/biglp.h"
-#include "mspp/mmpcvar.h"
 #include "mspp/cplex.h"
-#include "mspp/shifted.h"
-#include "tests.h"
+#include "mspp/de.h"
+
+// milp do templatu
 
 using namespace mspp;
+
+template <typename X>
+class guiddistribution: public ddistribution<X,nocondition<X>>
+{
+public:
+    guiddistribution(const std::vector<X>& items) : fitems(items)
+    {
+        assert(fitems.size());
+    }
+
+protected:
+    virtual void atoms_are(std::vector<atom<X>>& a, const nocondition<X>&) const
+    {
+        unsigned int N=fitems.size();
+        double p=1.0 / (double) N;
+        a.resize(N);
+        for(unsigned int i=0; i<N; i++)
+            a[i]= {fitems[i],p};
+    };
+private:
+    std::vector<X> fitems;
+};
+
+
+template <typename X>
+class listsolution : public sctreesolution<X>
+{
+public:
+    listsolution(const std::vector<unsigned int>& ds,
+               const ptr<scenariotree<X>> st) :
+               sctreesolution<X>(ds,st)
+    {}
+public:
+    void callback(const std::vector<indexedatom<X>>& s)
+    {
+        for(unsigned int i=0; i<s.size(); i++ )
+        {
+            std::cout << s[i].x << " ";
+        }
+        std::cout << std::endl;
+    }
+    std::vector<double> & x() { return *fx; }
+private:
+    ptr<std::vector<double>>& fx;
+};
+
 
 struct omega
 {
@@ -14,57 +58,55 @@ struct omega
     double o2;
 };
 
-class tsproblem: public linearproblem<omega>
+class tsproblem: public linearproblem<fulllinearconstraint,fullpath<omega>>
 {
-
 public:
-    tsproblem() : linearproblem<omega>({2,2})
+    tsproblem() :
+        linearproblem<fulllinearconstraint,fullpath<omega>>(problemstructure({2,2}))
     {}
-    virtual void objective(unsigned int stage,
-                   const scenario<omega>& xih,
-                   linearfunction& r) const
+private:
+    virtual void constraints_are(
+            unsigned int k,
+            const fullpath<omega>& xi,
+            vardefs<realvar>& xs,
+            ghconstraints<fulllinearconstraint>& g
+            ) const
     {
-       r = linearfunction({1.0,1.0});
+        if(k==0)
+        {
+            xs[0].set(realvar::Rplus);
+            xs[1].set(realvar::Rplus);
+        }
+        else if(k==1)
+        {
+            xs[0].set(realvar::Rplus);
+            xs[1].set(realvar::Rplus);
+
+            fulllinearconstraint& c=addgh(g,k);
+            c.set({xi[1].o1,1,1,0},linearconstraint::geq, 4.0);
+
+            c = addgh(g,k);
+            c.set({xi[1].o2,1,0,1},linearconstraint::geq, 7.0);
+        }
+
     }
 
-    virtual void get_constraints(
-                unsigned int stage,
-                const scenario<omega>& xi,
-                varrange_list_ptr& vars,
-                constraint_list_ptr<linearconstraint>& constraints
-                ) const
+    virtual void f_is(
+            unsigned int k,
+            const fullpath<omega>& xi,
+            linearobjective& f) const
     {
-        if(stage==0)
-        {
-            vars.reset(new varrange_list);
-            vars->push_back(varrange(varrange::Rplus));
-            vars->push_back(varrange(varrange::Rplus));
-        }
-        else if(stage==1)
-        {
-            vars.reset(new varrange_list);
-            vars->push_back(varrange(varrange::Rplus));
-            vars->push_back(varrange(varrange::Rplus));
-
-            constraints.reset(new linearconstraint_list);
-            constraints->push_back(linearconstraint({xi[1].o1,1,1,0},
-                          linearconstraint::geq, 7.0));
-            constraints->push_back(linearconstraint({xi[1].o2,1,0,1},
-                          linearconstraint::geq, 4.0));
-        }
+        f.set({1.0,1.0});
     }
 };
 
 
-void twostagetest(unsigned int N, const lpsolver_ptr& cps)
+void twostagetest(unsigned int N, const ptr<lpsolver>& cps)
 {
     std::cout << "Twostagetest..." << std::endl;
 
     const unsigned int numleaves = N;
-    indexedtree_ptr tp(new nktree({1,numleaves*numleaves}));
-    uniformprobability_ptr pp(new uniformprobability(tp));
-
-    generalprocess_ptr<omega> xp(new generalprocess<omega>(tp) );
+    std::vector<omega> items(numleaves*numleaves);
 
     for(unsigned int i=0; i<numleaves; i++)
     {
@@ -72,19 +114,28 @@ void twostagetest(unsigned int N, const lpsolver_ptr& cps)
         for(unsigned int j=0; j<numleaves; j++)
         {
            double o2 = 1.0/3.0 + 2.0/3.0* (double)j / (numleaves-1);
-           (*xp)({0,3*i+j}) = {o1, o2};
-       }
+           items[3*i+j] = {o1, o2};
+        }
     }
 
-    scenariotree_ptr<omega> sp(new modularscenariotree<omega>(xp,pp));
-    linearproblem_ptr<omega> prp(new tsproblem());
+    guiddistribution<omega> g(items);
 
-    printvarnames(*prp);
+    processdistribution<omega,guiddistribution<omega>> pd({0,0},g,1);
 
-    biglpmethod<omega> b(prp,sp,cps);
-    treesolution_ptr s;
+    distrscenariotree<omega,guiddistribution<omega>> sp(pd);
+
+    scenariotree<omega>& st = sp;
+    tsproblem prp;
+
+    linearproblem<fulllinearconstraint,fullpath<omega>>& lp = prp;
+//    printvarnames(*prp);
+
+    demethod<omega,fulllinearconstraint, fullpath<omega>>
+            b(lp,st,*cps);
+/*    ptr<sctreesolution<omega>> s;
+
     double ov;
-    b.solve(s,ov);
+    b.solve(ov,s);
 
     // brought from testproblems.xlsx
     // x0_0,x0_1,x1_0_0,x1_1_0,x1_0_1,x1_1_1,x1_0_2,x1_1_2,x1_0_3,x1_1_3,x1_0_4,x1_1_4,x1_0_5,x1_1_5,x1_0_6,x1_1_6,x1_0_7,x1_1_7,x1_0_8,x1_1_8,,,
@@ -104,17 +155,37 @@ void twostagetest(unsigned int N, const lpsolver_ptr& cps)
     unsigned int k = sizeof(tssol)/sizeof(tssol[0]);
     for(unsigned int i=0; i<k; i++)
     {
-        if(fabs(s->x(i)-tssol[i]) > tol)
+        if(fabs(s->x()[i]-tssol[i]) > tol)
         {
             std::cerr << "twostagetest: x[" << i << "]="
-                 << tssol[i] << " expected, " << s->x(i)
+                 << tssol[i] << " expected, " << s->x()[i]
                  << " achieved." << std::endl;
             throw;
         }
     }
-    printstats(*s);
+//    printstats(*s);
     std::cout << "Twostagetest passed." << std::endl;
+*/
 }
+
+
+int main(int argc, char *argv[])
+{
+    //ptr<csvlpsolver> csvs(new csvlpsolver);
+    ptr<cplexlpsolver> csvs(new cplexlpsolver);
+    twostagetest(3,csvs);
+}
+
+//#include "mspp/mmpcvar.h"
+
+/*
+#include <iostream>
+#include "mspp/biglp.h"
+#include "mspp/mmpcvar.h"
+#include "mspp/cplex.h"
+#include "mspp/shifted.h"
+#include "tests.h"
+
 
 
 class psproblem: public linearproblem<omega>
@@ -123,9 +194,9 @@ class psproblem: public linearproblem<omega>
 public:
     psproblem() : linearproblem<omega>({2,2})
     {}
-    virtual void objective(unsigned int stage,
+    virtual void f(unsigned int stage,
                    const scenario<omega>& xih,
-                   linearfunction& r) const
+                   linearobjective& r) const
     {
        if(stage)
        {
@@ -142,17 +213,17 @@ public:
     virtual void get_constraints(
                 unsigned int stage,
                 const scenario<omega>& xi,
-                varrange_list_ptr& vars,
+                ptr<varranges>& vars,
                 constraint_list_ptr<linearconstraint>& constraints
                 ) const
     {
         assert(stage<=1);
 
-        vars.reset(new varrange_list);
+        vars.reset(new varranges);
         vars->push_back(varrange(varrange::Rplus));
         vars->push_back(varrange(varrange::Rplus));
 
-        constraints.reset(new linearconstraint_list);
+        constraints.reset(new linearconstraints);
 
         if(stage == 0)
             constraints->push_back(linearconstraint({1.0,1.0},
@@ -172,7 +243,7 @@ void cvartest(double alpha, double lambda, const lpsolver_ptr& cps)
 {
     const int numleaves = 3;
     indexedtree_ptr tp(new nktree({1,numleaves*numleaves}));
-    uniformprobability_ptr pp(new uniformprobability(tp));
+    uniformprobability_xxx_ptr pp(new uniformprobability_xxx(tp));
 
     generalprocess_ptr<omega> xp(new generalprocess<omega>(tp) );
 
@@ -264,9 +335,9 @@ class almproblem: public linearproblem<double>
 public:
     almproblem() : linearproblem<double>({1,1,1,1})
     {}
-    virtual void objective(unsigned int stage,
+    virtual void f(unsigned int stage,
                    const scenario<double>& xi,
-                   linearfunction& r) const
+                   linearobjective& r) const
     {
        double c=xi[0];
        for(unsigned int i=1; i<=stage; i++)
@@ -277,7 +348,7 @@ public:
     virtual void constraints(
                 unsigned int stage,
                 const scenario<double>& xi,
-                varrange_list& vars,
+                varranges& vars,
                 constraint_list<linearconstraint>& csts) const
     {
         if(stage==0)
@@ -309,7 +380,7 @@ void almtest(double alpha, double lambda, const lpsolver_ptr& cps)
 {
     const int numleaves = 2;
     ntree_ptr tp(new ntree(3,numleaves));
-    iidprobability_ptr pp(new iidprobability(tp,{0.5,0.5}));
+    iidprobability_xxx_ptr pp(new iidprobability_xxx(tp,{0.5,0.5}));
     iidprocess_ptr<double> xp(new iidprocess<double>(tp,{0.8,1.1}));
 
     shiftedscenariotree_ptr<double> ss(new shiftedscenariotree<double>(xp,pp,1.0));
@@ -374,10 +445,9 @@ int main(int argc, char *argv[])
 
 //  csvlpsolver csvs;
 
-  twostagetest(3,cps);
   cvartest(0.05,0.5,cps);
   almtest(0.05,0.5,cps);
 }
 
-
+*/
 
