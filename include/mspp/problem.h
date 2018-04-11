@@ -9,11 +9,11 @@ namespace mspp
 /// \addtogroup problems Problems
 /// @{
 
-class problemstructure: public std::vector<unsigned int>
+class msproblemstructure: public std::vector<unsigned int>
 {
 public:
-    problemstructure() {}
-    problemstructure(const std::vector<unsigned int>& v ) :
+    msproblemstructure() {}
+    msproblemstructure(const std::vector<unsigned int>& v ) :
        std::vector<unsigned int>(v) {}
 
     unsigned int sum(unsigned int k) const
@@ -34,38 +34,28 @@ public:
     }
 };
 
-using variable=double;
 
-class vardef : public object
-{
-};
-
-template <typename V>
-using vardefs = std::vector<V>;
-
-
-
-class cobase : public object
+class mscobase : public object
 {
 protected:
-    cobase() { assert(0); } // should never be called, but has to be here to circumvent https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58751
-    cobase(const problemstructure& ps, unsigned int k) : fps(ps), fk(k) {}
-    const problemstructure& ps() const { return fps; }
+    mscobase() { assert(0); } // should never be called, but has to be here to circumvent https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58751
+    mscobase(const msproblemstructure& ps, unsigned int k) : fps(ps), fk(k) {}
+    const msproblemstructure& ps() const { return fps; }
     const unsigned int k() const { return fk; }
 private:private:
-    void operator =(const cobase&); // to prevent assignment
-    problemstructure fps;
+    void operator =(const mscobase&); // to prevent assignment
+    msproblemstructure fps;
     unsigned int fk;
 };
 
-using objective = cobase;
+using msobjective = mscobase;
 
-class constraint: public cobase
+class msconstraint: public mscobase
 {
 public:
     enum type {eq, geq, leq};
-    constraint(const problemstructure& ps, unsigned int k):
-        cobase(ps,k), ft(eq) {}
+    msconstraint(const msproblemstructure& ps, unsigned int k):
+        mscobase(ps,k), ft(eq) {}
 
     type t() const { return ft; }
     void settype(type t) { ft = t; }
@@ -75,14 +65,14 @@ private:
 
 
 template <typename G>
-using ghconstraints = std::vector<ptr<G>>;
+using msconstraints = std::vector<ptr<G>>;
 
 /// Base abstract class describing multistage problems
 template<typename V, typename F, typename G, typename C>
-class problem : public object
+class msproblem : public object
 {
     public:
-        problem(const problemstructure& ps)
+        msproblem(const msproblemstructure& ps)
             : d(ps)
         {
         }
@@ -94,7 +84,7 @@ class problem : public object
         virtual void f(
                 unsigned int k,
                 const C& barxi,
-                ptr<F> f) const
+                ptr<F>& f) const
         {
             f= newf_is(k);
             f_is(k,barxi,*f);
@@ -106,19 +96,19 @@ class problem : public object
          * @param k stage
          * @param barxi history of the random vector up to #k
          * @param xs return value - variable ranges
-         * @param g return value - constraints
+         * @param g return value - msconstraints
          */
-        void constraints(
+        void rgs(
                 unsigned int k,
                 const C& barxi,
                 ptr<vardefs<V>>& r,
-                ptr<ghconstraints<G>>& gh) const
+                ptr<msconstraints<G>>& gh) const
         {
             r.reset(new vardefs<V>(d[k]));
             for(unsigned int i=0; i < d[k]; i++)
                 (*r)[i] = newv_is(k,i);
-            gh.reset(new ghconstraints<G>);
-            this->constraints_are(k,barxi,*r,*gh);
+            gh.reset(new msconstraints<G>);
+            this->rgs_are(k,barxi,*r,*gh);
         }
 
 /*        std::string varname(unsigned int k) const
@@ -140,11 +130,11 @@ class problem : public object
             return varname_is(stage,i);
         }
 
-        const problemstructure d;
+        const msproblemstructure d;
         ///@}
 
 protected:
-        G& addgh(ghconstraints<G>& g, unsigned int k) const
+        G& addg(msconstraints<G>& g, unsigned int k) const
         {
             g.push_back(newg_is(k));
             return **g.rbegin();
@@ -169,11 +159,11 @@ private:
             return ptr<V>(new V);
         }
 
-        virtual void constraints_are(
+        virtual void rgs_are(
                 unsigned int k,
                 const C& xi,
                 vardefs<V>& xs,
-                ghconstraints<G>& g
+                msconstraints<G>& g
                 ) const = 0;
 
         virtual void f_is(
@@ -190,44 +180,12 @@ private:
 };
 
 
-/// \addtogroup pvar Variables
-/// \ingroup problems
-/// @{
-
-
-class realvar : public vardef
-{
-public:
-    enum type { R, Rplus, Rminus };
-
-    void set(double l=minf, double h=inf)
-    { fl=l; fh=h; }
-
-    void set(type at)
-    {
-        switch(at)
-        {
-        case R: fl=minf; fh=inf; break;
-        case Rplus: fl=0; fh=inf; break;
-        case Rminus: fl=minf; fh=0; break;
-        }
-    }
-    double l() const { return fl; }
-    double h() const { return fh; }
-private:
-    void operator =(const realvar&); // to prevent assignment
-    double fl;
-    double fh;
-};
-
-///@}
-
 
 /// \addtogroup Objectives
 /// \ingroup problems
 /// @{
 
-class evobjective : virtual public objective
+class evmsobjective : virtual public msobjective
 {
 public:
     double operator()(const std::vector<variable> x) const
@@ -238,11 +196,11 @@ private:
     virtual double objvalue_is(const std::vector<variable>& x) const = 0;
 };
 
-class convexobjective: virtual public objective
+class convexobjective: virtual public msobjective
 {
 };
 
-class sgcobjective: public convexobjective, public evobjective
+class sgconvexmsobjective: public convexobjective, public evmsobjective
 {
 public:
     std::vector<double> sg(const std::vector<variable> x) const
@@ -255,11 +213,11 @@ private:
 };
 
 
-class linearobjective: public sgcobjective
+class linearobjective: public sgconvexmsobjective
 {
 public:
-    linearobjective(const problemstructure& ps, unsigned int k):
-        objective(ps,k), fc(ps[k-1]) {}
+    linearobjective(const msproblemstructure& ps, unsigned int k):
+        msobjective(ps,k), fc(ps[k-1]) {}
 
     void set(const std::vector<double>& c)
     {
@@ -298,11 +256,11 @@ private:
 /// \ingroup problems
 /// @{
 
-class linearconstraint : virtual public constraint
+class linearconstraint : virtual public msconstraint
 {
 public:
 
-    linearconstraint( const problemstructure& ps, unsigned int k )
+    linearconstraint( const msproblemstructure& ps, unsigned int k )
         : flhssize(ps.sum(k)), frhs(0) {}
 
     virtual double lhs(unsigned int k) const = 0;
@@ -322,8 +280,8 @@ public:
        // added because gcc deletes its default version
 
 
-    fulllinearconstraint( const problemstructure& ps, unsigned int k )
-        : constraint(ps,k), linearconstraint(ps,k),
+    fulllinearconstraint( const msproblemstructure& ps, unsigned int k )
+        : msconstraint(ps,k), linearconstraint(ps,k),
            flhs(lhssize(),0) {}
 
     double lhs(unsigned int k) const { assert(k<flhs.size()); return flhs[k]; }
@@ -350,8 +308,8 @@ public:
     interstagelinearconstraint& operator=(interstagelinearconstraint& c) { return c; }
        // added because gcc deletes its default version
 
-    interstagelinearconstraint( const problemstructure& ps, unsigned int k )
-        : constraint(ps,k), linearconstraint(ps,k),
+    interstagelinearconstraint( const msproblemstructure& ps, unsigned int k )
+        : msconstraint(ps,k), linearconstraint(ps,k),
           flast(k ? ps[k-1] : 0,0), fcurrent(ps[k],0) {}
 
     const std::vector<double>& last() const  { return flast; }

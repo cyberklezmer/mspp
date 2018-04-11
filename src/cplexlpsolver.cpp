@@ -6,7 +6,7 @@ using namespace mspp;
 
 void cplexlpsolver::solve(const varranges& vars,
         const linearobjective& f,
-        const std::vector<sparselinearconstraint_ptr>& constraints,
+        const std::vector<sparselinearconstraint_ptr>& msconstraints,
         const std::vector<std::string>& varnames,
         std::vector<double>& sol,
         double& objvalue) const
@@ -38,12 +38,12 @@ void cplexlpsolver::solve(const varranges& vars,
 
         model.add(obj);
 
-        for(int k=0; k< constraints.size();
+        for(int k=0; k< msconstraints.size();
             k++)
         {
             IloExpr v(env);
 
-            const sparselinearconstraint& c = *constraints[k];
+            const sparselinearconstraint& c = *msconstraints[k];
 
 //            assert(c.lhs.size()==vars.size());
 

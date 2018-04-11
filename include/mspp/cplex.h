@@ -17,7 +17,7 @@ class cplexlpsolver : public lpsolver
 public:
     virtual void solve(const vardefs<realvar>& vars,
             const std::vector<double>& f,
-            const std::vector<sparselinearconstraint_ptr>& constraints,
+            const std::vector<sparselinearconstraint_ptr>& msconstraints,
             const std::vector<std::string>& varnames,
             std::vector<double>& sol,
             double& objvalue) const;

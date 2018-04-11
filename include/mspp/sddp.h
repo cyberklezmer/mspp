@@ -1,7 +1,6 @@
 #ifndef SDDP_H
 #define SDDP_H
 
-#include "mspp/solution.h"
 
 /// \addtogroup sddp SDDP
 /// \ingroup sms
@@ -12,7 +11,6 @@ namespace mspp
 {
 
 using sddpsolution = std::vector<variable>;
-
 
 template <typename Xi>
 class markovindexer : public object
@@ -37,11 +35,9 @@ private:
     unsigned int index_is() const { return 0; }
 };
 
-template<typename F, typename C>
-using sddpproblem=problem<realvar, F, interstagelinearconstraint, C>;
 
 template <typename Xi>
-using sddppdistribution=processdistribution<Xi,mcdistribution<Xi,nocondition<Xi>>>;
+using sddppdistribution=processdistribution<Xi,mcdistribution<Xi,emptycondition<Xi>>>;
 
 template <typename Xi, typename F, typename M>
 class markovsddpmethod : public solutionmethod

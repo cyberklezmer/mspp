@@ -1,6 +1,7 @@
 #include <cmath>
 #include "mspp/cplex.h"
 #include "mspp/de.h"
+//#include "mspp/sddp.h"
 
 // milp do templatu
 
@@ -29,20 +30,21 @@ private:
 };
 
 
-template <typename X>
-class listsolution : public sctreesolution<X>
+template <typename S>
+class listsolution : public desolution<S>
 {
 public:
-    listsolution(const std::vector<unsigned int>& ds,
-               const ptr<scenariotree<X>> st) :
-               sctreesolution<X>(ds,st)
+    listsolution(const S& st, const problemstructure& ps) :
+               desolution<S>(st,ps)
     {}
 public:
-    void callback(const std::vector<indexedatom<X>>& s)
+    void callback(const indexedhistory<variables>& s)
     {
         for(unsigned int i=0; i<s.size(); i++ )
         {
-            std::cout << s[i].x << " ";
+            for(unsigned int j=0; j<s[i].size(); j++ )
+               std::cout << s[i][j] << " ";
+            std::cout << std::endl;
         }
         std::cout << std::endl;
     }
@@ -58,18 +60,21 @@ struct omega
     double o2;
 };
 
-class tsproblem: public linearproblem<fulllinearconstraint,fullpath<omega>>
+class tsproblem: public problem<realvar,linearobjective,
+                fulllinearconstraint,fullpath<omega>>
 {
 public:
     tsproblem() :
-        linearproblem<fulllinearconstraint,fullpath<omega>>(problemstructure({2,2}))
+        problem<realvar,linearobjective,
+                        fulllinearconstraint,fullpath<omega>>
+           (problemstructure({2,2}))
     {}
 private:
-    virtual void constraints_are(
+    virtual void rg_are(
             unsigned int k,
             const fullpath<omega>& xi,
             vardefs<realvar>& xs,
-            ghconstraints<fulllinearconstraint>& g
+            constraints<fulllinearconstraint>& g
             ) const
     {
         if(k==0)
@@ -82,10 +87,10 @@ private:
             xs[0].set(realvar::Rplus);
             xs[1].set(realvar::Rplus);
 
-            fulllinearconstraint& c=addgh(g,k);
+            fulllinearconstraint& c=addg(g,k);
             c.set({xi[1].o1,1,1,0},linearconstraint::geq, 4.0);
 
-            c = addgh(g,k);
+            c = addg(g,k);
             c.set({xi[1].o2,1,0,1},linearconstraint::geq, 7.0);
         }
 
@@ -127,11 +132,11 @@ void twostagetest(unsigned int N, const ptr<lpsolver>& cps)
     scenariotree<omega>& st = sp;
     tsproblem prp;
 
-    linearproblem<fulllinearconstraint,fullpath<omega>>& lp = prp;
+    problem<realvar, linearobjective, fulllinearconstraint,fullpath<omega>>& lp = prp;
 //    printvarnames(*prp);
 
     demethod<omega,fulllinearconstraint, fullpath<omega>>
-            b(lp,st,*cps);
+            b;
 /*    ptr<sctreesolution<omega>> s;
 
     double ov;

@@ -1,5 +1,5 @@
-#ifndef DISTRIBUTIONS_H
-#define DISTRIBUTIONS_H
+#ifndef DISTRIBUTION_H
+#define DISTRIBUTION_H
 
 #include "mspp/commons.h"
 
@@ -217,4 +217,4 @@ private:
 } // namespace
 
 
-#endif // DISTRIBUTIONS_H
+#endif // DISTRIBUTION_H

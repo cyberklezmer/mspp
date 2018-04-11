@@ -1,9 +1,9 @@
 #ifndef DE_H
 #define DE_H
 
-#include "mspp/solution.h"
+#include "mspp/problem.h"
+#include "mspp/distribution.h"
 #include "mspp/solver.h"
-
 
 namespace mspp
 {
@@ -12,28 +12,60 @@ namespace mspp
 /// \ingroup sms
 /// @{
 
+template <typename S>
+class desolution: public object, public sctreecallback<variables>
+{    
+public:
+    desolution(const S& s, const msproblemstructure& ps) :
+        fs(ptr<S>(new S(s))), fps(ps)
+       {}
+    desolution(const ptr<S> s, const msproblemstructure& ps) :
+        fs(s), fps(ps)
+       {}
+    void set(const variables& x) { fx=ptr<variables>(new variables); }
+    void set(const ptr<variables> x) { fx=x; }
+    void foreach()
+    {
+        fs->foreach(this);
+    }
+    virtual void callback(const indexedhistory<variables>&) {};
+private:
+    ptr<variables> fx;
+    ptr<S> fs;
+    msproblemstructure fps;
+};
 
-template<typename G, typename C>
-using linearproblem=problem<realvar, linearobjective, G, C>;
-
-
-
-template<typename Xi, typename G, typename C>
-class demethod :
-        public solutionmethod
-          <linearproblem<G,C>,scenariotree<Xi>,
-             sctreesolution<Xi>,lpsolver,bool>,
-        public sctreecallback<Xi>
+template<typename P,typename S,typename Xi>
+class demethod : public object, public sctreecallback<Xi>
 {
 public:
-    demethod(const linearproblem<G,C>& p,
-                const scenariotree<Xi>& z,
-                const lpsolver& lps )
-     : solutionmethod<linearproblem<G,C>,scenariotree<Xi>,
-       lpsolver,sctreesolution<Xi>,bool>
-            (p,z,lps)
-    {
-    }
+    static bool solve(
+             const P& p,
+             const S& z,
+             const lpsolver& lps,
+             double& optimal,
+             desolution<S>& sol)
+            {/*
+                foffsets.resize(this->fp->T()+1);
+                fdim = 0;
+                fobj.clear();
+                fvars.clear();
+                fconstraints.clear();
+                fvarnames.clear();
+                assert(this->fz->T() == this->fp->T());
+
+                fsrcexpconstraints.clear();
+                fdstexpconstraints.clear();
+                fups.clear();
+
+
+                this->fz->foreachnode(this);
+                std::vector<double> x(fdim);
+
+                fs.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
+                sol->assign(x);*/
+                return true;
+            }
 
 private:
     unsigned int fdim;
@@ -42,7 +74,7 @@ private:
     std::vector<sparselinearconstraint_ptr> fconstraints;
     std::vector<std::string> fvarnames;
 
-    // stored expectation constraints
+    // stored expectation msconstraints
     std::vector<linearconstraint> fsrcexpconstraints;
     std::vector<sparselinearconstraint*> fdstexpconstraints;
     std::vector<probability> fups;
@@ -60,11 +92,11 @@ public:
 
         unsigned int thisstagedim = this->fp->d[stage];
 
-        // calling original problems \p constraints
+        // calling original problems \p msconstraints
 
         ptr<vardefs<realvar>> vars;
-        ptr<ghconstraints<linearconstraint>> constraints;
-        demethod::fp->constraints(stage,xi,vars,constraints);
+        ptr<msconstraints<linearconstraint>> msconstraints;
+        demethod::fp->msconstraints(stage,xi,vars,msconstraints);
 
         ptr<linearobjective> f;
         this->fp->f(stage,xi,f);
@@ -92,7 +124,7 @@ public:
             fdim++;
         }
 
-        // stored constraints with expectations
+        // stored msconstraints with expectations
         for(unsigned int i=0; i<fsrcexpconstraints.size(); i++)
         {
             assert(i<fdstexpconstraints.size());
@@ -110,11 +142,11 @@ public:
 
         }
 
-        // this stage constraints
-        if(constraints)
-            for(unsigned int j=0; j<constraints->size(); j++)
+        // this stage msconstraints
+        if(msconstraints)
+            for(unsigned int j=0; j<msconstraints->size(); j++)
             {
-                const linearconstraint& s = *(*constraints)[j];
+                const linearconstraint& s = *(*msconstraints)[j];
 
                 sparselinearconstraint_ptr d(new sparselinearconstraint());
                 unsigned int src=0;
@@ -143,28 +175,6 @@ public:
                 }
                 fconstraints.push_back(d);
             }*/
-    }
-    bool solve(double& optimal, sctreesolution<Xi>& sol)
-    {/*
-        foffsets.resize(this->fp->T()+1);
-        fdim = 0;
-        fobj.clear();
-        fvars.clear();
-        fconstraints.clear();
-        fvarnames.clear();
-        assert(this->fz->T() == this->fp->T());
-
-        fsrcexpconstraints.clear();
-        fdstexpconstraints.clear();
-        fups.clear();
-
-
-        this->fz->foreachnode(this);
-        std::vector<double> x(fdim);
-
-        fs.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
-        sol->assign(x);*/
-        return true;
     }
 
 private:

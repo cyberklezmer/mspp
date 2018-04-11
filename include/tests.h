@@ -16,7 +16,7 @@ public:
 
     virtual void solve(const std::vector<realvar>& vars,
             const std::vector<double>& f,
-            const std::vector<sparselinearconstraint_ptr>& constraints,
+            const std::vector<sparselinearconstraint_ptr>& msconstraints,
             const std::vector<std::string>& varnames,
             std::vector<double>& x,
             double& ) const
@@ -68,9 +68,9 @@ public:
                 break;
             }
             os << endl;
-            for(int i=0; i<constraints.size(); i++)
+            for(int i=0; i<msconstraints.size(); i++)
             {
-                const sparselinearconstraint& c = *constraints[i];
+                const sparselinearconstraint& c = *msconstraints[i];
                 if(c.t == t)
                 {
 /*                    shared_ptr<std::vector<double>> clhs(c.lhs());

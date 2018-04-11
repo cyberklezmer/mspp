@@ -61,7 +61,7 @@ class lpsolver : public object
 public:
     virtual void solve(const vardefs<realvar>& vrs,
             const std::vector<double>& f,
-            const std::vector<sparselinearconstraint_ptr>& constraints, // tbd predef constraintslist
+            const std::vector<sparselinearconstraint_ptr>& msconstraints, // tbd predef constraintslist
             const std::vector<std::string>& varnames,
             std::vector<double>& sol,
             double& objvalue) const = 0;
