@@ -62,26 +62,36 @@ public:
     ~sys() { fself = 0; }
     static void set_log(const ptr<std::ostream>& l)
     {
+        assert(fself);
         fself->flog = l;
     }
     static void reset_log()
     {
+        assert(fself);
         fself->flog.reset();
     }
 
     static void set_err(const ptr<std::ostream>& e)
     {
+        assert(fself);
         fself->ferr = e;
     }
     static void reset_err()
     {
+        assert(fself);
         fself->ferr.reset();
     }
 
     static std::ostream& log()
-    {  return fself->flog ? *(fself->flog) : std::cout; }
+    {
+        assert(fself);
+        return fself->flog ? *(fself->flog) : std::cout;
+    }
     static std::ostream& err()
-    {  return fself->ferr ? *(fself->ferr) : std::cerr; }
+    {
+        assert(fself);
+        return fself->ferr ? *(fself->ferr) : std::cerr;
+    }
 private:
     ptr<std::ostream> flog;
     ptr<std::ostream> ferr;
@@ -101,6 +111,8 @@ using scenario = std::vector<X>;
 template <typename X>
 class condition: public object
 {
+public:
+    using X_t = X;
 };
 
 /// \addtogroup cns Conditions
@@ -117,10 +129,10 @@ public:
 };
 
 template <typename X>
-class fullpath: public condition<X>
+class fullhistory: public condition<X>
 {
 public:
-    fullpath(const scenario<X>& s): fs(s)
+    fullhistory(const scenario<X>& s): fs(s)
     {}
     const scenario<X>& s() const { return fs; }
     const X& operator[](unsigned int k) const
@@ -171,7 +183,6 @@ private:
 /// @}
 
 /// \addtogroup pvar Variables
-/// \ingroup problems
 /// @{
 
 
@@ -187,13 +198,15 @@ class vardef : public object
 template <typename V>
 using vardefs = std::vector<V>;
 
-
-
-
 class realvar : public vardef
 {
 public:
     enum type { R, Rplus, Rminus };
+
+    realvar(type t=R)
+    {
+        set(t);
+    }
 
     void set(double l=minf, double h=inf)
     { fl=l; fh=h; }
@@ -210,29 +223,123 @@ public:
     double l() const { return fl; }
     double h() const { return fh; }
 private:
-    void operator =(const realvar&); // to prevent assignment
     double fl;
     double fh;
 };
 
+///@}
 
 ///@}
 
-/// \addtogroup fns Functions
-/// \ingroup problems
+
+/// \addtogroup problems Problems
 /// @{
 
+class constraint: public object
+{
+public:
+    enum type {eq, geq, leq};
+    constraint(type t=eq) : ft(t) {}
 
+    type t() const { return ft; }
+    void settype(type t) { ft = t; }
+private:
+    type ft;
+};
 
 ///@}
 
 
+/// \addtogroup fns Functions
+/// @{
+
+class function: public object
+{
+public:
+    function(unsigned int dim) : fdim(dim) {}
+    unsigned int dim() const { return fdim; }
+    double operator() (const std::vector<variable>& x) const
+    {
+        assert(x.size() == fdim);
+    }
+private:
+    unsigned int fdim;
+    virtual double value_is(const std::vector<variable>& x) const = 0;
+};
+
+class convexfunction: public function
+{
+public:
+    convexfunction(unsigned int dim) : function(dim) {}
+};
+
+class sgcfunction: public convexfunction
+{
+public:
+    sgcfunction(unsigned int dim) : convexfunction(dim) {}
+
+    std::vector<double> sg(const std::vector<variable> x) const
+    {
+        return sg_is(x);
+    }
+private:
+   virtual std::vector<double> sg_is(const std::vector<variable>& x) const = 0;
+};
+
+class linearfunction: public sgcfunction
+{
+public:
+    linearfunction(unsigned int dim):
+        sgcfunction(dim), fc(dim) {}
+
+    linearfunction(std::vector<double> c):
+        sgcfunction(c.size()), fc(c) {}
+
+    void setc(const std::vector<double>& c)
+    {
+        assert(c.size()==dim());
+        fc = c;
+    }
+    void setc(unsigned int i, double c)
+    {
+        assert(i<fc.size());
+        fc[i] = c;
+    }
+    double c(unsigned int i) const
+    {
+        assert(i < fc.size());
+        return fc[i];
+    }
+    std::vector<double> c() const
+    {
+        return fc;
+    }
+
+private:
+    virtual std::vector<double> sg_is(const std::vector<variable>& x) const
+    {
+        assert(x.size()==dim());
+        return fc;
+    }
+    virtual double value_is(const std::vector<variable>& x) const
+    {
+        assert(x.size()==dim());
+        double s=0;
+        for(unsigned int i=0; i<fc.size(); i++)
+            s += fc[i] * x[i];
+        return s;
+    }
+private:
+    std::vector<double> fc;
+};
+
 ///@}
+
+
 
 } // namespace
 
 /// \defgroup sms Solution Methods
-
 
 
 #endif // COMMONS_H

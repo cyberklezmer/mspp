@@ -1,12 +1,12 @@
-/*#include "mspp/cplex.h"
+#include "mspp/cplex.h"
 #include <ilcplex/ilocplex.h>
 
 using namespace std;
 using namespace mspp;
 
-void cplexlpsolver::solve(const varranges& vars,
-        const linearobjective& f,
-        const std::vector<sparselinearconstraint_ptr>& msconstraints,
+void cplexlpsolver::solve(const vardefs<realvar>& vars,
+        const std::vector<double>& f,
+        const std::vector<sparselinearconstraint>& msconstraints,
         const std::vector<std::string>& varnames,
         std::vector<double>& sol,
         double& objvalue) const
@@ -21,20 +21,20 @@ void cplexlpsolver::solve(const varranges& vars,
 
         for(int i=0; i<vars.size(); i++)
         {
-            const varrange& v = vars[i];
+            const realvar& v = vars[i];
 
-            const IloNum l = v.l == -inf ? -IloInfinity : v.l;
-            const IloNum h = v.h == inf ? IloInfinity : v.h;
+            const IloNum l = v.l() == -inf ? -IloInfinity : v.l();
+            const IloNum h = v.h() == inf ? IloInfinity : v.h();
 
             x.add(IloNumVar(env,l,h,IloNumVar::Float,varnames[i].c_str()));
         }
 
         IloObjective obj = IloMinimize(env);
 
-        assert(f.coefs.size()==vars.size());
+        assert(f.size()==vars.size());
 
-        for(int i=0; i<f.coefs.size(); i++)
-            obj.setLinearCoef(x[i], f.coefs[i]);
+        for(int i=0; i<f.size(); i++)
+            obj.setLinearCoef(x[i], f[i]);
 
         model.add(obj);
 
@@ -43,7 +43,7 @@ void cplexlpsolver::solve(const varranges& vars,
         {
             IloExpr v(env);
 
-            const sparselinearconstraint& c = *msconstraints[k];
+            const sparselinearconstraint& c = msconstraints[k];
 
 //            assert(c.lhs.size()==vars.size());
 
@@ -55,13 +55,13 @@ void cplexlpsolver::solve(const varranges& vars,
             }
             switch(c.t)
             {
-            case linearconstraint::eq:
+            case constraint::eq:
                 model.add(v==c.rhs);
                 break;
-            case linearconstraint::leq:
+            case constraint::leq:
                 model.add(v<=c.rhs);
                 break;
-            case linearconstraint::geq:
+            case constraint::geq:
                 model.add(v>=c.rhs);
                 break;
             default:
@@ -101,4 +101,3 @@ void cplexlpsolver::solve(const varranges& vars,
 
     env.end();
 }
-*/

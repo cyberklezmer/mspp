@@ -1,14 +1,18 @@
 #include <cmath>
 #include "mspp/cplex.h"
 #include "mspp/de.h"
-//#include "mspp/sddp.h"
+#include "tests.h"
+#include "mspp/sddp.h"
+#include "mspp/mpcproblem.h"
+
+// TBD vyhodit eomezeni
 
 // milp do templatu
 
 using namespace mspp;
 
 template <typename X>
-class guiddistribution: public ddistribution<X,nocondition<X>>
+class guiddistribution: public iddistribution<X>
 {
 public:
     guiddistribution(const std::vector<X>& items) : fitems(items)
@@ -17,7 +21,7 @@ public:
     }
 
 protected:
-    virtual void atoms_are(std::vector<atom<X>>& a, const nocondition<X>&) const
+    virtual void atoms_are(std::vector<atom<X>>& a) const
     {
         unsigned int N=fitems.size();
         double p=1.0 / (double) N;
@@ -30,29 +34,6 @@ private:
 };
 
 
-template <typename S>
-class listsolution : public desolution<S>
-{
-public:
-    listsolution(const S& st, const problemstructure& ps) :
-               desolution<S>(st,ps)
-    {}
-public:
-    void callback(const indexedhistory<variables>& s)
-    {
-        for(unsigned int i=0; i<s.size(); i++ )
-        {
-            for(unsigned int j=0; j<s[i].size(); j++ )
-               std::cout << s[i][j] << " ";
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
-    }
-    std::vector<double> & x() { return *fx; }
-private:
-    ptr<std::vector<double>>& fx;
-};
-
 
 struct omega
 {
@@ -60,21 +41,21 @@ struct omega
     double o2;
 };
 
-class tsproblem: public problem<realvar,linearobjective,
-                fulllinearconstraint,fullpath<omega>>
+class tsproblem: public msproblem<realvar,linearfunction,
+                fulllinearconstraint,fullhistory<omega>>
 {
 public:
     tsproblem() :
-        problem<realvar,linearobjective,
-                        fulllinearconstraint,fullpath<omega>>
-           (problemstructure({2,2}))
+        msproblem<realvar,linearfunction,
+                        fulllinearconstraint,fullhistory<omega>>
+           (msproblemstructure({2,2}))
     {}
 private:
-    virtual void rg_are(
+    virtual void stageinfo_is(
             unsigned int k,
-            const fullpath<omega>& xi,
+            const fullhistory<omega>& xi,
             vardefs<realvar>& xs,
-            constraints<fulllinearconstraint>& g
+            msconstraints<fulllinearconstraint>& g
             ) const
     {
         if(k==0)
@@ -88,25 +69,24 @@ private:
             xs[1].set(realvar::Rplus);
 
             fulllinearconstraint& c=addg(g,k);
-            c.set({xi[1].o1,1,1,0},linearconstraint::geq, 4.0);
+            c.set({xi[1].o1,1,1,0},constraint::geq, 7.0);
 
-            c = addg(g,k);
-            c.set({xi[1].o2,1,0,1},linearconstraint::geq, 7.0);
+            fulllinearconstraint& d = addg(g,k);
+            d.set({xi[1].o2,1,0,1},constraint::geq, 4.0);
         }
 
     }
 
-    virtual void f_is(
-            unsigned int k,
-            const fullpath<omega>& xi,
-            linearobjective& f) const
+    virtual linearfunction f_is(
+                    unsigned int k,
+                    const fullhistory<omega>& xi) const
     {
-        f.set({1.0,1.0});
+        return linearfunction({1.0,1.0});
     }
 };
 
 
-void twostagetest(unsigned int N, const ptr<lpsolver>& cps)
+void twostagetest(unsigned int N, const lpsolver& cps)
 {
     std::cout << "Twostagetest..." << std::endl;
 
@@ -125,22 +105,22 @@ void twostagetest(unsigned int N, const ptr<lpsolver>& cps)
 
     guiddistribution<omega> g(items);
 
-    processdistribution<omega,guiddistribution<omega>> pd({0,0},g,1);
+    processdistribution<guiddistribution<omega>> pd({0,0},g,1);
 
-    distrscenariotree<omega,guiddistribution<omega>> sp(pd);
+    using myscenariotree=distrscenariotree<guiddistribution<omega>>;
+    myscenariotree sp(pd);
 
-    scenariotree<omega>& st = sp;
     tsproblem prp;
 
-    problem<realvar, linearobjective, fulllinearconstraint,fullpath<omega>>& lp = prp;
 //    printvarnames(*prp);
 
-    demethod<omega,fulllinearconstraint, fullpath<omega>>
-            b;
-/*    ptr<sctreesolution<omega>> s;
+    demethod<tsproblem,myscenariotree> b;
 
+    stsolution<tsproblem,myscenariotree> sol(prp,sp);
     double ov;
-    b.solve(ov,s);
+
+    b.solve(prp,sp, cps, ov, sol);
+
 
     // brought from testproblems.xlsx
     // x0_0,x0_1,x1_0_0,x1_1_0,x1_0_1,x1_1_1,x1_0_2,x1_1_2,x1_0_3,x1_1_3,x1_0_4,x1_1_4,x1_0_5,x1_1_5,x1_0_6,x1_1_6,x1_0_7,x1_1_7,x1_0_8,x1_1_8,,,
@@ -156,101 +136,82 @@ void twostagetest(unsigned int N, const ptr<lpsolver>& cps)
         throw;
     }
 
-
     unsigned int k = sizeof(tssol)/sizeof(tssol[0]);
     for(unsigned int i=0; i<k; i++)
     {
-        if(fabs(s->x()[i]-tssol[i]) > tol)
+        if(fabs(sol.x(i)-tssol[i]) > tol)
         {
             std::cerr << "twostagetest: x[" << i << "]="
-                 << tssol[i] << " expected, " << s->x()[i]
+                 << tssol[i] << " expected, " << sol.x(i)
                  << " achieved." << std::endl;
             throw;
         }
     }
 //    printstats(*s);
     std::cout << "Twostagetest passed." << std::endl;
-*/
+
+/*    sddpmethod<tsproblem,myscenariotree> sm;
+
+    sddpsolution ss;
+    double sov;
+
+    sm.solve(prp,sp, cps, sov, ss);*/
+
 }
 
 
-int main(int argc, char *argv[])
-{
-    //ptr<csvlpsolver> csvs(new csvlpsolver);
-    ptr<cplexlpsolver> csvs(new cplexlpsolver);
-    twostagetest(3,csvs);
-}
-
-//#include "mspp/mmpcvar.h"
-
-/*
-#include <iostream>
-#include "mspp/biglp.h"
-#include "mspp/mmpcvar.h"
-#include "mspp/cplex.h"
-#include "mspp/shifted.h"
-#include "tests.h"
-
-
-
-class psproblem: public linearproblem<omega>
+class psproblem: public msproblem<realvar,linearfunction,
+        fulllinearconstraint,fullhistory<omega>>
 {
 
 public:
-    psproblem() : linearproblem<omega>({2,2})
+    psproblem() : msproblem<realvar,linearfunction,
+                  fulllinearconstraint,fullhistory<omega>>
+          ({2,2})
     {}
-    virtual void f(unsigned int stage,
-                   const scenario<omega>& xih,
-                   linearobjective& r) const
+
+    virtual linearfunction f_is(
+                    unsigned int k,
+                    const fullhistory<omega>& xi) const
+
     {
-       if(stage)
-       {
-           r.coefs[0] = -xih[1].o1;
-           r.coefs[1] = -xih[1].o2;
-       }
+       if(k)
+           return linearfunction({-xi[1].o1,-xi[1].o2});
        else
-       {
-           r.coefs[0] = 0;
-           r.coefs[1] = 0;
-       }
+           return linearfunction({0,0});
     }
 
-    virtual void get_constraints(
-                unsigned int stage,
-                const scenario<omega>& xi,
-                ptr<varranges>& vars,
-                constraint_list_ptr<linearconstraint>& constraints
-                ) const
+    virtual void stageinfo_is(
+            unsigned int k,
+            const fullhistory<omega>& xi,
+            vardefs<realvar>& r,
+            msconstraints<fulllinearconstraint>& g
+            ) const
     {
-        assert(stage<=1);
+        assert(k<=1);
 
-        vars.reset(new varranges);
-        vars->push_back(varrange(varrange::Rplus));
-        vars->push_back(varrange(varrange::Rplus));
+        r[0].set(realvar::Rplus);
+        r[1].set(realvar::Rplus);
 
-        constraints.reset(new linearconstraints);
-
-        if(stage == 0)
-            constraints->push_back(linearconstraint({1.0,1.0},
-                          linearconstraint::eq, 1.0));
+        if(k == 0)
+            g.add(fulllinearconstraint({1.0,1.0},
+                          constraint::eq, 1.0));
         else
         {
-            constraints->push_back(linearconstraint({1.0,0,-1.0,0},
-                          linearconstraint::eq, 0));
-            constraints->push_back(linearconstraint({0,1.0,0,-1.0},
-                          linearconstraint::eq, 0));
+            g.add(fulllinearconstraint({1.0,0,-1.0,0},
+                          constraint::eq, 0));
+            g.add(fulllinearconstraint({0,1.0,0,-1.0},
+                          constraint::eq, 0));
         }
     }
 };
 
 
-void cvartest(double alpha, double lambda, const lpsolver_ptr& cps)
+void cvartest(double alpha, double lambda, const lpsolver& cps)
 {
     const int numleaves = 3;
-    indexedtree_ptr tp(new nktree({1,numleaves*numleaves}));
-    uniformprobability_xxx_ptr pp(new uniformprobability_xxx(tp));
 
-    generalprocess_ptr<omega> xp(new generalprocess<omega>(tp) );
+    std::vector<omega> items(numleaves*numleaves);
 
     for(unsigned int i=0; i<numleaves; i++)
     {
@@ -258,23 +219,32 @@ void cvartest(double alpha, double lambda, const lpsolver_ptr& cps)
         for(unsigned int j=0; j<numleaves; j++)
         {
            double o2 = 0.1 + (double) j / numleaves;
-           (*xp)({0,numleaves*i+j}) = {o1, o2};
+           items[3*i+j] = {o1, o2};
         }
     }
 
-    scenariotree_ptr<omega> sp(new modularscenariotree<omega>(xp,pp));
-    linearproblem_ptr<omega> prp(new psproblem());
+
+    guiddistribution<omega> g(items);
+
+    processdistribution<guiddistribution<omega>> pd({0,0},g,1);
+
+    using myscenariotree=distrscenariotree<guiddistribution<omega>>;
+    myscenariotree sp(pd);
+
+
+    psproblem prp;
 
     std::cout << "CVaRtest "  << std::endl;
 
-    linearproblem_ptr<omega> cvp;
-    cvp.reset(new mmpcvarproblem<omega>(prp,alpha,lambda));
+    mmpcvarproblem<psproblem> cvp(prp,alpha,lambda);
 
-    biglpmethod<omega> b(cvp ,sp, cps);
+    demethod<mmpcvarproblem<psproblem>,myscenariotree> b;
 
-    treesolution_ptr s;
+    stsolution<mmpcvarproblem<psproblem>,myscenariotree> sol(cvp,sp);
     double ov;
-    b.solve(s,ov);
+
+    b.solve(cvp,sp, cps, ov, sol);
+
 
     const double tol = 1e-5;
 
@@ -300,14 +270,14 @@ void cvartest(double alpha, double lambda, const lpsolver_ptr& cps)
     unsigned int k = sizeof(cvarsol)/sizeof(cvarsol[0]);
     for(unsigned int i=0; i<k; i++)
     {
-        if(fabs(s->x(i)-cvarsol[i]) > tol)
+        if(fabs(sol.x(i)-cvarsol[i]) > tol)
         {
             std::cerr << "cvartest: x[" << i << "]="
-                 << cvarsol[i] << " expected, " << s->x(i)
+                 << cvarsol[i] << " expected, " << sol.x(i)
                  << " achieved." << std::endl;
 
-            for(unsigned int j=0; j<s->nx(); j++)
-                std::cerr << "x[" << j << "]=" << s->x(j) << std::endl;
+//            for(unsigned int j=0; j<s->nx(); j++)
+//                std::cerr << "x[" << j << "]=" << sol.x(j) << std::endl;
 
             throw;
         }
@@ -316,21 +286,41 @@ void cvartest(double alpha, double lambda, const lpsolver_ptr& cps)
     unsigned int l = sizeof(cvarthetas)/sizeof(cvarthetas[0]);
     for(unsigned int i=0; i<l; i++)
     {
-        if(fabs(s->x(k+2+3*i)-cvarthetas[i]) > tol)
+        if(fabs(sol.x(k+2+3*i)-cvarthetas[i]) > tol)
         {
             std::cerr << "cvartest: x[" << i << "]="
-                 << cvarthetas[i] << " expected, " << s->x(k+2+3*i)
+                 << cvarthetas[i] << " expected, " << sol.x(k+2+3*i)
                  << " achieved." << std::endl;
 
-            for(unsigned int j=0; j<s->nx(); j++)
-                std::cerr << "x[" << j << "]=" << s->x(j) << std::endl;
+//            for(unsigned int j=0; j<s->nx(); j++)
+//                std::cerr << "x[" << j << "]=" << s->x(j) << std::endl;
 
             throw;
         }
     }
-    printstats(*s);
     std::cout <<  "MPCVaRtest passed." << std::endl;
 }
+
+
+
+int main(int argc, char *argv[])
+{
+//    csvlpsolver csvs;
+    cplexlpsolver csvs;
+//    twostagetest(3,csvs);
+    cvartest(0.05,0.5,csvs);
+}
+
+
+/*
+#include <iostream>
+#include "mspp/biglp.h"
+#include "mspp/mmpcvar.h"
+#include "mspp/cplex.h"
+#include "mspp/shifted.h"
+#include "tests.h"
+
+
 
 
 
@@ -350,7 +340,7 @@ public:
        r.coefs[0] = c;
     }
 
-    virtual void constraints(
+    virtual void msconstraints(
                 unsigned int stage,
                 const scenario<double>& xi,
                 varranges& vars,
@@ -425,7 +415,7 @@ void almtest(double alpha, double lambda, const lpsolver_ptr& cps)
         if(fabs(s->x(i)-almsol[i]) > tol)
         {
             std::cerr << "almtest: x[" << i << "]="
-                 << almsol[i] << " expected, " << s->x(i)
+                 <<https://slovnik.seznam.cz/en/?q=z%C3%A1stupce almsol[i] << " expected, " << s->x(i)
                  << " achieved." << std::endl;
             std::cerr << "x=";
 
@@ -448,9 +438,8 @@ int main(int argc, char *argv[])
 
   lpsolver_ptr cps(new cplexlpsolver);
 
-//  csvlpsolver csvs;
+  csvlpsolver csvs;
 
-  cvartest(0.05,0.5,cps);
   almtest(0.05,0.5,cps);
 }
 

@@ -1,9 +1,10 @@
 #ifndef DE_H
 #define DE_H
 
-#include "mspp/problem.h"
+#include "mspp/msproblem.h"
 #include "mspp/distribution.h"
-#include "mspp/solver.h"
+#include "mspp/lpsolver.h"
+#include "mspp/stsolution.h"
 
 namespace mspp
 {
@@ -12,94 +13,76 @@ namespace mspp
 /// \ingroup sms
 /// @{
 
-template <typename S>
-class desolution: public object, public sctreecallback<variables>
-{    
-public:
-    desolution(const S& s, const msproblemstructure& ps) :
-        fs(ptr<S>(new S(s))), fps(ps)
-       {}
-    desolution(const ptr<S> s, const msproblemstructure& ps) :
-        fs(s), fps(ps)
-       {}
-    void set(const variables& x) { fx=ptr<variables>(new variables); }
-    void set(const ptr<variables> x) { fx=x; }
-    void foreach()
-    {
-        fs->foreach(this);
-    }
-    virtual void callback(const indexedhistory<variables>&) {};
-private:
-    ptr<variables> fx;
-    ptr<S> fs;
-    msproblemstructure fps;
-};
 
-template<typename P,typename S,typename Xi>
-class demethod : public object, public sctreecallback<Xi>
+
+template <typename P, typename S>
+using desolution=stsolution<P,S>;
+
+
+template<typename P,typename S>
+class demethod : public object, public sctreecallback<typename S::X_t>
 {
 public:
-    static bool solve(
+    bool solve(
              const P& p,
              const S& z,
              const lpsolver& lps,
              double& optimal,
-             desolution<S>& sol)
-            {/*
-                foffsets.resize(this->fp->T()+1);
-                fdim = 0;
-                fobj.clear();
-                fvars.clear();
-                fconstraints.clear();
-                fvarnames.clear();
-                assert(this->fz->T() == this->fp->T());
+             desolution<P,S>& sol)
+        {
+            fp = &p;
+            fz = &z;
+            foffsets.resize(this->fp->T()+1);
+            fdim = 0;
+            fobj.clear();
+            fvars.clear();
+            fconstraints.clear();
+            fvarnames.clear();
+            assert(this->fz->T() == this->fp->T());
 
-                fsrcexpconstraints.clear();
-                fdstexpconstraints.clear();
-                fups.clear();
+            fsrcexpconstraints.clear();
+            fdstexpconstraints.clear();
+            fups.clear();
 
-
-                this->fz->foreachnode(this);
-                std::vector<double> x(fdim);
-
-                fs.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
-                sol->assign(x);*/
-                return true;
-            }
+            this->fz->foreachnode(this);
+            std::vector<double> x(fdim);
+            lps.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
+            sol.set(x);
+            return true;
+        }
 
 private:
+    const P* fp;
+    const S* fz;
     unsigned int fdim;
     std::vector<double> fobj;
     vardefs<realvar> fvars;
-    std::vector<sparselinearconstraint_ptr> fconstraints;
+    std::vector<sparselinearconstraint> fconstraints;
     std::vector<std::string> fvarnames;
 
     // stored expectation msconstraints
-    std::vector<linearconstraint> fsrcexpconstraints;
-    std::vector<sparselinearconstraint*> fdstexpconstraints;
+    std::vector<typename P::G_t> fsrcexpconstraints;
+    std::vector<unsigned int> fdstexpconstraints;
     std::vector<probability> fups;
 
 
-    // list
-    unsigned int fvindex;
-
 public:
-    virtual void callback(const indexedhistory<Xi>& a)
+    virtual void callback(const indexedhistory<typename S::X_t>& a)
     {
-/*        unsigned int stage = a.size()-1;
+        unsigned int stage = a.size()-1;
         probability up = a.uncprob();
-        scenario<Xi> xi = a.s();
+        scenario<typename S::X_t> s = a.s();
 
         unsigned int thisstagedim = this->fp->d[stage];
 
-        // calling original problems \p msconstraints
+        // calling original problems \p stageinfo
 
-        ptr<vardefs<realvar>> vars;
-        ptr<msconstraints<linearconstraint>> msconstraints;
-        demethod::fp->msconstraints(stage,xi,vars,msconstraints);
+        vardefs<realvar> vars;
+        msconstraints<typename P::G_t> constraints;
 
-        ptr<linearobjective> f;
-        this->fp->f(stage,xi,f);
+        demethod::fp->stageinfo(stage,s,vars,constraints);
+
+        linearfunction f = this->fp->f(stage,s);
 
         foffsets[stage] = fdim;
         fobj.resize(fdim + thisstagedim);
@@ -108,8 +91,8 @@ public:
 
         for(unsigned int i=0; i<thisstagedim; i++)
         {
-            fobj[fdim] = up * (*f)[i];
-            const realvar& v = (*vars)[i];
+            fobj[fdim] = up * f.c(i);
+            const realvar& v = vars[i];
             fvars.push_back(v);
             std::ostringstream s;
             s << this->fp->varname(stage,i) << "@";
@@ -129,26 +112,28 @@ public:
         {
             assert(i<fdstexpconstraints.size());
 
-            for(unsigned int src=this->fp->d.upto(stage), dst=foffsets[stage];
-                src<this->fp->d.sum(stage); src++,dst++)
+           for(unsigned int src=this->fp->d.upto(stage),
+                        dst=foffsets[stage];
+                src<this->fp->d.sum(stage);
+                src++,dst++)
             {
                 if(src < fsrcexpconstraints[i].lhssize())
                 {
                      double coef = fsrcexpconstraints[i].lhs(src);
                      if(coef)
-                        fdstexpconstraints[i]->set_lhs(dst,coef*up/fups[i]);
+                        fconstraints[fdstexpconstraints[i]].set_lhs(dst,coef*up/fups[i]);
                 }
             }
 
         }
 
         // this stage msconstraints
-        if(msconstraints)
-            for(unsigned int j=0; j<msconstraints->size(); j++)
+        if(constraints.size())
+            for(unsigned int j=0; j<constraints.size(); j++)
             {
-                const linearconstraint& s = *(*msconstraints)[j];
+                const typename P::G_t& s = constraints[j];
 
-                sparselinearconstraint_ptr d(new sparselinearconstraint());
+                sparselinearconstraint d;
                 unsigned int src=0;
                 unsigned int i=0;
                 for(; i<=stage; i++)
@@ -160,21 +145,21 @@ public:
                     {
                         double v = s.lhs(src++);
                         if(v)
-                           d->set_lhs(dst,v);
+                           d.set_lhs(dst,v);
                         dst++;
                     }
-                    d->rhs = s.rhs();
-                    d->t = s.t();
+                    d.rhs = s.rhs();
+                    d.t = s.t();
                 }
                 if(s.lhssize() > this->fp->d.sum(stage))
                 {
                     assert(stage < this->fp->T());
                     fsrcexpconstraints.push_back(s);
-                    fdstexpconstraints.push_back(d.get());
+                    fdstexpconstraints.push_back(fconstraints.size());
                     fups.push_back(up);
                 }
                 fconstraints.push_back(d);
-            }*/
+            }
     }
 
 private:

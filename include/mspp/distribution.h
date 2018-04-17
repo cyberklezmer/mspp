@@ -15,8 +15,10 @@ template <typename X, typename C>
 class distribution: public object
 {
 public:
+    using X_t = X;
     C c(const scenario<X> s) const { return C(s); }
 };
+
 
 template <typename X, typename C, typename P>
 class parametricdistribution: virtual public distribution<X,C>
@@ -27,29 +29,6 @@ protected:
     const P& p() { return fp; }
 private:
     P fp;
-};
-
-template <typename X, typename D>
-class processdistribution : public object
-{
-public:
-    processdistribution(const X& z0, D& d, unsigned int T)
-      : fz0(z0), fd(T)
-    {
-        for(unsigned int i=0; i<T; i++)
-            fd[i]=d;
-    }
-    processdistribution(const X& z0, const std::vector<D>& d)
-      : fz0(z0), fd(d)
-    {
-    }
-
-    X z0() const { return fz0; }
-    const D& d(unsigned int k) const { assert(k>0 && k<fd.size()); return fd[k]; }
-    unsigned int T() const { return fd.size(); }
-private:
-    X fz0;
-    std::vector<D> fd;
 };
 
 
@@ -73,6 +52,25 @@ public:
 private:
     virtual X do_draw(const C& c) const = 0;
 };
+
+template <typename X>
+class imcdistribution: public mcdistribution<X, emptycondition<X>>
+{
+public:
+    X draw() const
+    {
+        do_draw();
+    }
+private:
+    virtual X do_draw(const emptycondition<X>&) const
+    {
+        return do_draw();
+    }
+    virtual X do_draw() const = 0;
+};
+
+
+
 
 
 
@@ -99,40 +97,96 @@ public:
         a.resize(0);
         atoms_are(a,c);
     }
+
     void atoms(std::vector<atom<X>>& a, const scenario<X>& s) const
     {
-        a.resize(0);
-        atoms_are(a,distribution<X,C>::c(s));
+        atoms(a,distribution<X,C>::c(s));
     }
 
 protected:
     virtual void atoms_are(std::vector<atom<X>>& a, const C& s) const = 0;
 };
 
+template <typename X>
+class iddistribution: virtual public ddistribution<X,emptycondition<X>>
+{
+public:
+    iddistribution() {}
+
+    void atoms(std::vector<atom<X>>& a) const
+    {
+        a.clear();
+        atoms_are(a);
+    }
+    void atoms(std::vector<atom<X>>& a, const emptycondition<X>&) const
+    {
+        atoms(a);
+    }
+
+    void atoms(std::vector<atom<X>>& a, const scenario<X>&) const
+    {
+        atoms(a);
+    }
+protected:
+    virtual void atoms_are(std::vector<atom<X>>& a, const emptycondition<X>&) const
+      { atoms_are(a); }
+    virtual void atoms_are(std::vector<atom<X>>& a) const = 0;
+};
+
+/// @} - discrete distributions
+
+
+/// @} - distribution
+
+/// \addtogroup processes Proceses
+/// @{
+
+template <typename D>
+class processdistribution : public object
+{
+public:
+    processdistribution(const typename D::X_t& z0, const D& d, unsigned int T)
+      : fz0(z0)
+    {
+        for(unsigned int i=0; i<T; i++)
+            fd.push_back(d);
+    }
+    processdistribution(const typename D::X_t& z0, const std::vector<D>& d)
+      : fz0(z0), fd(d)
+    {
+    }
+
+    typename D::X_t z0() const { return fz0; }
+    const D& d(unsigned int k) const { assert(k>0 && k<=fd.size()); return fd[k-1]; }
+    unsigned int T() const { return fd.size(); }
+private:
+    typename  D::X_t fz0;
+    std::vector<D> fd;
+};
 
 
 template <typename X>
 struct indexedatom {X x;probability p; unsigned int i; };
 
 template <typename X>
-class indexedhistory : public std::vector<X>
+class indexedhistory : public std::vector<indexedatom<X>>
 {
 public:
     double uncprob() const
     {
-        assert(std::vector<X>::size());
-        assert(*this[0].p==1);
+        assert(std::vector<indexedatom<X>>::size());
+        assert((*this)[0].p==1);
         double r = 1.0;
-        for(unsigned int i=1; i<std::vector<X>::size(); i++)
-            r *= *this[i].p;
+        for(unsigned int i=1; i<std::vector<indexedatom<X>>::size(); i++)
+            r *= (*this)[i].p;
         return r;
     }
 
     scenario<X> s() const
     {
-        scenario<X> r(std::vector<X>::size());
-        for(unsigned int i=0; i<std::vector<X>::size(); i++)
-            r[i]=*this[i].x;
+        scenario<X> r(std::vector<indexedatom<X>>::size());
+        for(unsigned int i=0; i<std::vector<indexedatom<X>>::size(); i++)
+            r[i]=(*this)[i].x;
         return r;
     }
 };
@@ -148,12 +202,10 @@ public:
 template <typename X>
 class scenariotree: public object
 {
-private:
-    virtual unsigned int T_is() const = 0;
-    virtual X root_is() const = 0;
-    virtual void branches_are(std::vector<atom<X>>& bchs, const indexedhistory<X>& s) const = 0;
 public:
-    unsigned int T() { return T_is(); }
+    using X_t = X;
+public:
+    unsigned int T() const { return T_is(); }
     void foreachnode(sctreecallback<X> *callee) const
     {
         indexedhistory<X> s;
@@ -163,6 +215,10 @@ public:
             doforeachnode(callee, s);
     }
 private:
+    virtual unsigned int T_is() const = 0;
+    virtual X root_is() const = 0;
+    virtual void branches_are(std::vector<atom<X>>& bchs, const indexedhistory<X>& s) const = 0;
+
     void doforeachnode(sctreecallback<X> *callee, indexedhistory<X> s) const
     {
         unsigned int k=s.size();
@@ -184,11 +240,12 @@ private:
 };
 
 
-template <typename X, typename D>
-class distrscenariotree : public scenariotree<X>
+template <typename D>
+class distrscenariotree : public scenariotree<typename D::X_t>
 {
+    using X=typename D::X_t;
 public:
-    distrscenariotree(const processdistribution<X,D>& p):fp(p)
+    distrscenariotree(const processdistribution<D>& p):fp(p)
     {}
 private:
     virtual void branches_are(std::vector<atom<X>>& bchs,
@@ -205,13 +262,10 @@ private:
     }
     virtual unsigned int  T_is() const { return fp.T(); }
 private:
-    processdistribution<X,D> fp;
+    processdistribution<D> fp;
 };
 
-/// @}
-
-
-/// @} - distributions
+/// @} - processes
 
 
 } // namespace

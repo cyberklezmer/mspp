@@ -1,8 +1,8 @@
 #ifndef TESTS_H
 #define TESTS_H
 
-#include "mspp/linear.h"
-//#include "mspp/mmpcvar.h"
+#include "mspp/msproblem.h"
+#include "mspp/distribution.h"
 #include "mspp/lpsolver.h"
 //#include "io.h"
 #include <fstream>
@@ -14,12 +14,12 @@ class csvlpsolver : public lpsolver
 {
 public:
 
-    virtual void solve(const std::vector<realvar>& vars,
+    virtual void solve(const vardefs<realvar>& vars,
             const std::vector<double>& f,
-            const std::vector<sparselinearconstraint_ptr>& msconstraints,
+            const std::vector<sparselinearconstraint>& msconstraints,
             const std::vector<std::string>& varnames,
-            std::vector<double>& x,
-            double& ) const
+            std::vector<double>& sol,
+            double& objvalue) const
     {
         using namespace std;
         ofstream os("problem.csv");
@@ -53,24 +53,24 @@ public:
 
         for(int y=0; y<3; y++)
         {
-            linearconstraint::type t = (linearconstraint::type) y;
+            constraint::type t = (constraint::type) y;
             os << "consttraints ";
             switch(t)
             {
-                case linearconstraint::eq:
+                case constraint::eq:
                     os << "=";
                 break;
-                case linearconstraint::geq:
+                case constraint::geq:
                     os << ">=";
                 break;
-                case linearconstraint::leq:
+                case constraint::leq:
                     os << "<=";
                 break;
             }
             os << endl;
             for(int i=0; i<msconstraints.size(); i++)
             {
-                const sparselinearconstraint& c = *msconstraints[i];
+                const sparselinearconstraint& c = msconstraints[i];
                 if(c.t == t)
                 {
 /*                    shared_ptr<std::vector<double>> clhs(c.lhs());

@@ -1,7 +1,7 @@
-#ifndef SOLVER_H
-#define SOLVER_H
+#ifndef LPSOLVER_H
+#define LPSOLVER_H
 
-#include "mspp/problem.h"
+#include "mspp/msproblem.h"
 
 namespace mspp
 {
@@ -21,10 +21,10 @@ public:
     };
 
     sparselinearconstraint(
-       linearconstraint::type at = linearconstraint::eq, double arhs=0.0 )
+       constraint::type at = constraint::eq, double arhs=0.0 )
         : flhsdim(0), t(at), rhs(arhs) {}
 
-    linearconstraint::type t;
+    constraint::type t;
     double rhs;
     unsigned int numnz() const { return fnzs.size(); }
     const iitem& nz(unsigned int i) const { return fnzs[i]; }
@@ -53,7 +53,6 @@ private:
     unsigned int flhsdim;
 };
 
-using sparselinearconstraint_ptr = std::shared_ptr<sparselinearconstraint>;
 
 
 class lpsolver : public object
@@ -61,7 +60,7 @@ class lpsolver : public object
 public:
     virtual void solve(const vardefs<realvar>& vrs,
             const std::vector<double>& f,
-            const std::vector<sparselinearconstraint_ptr>& msconstraints, // tbd predef constraintslist
+            const std::vector<sparselinearconstraint>& msconstraints, // tbd predef constraintslist
             const std::vector<std::string>& varnames,
             std::vector<double>& sol,
             double& objvalue) const = 0;
@@ -71,4 +70,5 @@ public:
 
 } // mspp
 
-#endif // SOLVER_H
+
+#endif // LPSOLVER_H

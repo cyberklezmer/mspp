@@ -2,64 +2,38 @@
 #define SDDP_H
 
 
+namespace mspp
+{
+
 /// \addtogroup sddp SDDP
 /// \ingroup sms
 /// @{
 
+template <typename V, typename F, typename X>
+using swimsproblem
+   =msproblem<V, F,interstagelinearconstraint,
+               emptycondition<X>>;
 
-namespace mspp
-{
+template <typename X>
+using sddppdistribution=processdistribution<imcdistribution<X>>;
 
 using sddpsolution = std::vector<variable>;
 
-template <typename Xi>
-class markovindexer : public object
+template <typename P, typename Z>
+class sddpmethod : public object
 {
 public:
-    markovindexer(const scenario<Xi>& s): fs(s)
-    {}
-    unsigned int i() const { return index_is(fs); }
-    operator unsigned int() const { return i(); }
-private:
-    virtual unsigned index_is(const scenario<X>& s) const = 0;
-    scenario<X> fs;
+    bool solve(
+             const P& p,
+             const Z& z,
+             const lpsolver& lps,
+             double& optimal,
+             sddpsolution& sol)
+    {
+        throw("to be done");
+    }
 };
 
-template <typename Xi>
-class trivialindexer : public markovindexer<Xi>
-{
-public:
-    trivialindexer(const scenario<Xi>& s)
-        : markovindexer<Xi>(s) {}
-private:
-    unsigned int index_is() const { return 0; }
-};
-
-
-template <typename Xi>
-using sddppdistribution=processdistribution<Xi,mcdistribution<Xi,emptycondition<Xi>>>;
-
-template <typename Xi, typename F, typename M>
-class markovsddpmethod : public solutionmethod
-         <sddpproblem<F,lastvalue<Xi>>,
-          sddpdistribution<Xi>,
-          sddpsolution, lpsolver, bool>
-{
-public:
-    markovsddpmethod(const sddpproblem<F,C>& p,
-               const sddpdistribution<Xi>& z,
-               const markovcondition& m,
-               const lpsolver& lps )
-     : solutionmethod
-        <sddpproblem<F,C>,sddpdistribution<Xi>,sddpsolution,lpsolver,bool>
-         (p,z,lps)
-    {}
-private:
-    markovcondition& fm;
-};
-
-template <typename Xi, typename F>
-using sddpmethod=markovsddpmethod<Xi,F,trivialindexer<Xi>>;
 
 /// @}
 
