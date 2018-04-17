@@ -1,6 +1,9 @@
 # This file is used to ignore files which are generated
 # ----------------------------------------------------------------------------
 
+html/
+test/Debug/
+
 *~
 *.autosave
 *.a
@@ -70,4 +73,8 @@ Thumbs.db
 # --------
 *.dll
 *.exe
-
+/test/CMakeCache.txt
+/test/CMakeFiles/
+/test/cmake_install.cmake
+/test/mspptest.cbp
+/test/CMakeLists.txt.user

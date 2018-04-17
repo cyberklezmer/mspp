@@ -5,8 +5,6 @@
 #include "mspp/sddp.h"
 #include "mspp/mpcproblem.h"
 
-// TBD vyhodit eomezeni
-
 // milp do templatu
 
 using namespace mspp;
@@ -245,7 +243,6 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
 
     b.solve(cvp,sp, cps, ov, sol);
 
-
     const double tol = 1e-5;
 
     // brought from testproblems.xlsx
@@ -276,8 +273,6 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
                  << cvarsol[i] << " expected, " << sol.x(i)
                  << " achieved." << std::endl;
 
-//            for(unsigned int j=0; j<s->nx(); j++)
-//                std::cerr << "x[" << j << "]=" << sol.x(j) << std::endl;
 
             throw;
         }
@@ -291,9 +286,6 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
             std::cerr << "cvartest: x[" << i << "]="
                  << cvarthetas[i] << " expected, " << sol.x(k+2+3*i)
                  << " achieved." << std::endl;
-
-//            for(unsigned int j=0; j<s->nx(); j++)
-//                std::cerr << "x[" << j << "]=" << s->x(j) << std::endl;
 
             throw;
         }

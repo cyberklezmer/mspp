@@ -40,10 +40,6 @@ public:
             fvarnames.clear();
             assert(this->fz->T() == this->fp->T());
 
-            fsrcexpconstraints.clear();
-            fdstexpconstraints.clear();
-            fups.clear();
-
             this->fz->foreachnode(this);
             std::vector<double> x(fdim);
             lps.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
@@ -59,12 +55,6 @@ private:
     vardefs<realvar> fvars;
     std::vector<sparselinearconstraint> fconstraints;
     std::vector<std::string> fvarnames;
-
-    // stored expectation msconstraints
-    std::vector<typename P::G_t> fsrcexpconstraints;
-    std::vector<unsigned int> fdstexpconstraints;
-    std::vector<probability> fups;
-
 
 public:
     virtual void callback(const indexedhistory<typename S::X_t>& a)
@@ -107,26 +97,6 @@ public:
             fdim++;
         }
 
-        // stored msconstraints with expectations
-        for(unsigned int i=0; i<fsrcexpconstraints.size(); i++)
-        {
-            assert(i<fdstexpconstraints.size());
-
-           for(unsigned int src=this->fp->d.upto(stage),
-                        dst=foffsets[stage];
-                src<this->fp->d.sum(stage);
-                src++,dst++)
-            {
-                if(src < fsrcexpconstraints[i].lhssize())
-                {
-                     double coef = fsrcexpconstraints[i].lhs(src);
-                     if(coef)
-                        fconstraints[fdstexpconstraints[i]].set_lhs(dst,coef*up/fups[i]);
-                }
-            }
-
-        }
-
         // this stage msconstraints
         if(constraints.size())
             for(unsigned int j=0; j<constraints.size(); j++)
@@ -150,13 +120,6 @@ public:
                     }
                     d.rhs = s.rhs();
                     d.t = s.t();
-                }
-                if(s.lhssize() > this->fp->d.sum(stage))
-                {
-                    assert(stage < this->fp->T());
-                    fsrcexpconstraints.push_back(s);
-                    fdstexpconstraints.push_back(fconstraints.size());
-                    fups.push_back(up);
                 }
                 fconstraints.push_back(d);
             }

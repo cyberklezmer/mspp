@@ -54,7 +54,7 @@ private:
 };
 
 
-class sys : public object
+/*class sys : public object
 {
     static sys* fself;
 public:
@@ -95,7 +95,7 @@ public:
 private:
     ptr<std::ostream> flog;
     ptr<std::ostream> ferr;
-};
+};*/
 
 /// @}
 

@@ -1,4 +1,4 @@
-project(mspp)
+project(mspptest)
 cmake_minimum_required(VERSION 2.8)
 
 set( CPLEX_VER "1263" )
@@ -8,14 +8,14 @@ set( CPLEX_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/lib/x86-64_linux/static
 set( CPLEX_BIN_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/bin/x86-64_linux" )
 set( CONCERT_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/concert/lib/x86-64_linux/static_pic" )
 
-file(GLOB SRC_LIST "src/*.cpp")
+file(GLOB SRC_LIST "*.cpp")
 
 #CPLEX - force it to use STD headers like <iostream> instead of <iostream.h>
 add_definitions( -DIL_STD )
 #CPLEX - headers, put your directory
 include_directories(${CPLEX_HEADER_DIR} )
 include_directories(${CONCERT_HEADER_DIR} )
-include_directories(include)
+include_directories(..)
 
 #CPLEX - libraries to link
 find_library(ILOCPLEX libilocplex.a ${CPLEX_LIB_DIR} )
