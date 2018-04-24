@@ -7,7 +7,6 @@ namespace mspp
 {
 
 
-
 /// \addtogroup msproblems Multistage Problems
 /// \ingroup problems
 /// @{
@@ -52,7 +51,7 @@ public:
 
 
 /// Base abstract class describing multistage problems
-template<typename V, typename F, typename G, typename C>
+template<typename V, typename F, typename G, typename R, typename C>
 class msproblem : public object
 {
     public:
@@ -61,15 +60,18 @@ class msproblem : public object
         using G_t = G;
         using F_t = F;
         using C_t = C;
+        using R_t = R;
 
-        msproblem(const msproblemstructure& ps):d(ps)
+
+        msproblem(const msproblemstructure& ps, R rho=R()):
+             d(ps), frho(rho)
         {
         }
 
-        msproblem(const std::vector<unsigned int>& psv):d(psv)
+        msproblem(const std::vector<unsigned int>& ps, R rho=R()):
+             d(ps), frho(rho)
         {
         }
-
 
         ///@{
         /// @name Accessors
@@ -97,16 +99,16 @@ class msproblem : public object
          * @param r return value - variable ranges
          * @param gh return value - msconstraints
          */
-        void stageinfo(
+        void xset(
                 unsigned int k,
                 const scenario<typename C::X_t>& s,
                 vardefs<V>& r,
                 msconstraints<G>& gh) const
         {
-            stageinfo(k,C(s),r,gh);
+            xset(k,C(s),r,gh);
         }
 
-        void stageinfo(
+        void xset(
                 unsigned int k,
                 const C& barxi,
                 vardefs<V>& r,
@@ -115,13 +117,17 @@ class msproblem : public object
             r.clear();
             r.resize(d[k]);
             gh.clear();
-            this->stageinfo_is(k,barxi,r,gh);
+            this->xset_is(k,barxi,r,gh);
+            for(unsigned int i=0; i<gh.size(); i++)
+                assert(gh[i].check(d,k));
         }
 
         virtual std::string varname(unsigned int stage, unsigned int i) const
         {
             return varname_is(stage,i);
         }
+
+        R rho() const { return frho; }
 
         const msproblemstructure d;
         ///@}
@@ -137,40 +143,89 @@ protected:
    }
 
 private:
-        virtual F f_is(
-                unsigned int k,
-                const C& barxi) const = 0;
+    virtual F f_is(
+            unsigned int k,
+            const C& barxi) const = 0;
 
-        virtual void stageinfo_is(
-                unsigned int k,
-                const C& barxi,
-                vardefs<V>& r,
-                msconstraints<G>& g
-                ) const = 0;
+    virtual void xset_is(
+            unsigned int k,
+            const C& barxi,
+            vardefs<V>& r,
+            msconstraints<G>& g
+            ) const = 0;
 
-        virtual std::string varname_is(unsigned int stage, unsigned int i) const
-        {
-            std::ostringstream s;
-            s << "x" << stage << "_" << i;
-            return s.str();
-        }
+    virtual std::string varname_is(unsigned int stage, unsigned int i) const
+    {
+        std::ostringstream s;
+        s << "x" << stage << "_" << i;
+        return s.str();
+    }
 
-        ///@}
+    ///@}
+
+   const R frho;
+};
+
+class expectation : public criterion
+{
 };
 
 
-class linearmsconstraint : public constraint
+class mmpcvar: public criterion
+{
+public:
+    mmpcvar(double alambda, double aalpha=0.05) :
+        lambda(alambda), alpha(aalpha)
+    {}
+    const double lambda;
+    const double alpha;
+};
+
+class nestedmcvar: public criterion
+{
+public:
+    nestedmcvar(double alambda, double aalpha=0.05) :
+        lambda(alambda), alpha(aalpha)
+    {}
+    const double lambda;
+    const double alpha;
+};
+
+class msconstraint : public constraint
+{
+public:
+    msconstraint(type t=eq) : constraint(t) {}
+
+    virtual bool check(const msproblemstructure& d, unsigned int k) const = 0;
+};
+
+class linearmsconstraint : public msconstraint
 {
 public:
 
     linearmsconstraint(const msproblemstructure& ps,
                                              unsigned int k)
         : flhssize(ps.sum(k)), frhs(0) {}
+
     linearmsconstraint(unsigned int lhssize, constraint::type t, double rhs )
-        : constraint(t), flhssize(lhssize), frhs(rhs) {}
+        : msconstraint(t), flhssize(lhssize), frhs(rhs) {}
 
     virtual double lhs(unsigned int k) const = 0;
     unsigned int lhssize() const { return flhssize; }
+    virtual bool check(const msproblemstructure& d, unsigned int k) const
+    {
+        unsigned int dim = d.sum(k);
+        if(flhssize != dim)
+             return false;
+        bool iszero = true;
+        for(unsigned int i=k ? d.sum(k-1) : 0; i<dim; i++)
+            if(lhs(i))
+            {
+                iszero = false;
+                break;
+            }
+        return !iszero;
+    }
 
     double rhs() const { return frhs; }
     void setrhs(double rhs ) { frhs = rhs; }
@@ -185,7 +240,7 @@ class fulllinearconstraint : public linearmsconstraint
 public:
 
     fulllinearconstraint( const msproblemstructure& ps, unsigned int k )
-        : linearmsconstraint(ps,k), flhs(lhssize(),0) {}
+        : linearmsconstraint(ps,k), flhs(ps.sum(k),0) {}
 
     fulllinearconstraint( const std::vector<double> lhs, constraint::type t,
                                       double rhs)

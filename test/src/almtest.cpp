@@ -60,7 +60,7 @@ void almtest(double alpha, double lambda, const lpsolver_ptr& cps)
     std::cout <<"ALMtest..." << std::endl;
 
     linearproblem_ptr<double> cvp;
-    cvp.reset(new mmpcvarproblem<double>(prp,alpha,lambda));
+    cvp.reset(new mmpcvarequivalent<double>(prp,alpha,lambda));
 
     printvarnames(*cvp);
     biglpmethod<double> b(cvp,ss,cps);

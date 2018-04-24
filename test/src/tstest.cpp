@@ -2,16 +2,18 @@
 #include "mspp/de.h"
 
 class tsproblem: public msproblem<realvar,linearfunction,
-                fulllinearconstraint,fullhistory<omega>>
+                fulllinearconstraint,expectation,
+                fullhistory<omega>>
 {
 public:
     tsproblem() :
         msproblem<realvar,linearfunction,
-                        fulllinearconstraint,fullhistory<omega>>
+                        fulllinearconstraint,
+                        expectation, fullhistory<omega>>
            (msproblemstructure({2,2}))
     {}
 private:
-    virtual void stageinfo_is(
+    virtual void xset_is(
             unsigned int k,
             const fullhistory<omega>& xi,
             vardefs<realvar>& xs,

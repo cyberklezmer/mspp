@@ -7,8 +7,8 @@ namespace mspp
 {
 
 template<class S>
-class mmpcvarproblem: public msproblem
-               <typename S::V_t, linearfunction, typename S::G_t, typename S::C_t>
+class mmpcvarequivalent: public msproblem
+               <typename S::V_t, linearfunction, typename S::G_t, expectation, typename S::C_t>
 {
     static msproblemstructure
         ps(const msproblemstructure& sps)
@@ -24,13 +24,32 @@ class mmpcvarproblem: public msproblem
     }
 
 public:
-    mmpcvarproblem(const S& sp, double alpha, double lambda) :
+
+    mmpcvarequivalent(const S& sp) :
         msproblem<typename S::V_t,
                   linearfunction,
                   typename S::G_t,
+                  expectation,
                   typename S::C_t>(ps(sp.d)),
-           fsp(new S(sp)), falpha(alpha), flambda(lambda)
+           fsp(new S(sp)),
+           flambda( sp.rho().lambda),
+           falpha( sp.rho().alpha)
     {
+        static_assert(std::is_same<typename S::R_t,mmpcvar>::value);
+        assert(fsp->T()>0);
+        assert(falpha > 0);
+    }
+
+    mmpcvarequivalent(const S& sp,double lambda, double alpha) :
+        msproblem<typename S::V_t,
+                  linearfunction,
+                  typename S::G_t,
+                  expectation,
+                  typename S::C_t>(ps(sp.d)),
+           fsp(new S(sp)),
+           flambda(lambda),falpha(alpha)
+    {
+        static_assert(std::is_same<typename S::R_t,expectation>::value);
         assert(fsp->T()>0);
         assert(falpha > 0);
     }
@@ -68,7 +87,7 @@ public:
         return r;
     }
 
-    virtual void stageinfo_is(
+    virtual void xset_is(
             unsigned int k,
             const typename S::C_t& barxi,
             vardefs<typename S::V_t>& r,
@@ -84,7 +103,7 @@ public:
         using G_t = typename S::G_t;
 
         msconstraints<G_t> srcgs;
-        fsp->stageinfo(k,barxi,srcr,srcgs);
+        fsp->xset(k,barxi,srcr,srcgs);
 
         unsigned int i=0;
         for(; i<srcr.size(); i++)
@@ -147,8 +166,8 @@ public:
     double nu() const { return 1.0 - flambda + flambda / falpha; }
 public:
     ptr<S> fsp;
-    double falpha;
     double flambda;
+    double falpha;
 };
 
 

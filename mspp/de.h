@@ -4,6 +4,7 @@
 #include "mspp/msproblem.h"
 #include "mspp/distribution.h"
 #include "mspp/lpsolver.h"
+#include "mspp/mpcproblem.h"
 #include "mspp/stsolution.h"
 
 namespace mspp
@@ -15,36 +16,58 @@ namespace mspp
 
 
 
-template <typename P, typename S>
-using desolution=stsolution<P,S>;
-
 
 template<typename P,typename S>
 class demethod : public object, public sctreecallback<typename S::X_t>
 {
 public:
+    demethod()
+    {
+        static_assert(
+             std::is_same<typename P::R_t,expectation>::value
+               || std::is_same<typename P::R_t,mmpcvar>::value
+               || std::is_same<typename P::R_t,nestedmcvar>::value
+                    );
+    }
+
     bool solve(
              const P& p,
              const S& z,
              const lpsolver& lps,
              double& optimal,
-             desolution<P,S>& sol)
+             stsolution<P,S>& sol)
         {
-            fp = &p;
-            fz = &z;
-            foffsets.resize(this->fp->T()+1);
-            fdim = 0;
-            fobj.clear();
-            fvars.clear();
-            fconstraints.clear();
-            fvarnames.clear();
-            assert(this->fz->T() == this->fp->T());
+            if constexpr(std::is_same<typename P::R_t,expectation>::value)
+            {
+                fp = &p;
+                fz = &z;
+                foffsets.resize(this->fp->T()+1);
+                fdim = 0;
+                fobj.clear();
+                fvars.clear();
+                fconstraints.clear();
+                fvarnames.clear();
+                assert(this->fz->T() == this->fp->T());
 
-            this->fz->foreachnode(this);
-            std::vector<double> x(fdim);
-            lps.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
-            sol.set(x);
-            return true;
+                this->fz->foreachnode(this);
+                std::vector<double> x(fdim);
+                lps.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
+                sol.set(x);
+                return true;
+            }
+            else if constexpr(std::is_same<typename P::R_t,mmpcvar>::value)
+            {
+                mmpcvarequivalent<P> e(p);
+                stsolution<mmpcvarequivalent<P>,S> es(e,z);
+                demethod<mmpcvarequivalent<P>,S> m;
+                double o;
+                m.solve(e, z, lps, o, es);
+                stsolreducer<stsolution<mmpcvarequivalent<P>,S>,
+                             stsolution<P,S>> r;
+                r.convert(es,sol);
+                return true;
+            }
+            return false;
         }
 
 private:
@@ -65,12 +88,12 @@ public:
 
         unsigned int thisstagedim = this->fp->d[stage];
 
-        // calling original problems \p stageinfo
+        // calling original problems \p xset
 
         vardefs<realvar> vars;
         msconstraints<typename P::G_t> constraints;
 
-        demethod::fp->stageinfo(stage,s,vars,constraints);
+        demethod::fp->xset(stage,s,vars,constraints);
 
         linearfunction f = this->fp->f(stage,s);
 
@@ -101,7 +124,7 @@ public:
         if(constraints.size())
             for(unsigned int j=0; j<constraints.size(); j++)
             {
-                const typename P::G_t& s = constraints[j];
+                const linearmsconstraint& s = constraints[j];
 
                 sparselinearconstraint d;
                 unsigned int src=0;

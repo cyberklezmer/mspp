@@ -3,34 +3,13 @@
 #include "mspp/de.h"
 
 class psproblem: public msproblem<realvar,linearfunction,
-        fulllinearconstraint,fullhistory<omega>>
+        fulllinearconstraint,mmpcvar,fullhistory<omega>>
 {
 
-public:template <typename X>
-    class guiddistribution: public iddistribution<X>
-    {
-    public:
-        guiddistribution(const std::vector<X>& items) : fitems(items)
-        {
-            assert(fitems.size());
-        }
-
-    protected:
-        virtual void atoms_are(std::vector<atom<X>>& a) const
-        {
-            unsigned int N=fitems.size();
-            double p=1.0 / (double) N;
-            a.resize(N);
-            for(unsigned int i=0; i<N; i++)
-                a[i]= {fitems[i],p};
-        };
-    private:
-        std::vector<X> fitems;
-    };
-
-    psproblem() : msproblem<realvar,linearfunction,
-                  fulllinearconstraint,fullhistory<omega>>
-          ({2,2})
+public:
+    psproblem(double lambda, double alpha) : msproblem<realvar,linearfunction,
+                  fulllinearconstraint,mmpcvar, fullhistory<omega>>
+          ({2,2},mmpcvar(lambda,alpha))
     {}
 
     virtual linearfunction f_is(
@@ -44,7 +23,7 @@ public:template <typename X>
            return linearfunction({0,0});
     }
 
-    virtual void stageinfo_is(
+    virtual void xset_is(
             unsigned int k,
             const fullhistory<omega>& xi,
             vardefs<realvar>& r,
@@ -70,7 +49,7 @@ public:template <typename X>
 };
 
 
-void cvartest(double alpha, double lambda, const lpsolver& cps)
+void cvartest(double alpha, double lambda, const lpsolver& solver)
 {
     const int numleaves = 3;
 
@@ -86,29 +65,69 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
         }
     }
 
+    guiddistribution<omega> distr(items);
 
-    guiddistribution<omega> g(items);
-
-    processdistribution<guiddistribution<omega>> pd({0,0},g,1);
+    processdistribution<guiddistribution<omega>> pdistr({0,0},distr,1);
 
     using myscenariotree=distrscenariotree<guiddistribution<omega>>;
-    myscenariotree sp(pd);
+
+    myscenariotree stree(pdistr);
 
 
-    psproblem prp;
+    psproblem raproblem(lambda,alpha);
 
-    std::cout << "CVaRtest "  << std::endl;
+    std::cout << "CVaRtest direct "  << std::endl;
 
-    mmpcvarproblem<psproblem> cvp(prp,alpha,lambda);
+    demethod<psproblem,myscenariotree> m;
+    stsolution<psproblem,myscenariotree> s(raproblem,stree);
 
-    demethod<mmpcvarproblem<psproblem>,myscenariotree> b;
+    double o;
 
-    stsolution<mmpcvarproblem<psproblem>,myscenariotree> sol(cvp,sp);
-    double ov;
-
-    b.solve(cvp,sp, cps, ov, sol);
+    m.solve(raproblem,stree, solver, o, s);
 
     const double tol = 1e-5;
+
+    double cvarobj = -0.266666666666667;
+
+    if(fabs(o-cvarobj) > tol)
+    {
+        std::cerr << "cvartest direct: opt="
+             << cvarobj << " expected, " << o << " achieved." << std::endl;
+
+        throw;
+    }
+
+    if(fabs(s.x(0)) > tol)
+    {
+        std::cerr << "cvartest direct: x[" << 0 << "]="
+             << 0 << " expected, " << s.x(0)
+             << " achieved." << std::endl;
+        throw;
+    }
+
+    if(fabs(s.x(1)-1) > tol)
+    {
+        std::cerr << "cvartest direct: x[" << 1 << "]="
+             << 1 << " expected, " << s.x(1)
+             << " achieved." << std::endl;
+        throw;
+    }
+
+    std::cout << "CVaRtest direct passed."  << std::endl;
+
+    std::cout << "CVaRtest indirect "  << std::endl;
+
+    mmpcvarequivalent<psproblem> mcvproblem(raproblem);
+
+    demethod<mmpcvarequivalent<psproblem>,myscenariotree> b;
+
+    stsolution<mmpcvarequivalent<psproblem>,myscenariotree>
+            sol(mcvproblem,stree);
+
+    double ovalue;
+
+    b.solve(mcvproblem,stree, solver, ovalue, sol);
+
 
     // brought from testproblems.xlsx
     // x0_1,x_02,u0,theta_1,theta_2,theta_3,theta_4,theta_5,theta_6,theta_7,theta_8,theta_9,,,
@@ -118,12 +137,11 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
                       0,-0.166666666666669,-0.333333333333333,
                       0,-0.166666666666667,-0.333333333333332};
 
-    double cvarobj = -0.266666666666667;
 
-    if(fabs(ov-cvarobj) > tol)
+    if(fabs(ovalue-cvarobj) > tol)
     {
         std::cerr << "cvartest: opt="
-             << cvarobj << " expected, " << ov << " achieved." << std::endl;
+             << cvarobj << " expected, " << ovalue << " achieved." << std::endl;
 
         throw;
     }
@@ -155,6 +173,8 @@ void cvartest(double alpha, double lambda, const lpsolver& cps)
             throw;
         }
     }
-    std::cout <<  "MPCVaRtest passed." << std::endl;
+    std::cout <<  "MPCVaRtest indirect passed." << std::endl;
+
+
 }
 

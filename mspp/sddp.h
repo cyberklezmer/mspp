@@ -1,6 +1,7 @@
 #ifndef SDDP_H
 #define SDDP_H
 
+#include "mspp/msproblem.h"
 
 namespace mspp
 {
@@ -9,9 +10,9 @@ namespace mspp
 /// \ingroup sms
 /// @{
 
-template <typename V, typename F, typename X>
+template <typename V, typename F, typename R, typename X>
 using swimsproblem
-   =msproblem<V, F,interstagelinearconstraint,
+   =msproblem<V, F,interstagelinearconstraint,R,
                emptycondition<X>>;
 
 template <typename X>
@@ -30,7 +31,14 @@ public:
              double& optimal,
              sddpsolution& sol)
     {
-        throw("to be done");
+        static_assert(
+            std::is_same<typename P::G_t,interstagelinearconstraint>::value);
+        static_assert(
+            std::is_same<typename P::C_t,emptycondition<typename P::C_t::X_t>>::value);
+        if constexpr (std::is_same<typename P::R_t,nestedmcvar>::value)
+           throw("do it");
+        else
+           throw("emulate nested mcvar");
     }
 };
 

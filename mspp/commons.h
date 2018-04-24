@@ -11,6 +11,8 @@
 
 static_assert(std::numeric_limits<double>::is_iec559, "IEEE 754 required");
 
+static_assert(__cplusplus >= 201703, "C++17 language standard required");
+
 namespace mspp
 {
 
@@ -100,13 +102,20 @@ private:
 /// @}
 
 
+/// \ingroup Distributions
+template <typename X>
+using scenario = std::vector<X>;
+
 
 /// \addtogroup general General Definitions
 ///  @{
 
 
-template <typename X>
-using scenario = std::vector<X>;
+
+
+/// \addtogroup cns Conditions
+/// \ingroup general
+/// @{
 
 template <typename X>
 class condition: public object
@@ -114,11 +123,6 @@ class condition: public object
 public:
     using X_t = X;
 };
-
-/// \addtogroup cns Conditions
-/// \ingroup general
-/// @{
-
 
 
 template <typename X>
@@ -245,6 +249,15 @@ public:
     void settype(type t) { ft = t; }
 private:
     type ft;
+};
+
+class criterion: public object
+{
+//public:
+//    criterion(unsigned int dim) : fdim(dim) {}
+//    unsigned int dim() const { return fdim; }
+//private:
+//    unsigned int fdim;
 };
 
 ///@}
