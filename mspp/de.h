@@ -37,6 +37,7 @@ public:
              double& optimal,
              stsolution<P,S>& sol)
         {
+
             if constexpr(std::is_same<typename P::R_t,expectation>::value)
             {
                 fp = &p;
@@ -60,8 +61,8 @@ public:
                 mmpcvarequivalent<P> e(p);
                 stsolution<mmpcvarequivalent<P>,S> es(e,z);
                 demethod<mmpcvarequivalent<P>,S> m;
-                double o;
-                m.solve(e, z, lps, o, es);
+                m.solve(e, z, lps, optimal, es);
+
                 stsolreducer<stsolution<mmpcvarequivalent<P>,S>,
                              stsolution<P,S>> r;
                 r.convert(es,sol);

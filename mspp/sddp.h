@@ -10,15 +10,27 @@ namespace mspp
 /// \ingroup sms
 /// @{
 
-template <typename V, typename F, typename R, typename X>
-using swimsproblem
-   =msproblem<V, F,interstagelinearconstraint,R,
-               emptycondition<X>>;
 
-template <typename X>
-using sddppdistribution=processdistribution<imcdistribution<X>>;
+using sddpsolution = variables;
 
-using sddpsolution = std::vector<variable>;
+template <typename C>
+class indexer
+{
+public:
+    virtual unsigned int index(const C& c) const = 0;
+};
+
+template <typename C>
+class trivialindexer
+{
+public:
+    virtual unsigned int index(const C&) const
+    {
+        static_assert(std::is_same<C, emptycondition<typename C::X_t>>::value);
+        return 0;
+    }
+};
+
 
 template <typename P, typename Z>
 class sddpmethod : public object
@@ -31,14 +43,13 @@ public:
              double& optimal,
              sddpsolution& sol)
     {
-        static_assert(
-            std::is_same<typename P::G_t,interstagelinearconstraint>::value);
-        static_assert(
-            std::is_same<typename P::C_t,emptycondition<typename P::C_t::X_t>>::value);
-        if constexpr (std::is_same<typename P::R_t,nestedmcvar>::value)
-           throw("do it");
-        else
-           throw("emulate nested mcvar");
+//        if constexpr (std::is_same<typename P::R_t,nestedmcvar>::value)
+//           throw("do it");
+//        else
+//           throw("emulate nested mcvar");
+        static_assert( std::is_same<typename P::C_t,
+                         emptycondition<typename P::X_t>>::value );
+//        return solve(p,z,lps, optimal, sol, trivialindexer<typename P::C_t>);
     }
 };
 

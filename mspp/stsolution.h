@@ -21,13 +21,15 @@ template <typename P, typename S>
 class stsolution: public object, public sctreecallback<typename S::X_t>
 {
 public:
+    using P_t = P;
+    using S_t = S;
     using X_t = typename S::X_t;
 
     stsolution(const P& p, const S& s) :
-        fs(ptr<S>(new S(s))), fps(p.d)
+        fs(ptr<S>(new S(s))), fps(p.d), fcallee(0)
        {}
     stsolution(const P& p, const ptr<S> s) :
-        fs(s), fps(p.d)
+        fs(s), fps(p.d), fcallee(0)
        {}
     void set(const variables& x) { fx=ptr<variables>(new variables(x)); }
     void set(const ptr<variables> x) { fx=x; }
@@ -64,9 +66,11 @@ public:
         fh[k] = { {a.x,n }, a.p, a.i };
         for(unsigned int i=0; i<h.size(); i++)
             assert(fh[i].i==h[i].i);
+        fcallee->callback(fh);
     }
 //    virtual void callback(const indexedhistory<stsolitem<typename S::X_t>>&) {};
     variable &x(unsigned int i) const { return (*fx)[i]; }
+    const variables x() const { return *fx; }
 private:
     ptr<variables> fx;
     ptr<S> fs;
@@ -77,8 +81,9 @@ template <typename S, typename D>
 class stsolreducer : public object, public stsolutioncallback<typename S::X_t>
 {
 public:
-    void convert(const S& s, D& d)
+    void convert(S& s, D& d)
     {
+        static_assert(std::is_same<typename S::S_t, typename D::S_t>::value);
         assert(!fv);
         fv.reset(new variables);
         fdps = d.ps();
@@ -100,6 +105,7 @@ private:
         assert(v.size() >= fdps[k]);
         for(unsigned int i=0; i<fdps[k]; i++)
             fv->push_back(v[i]);
+
     }
 };
 

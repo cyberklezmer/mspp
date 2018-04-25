@@ -14,18 +14,18 @@ public:
 
     virtual linearfunction f_is(
                     unsigned int k,
-                    const fullhistory<omega>& xi) const
+                    const barxi<fullhistory<omega>>& bx) const
 
     {
        if(k)
-           return linearfunction({-xi[1].o1,-xi[1].o2});
+           return linearfunction({-bx.x.o1,-bx.x.o2});
        else
            return linearfunction({0,0});
     }
 
     virtual void xset_is(
             unsigned int k,
-            const fullhistory<omega>& xi,
+            const barxi<fullhistory<omega>>& bx,
             vardefs<realvar>& r,
             msconstraints<fulllinearconstraint>& g
             ) const
@@ -174,7 +174,5 @@ void cvartest(double alpha, double lambda, const lpsolver& solver)
         }
     }
     std::cout <<  "MPCVaRtest indirect passed." << std::endl;
-
-
 }
 

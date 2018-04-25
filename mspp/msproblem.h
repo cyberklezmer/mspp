@@ -49,6 +49,25 @@ public:
     }
 };
 
+/*
+
+template <typename C>
+class bar: public object
+{
+public:
+    using X_t = typename C::X_t;
+
+    X_t x;
+    C c;
+    bar(const scenario<X_t>& s) :
+        x(s[s.size()-1]), c(s,true)
+        {}
+};
+
+template <typename X>
+using barxi
+
+*/
 
 /// Base abstract class describing multistage problems
 template<typename V, typename F, typename G, typename R, typename C>
@@ -61,7 +80,6 @@ class msproblem : public object
         using F_t = F;
         using C_t = C;
         using R_t = R;
-
 
         msproblem(const msproblemstructure& ps, R rho=R()):
              d(ps), frho(rho)
@@ -110,14 +128,14 @@ class msproblem : public object
 
         void xset(
                 unsigned int k,
-                const C& barxi,
+                const barxi<C>& bx,
                 vardefs<V>& r,
                 msconstraints<G>& gh) const
         {
             r.clear();
             r.resize(d[k]);
             gh.clear();
-            this->xset_is(k,barxi,r,gh);
+            this->xset_is(k,bx,r,gh);
             for(unsigned int i=0; i<gh.size(); i++)
                 assert(gh[i].check(d,k));
         }
@@ -145,11 +163,11 @@ protected:
 private:
     virtual F f_is(
             unsigned int k,
-            const C& barxi) const = 0;
+            const barxi<C>& bx) const = 0;
 
     virtual void xset_is(
             unsigned int k,
-            const C& barxi,
+            const barxi<C>& bx,
             vardefs<V>& r,
             msconstraints<G>& g
             ) const = 0;

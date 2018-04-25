@@ -122,22 +122,36 @@ class condition: public object
 {
 public:
     using X_t = X;
+    condition(bool empty) : fempty(empty) {}
+    bool empty() { return fempty; }
+private:
+    bool fempty;
 };
-
 
 template <typename X>
 class emptycondition: public condition<X>
 {
 public:
-    emptycondition(const scenario<X>&) {}
+    emptycondition(const scenario<X>&, bool lastincluded = true) :
+      condition<X>(true) {}
 };
 
 template <typename X>
 class fullhistory: public condition<X>
 {
+    bool isempty(unsigned int size, bool lastincluded)
+    {
+        assert(size);
+        return size == 1 && !lastincluded;
+    }
+
 public:
-    fullhistory(const scenario<X>& s): fs(s)
-    {}
+    fullhistory(const scenario<X>& s, bool lastincluded = true)
+        : condition<X>(isempty(s.size(),lastincluded)), fs(s)
+    {
+        if(!lastincluded)
+           fs.resize(fs.size()-1);
+    }
     const scenario<X>& s() const { return fs; }
     const X& operator[](unsigned int k) const
                     { assert(k<fs.size()); return fs[k]; }
@@ -148,17 +162,28 @@ private:
 template <typename X>
 class lastvalue: public condition<X>
 {
-    unsigned int checksize(unsigned int s) const
+    bool isempty(unsigned int size, bool lastincluded)
     {
-        assert(s);
-        return s;
+        assert(size);
+        return size == 1 && !lastincluded;
     }
 public:
-    lastvalue(const scenario<X>& s):
-        fx(s[checksize(s.size())-1])
+    lastvalue(const scenario<X>& s, bool lastincluded = true):
+        condition<X>(isempty(s.size(),lastincluded))
     {
+        if(!condition<X>::empty())
+        {
+            if(lastincluded)
+               fx = s[s.size()-1];
+            else
+            {
+                assert(s.size() > 1);
+                fx = s[s.size()-2];
+            }
+        }
     }
-    X x() const { return fx; }
+
+    X x() const { assert(!condition<X>::empty());  return fx; }
     operator X() const {return x();}
 private:
     X fx;
@@ -167,15 +192,22 @@ private:
 template <typename X, typename M>
 class markovcondition: public condition<X>
 {
+    bool isempty(unsigned int size, bool lastincluded)
+    {
+        assert(size);
+        return size == 1 && !lastincluded;
+    }
+
 public:
     struct result { X x; M m; };
-    markovcondition(const scenario<X>& s):
-        fs(s)
+    markovcondition(const scenario<X>& s, bool lastincluded = true):
+        condition<X>(isempty(s.size(),lastincluded)), fs(s)
     {
-        assert(s.size());
+        if(!lastincluded)
+            fs.resiize(fs.size()-1);
     }
     X x() const { return fs[fs.size()-1]; }
-    M m() const { assert(fs.size() > 1); return m_is(fs); }
+    M m() const { assert(!condition<X>::empty()); return m_is(fs); }
     result r() const { return { x(), m() }; }
     operator result() const {return r();}
 private:
