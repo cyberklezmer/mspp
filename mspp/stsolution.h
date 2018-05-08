@@ -2,112 +2,138 @@
 #define STSOLUTION_H
 
 #include "mspp/msproblem.h"
-#include "mspp/distribution.h"
+#include "mspp/random.h"
 
 namespace mspp
 {
 
-template<typename X>
-struct stsolitem { X x; variables v; };
-
-template<typename X>
-class stsolutioncallback
+template<typename P, typename Z>
+struct stsolitem
 {
-public:
-    virtual void callback(const indexedhistory<stsolitem<X>>& s) = 0;
+    rvector<typename Z::X_t> xi;
+    variables<typename P::V_t> x;
 };
 
-template <typename P, typename S>
-class stsolution: public object, public sctreecallback<typename S::X_t>
+
+template <typename P, typename Z>
+class stsolcallback
+{
+public:
+    virtual void callback(const indexedpath<stsolitem<P,Z>>& path, void* state=0) const;
+};
+
+template<typename P, typename Z>
+struct stsolutionstate
+{
+public:
+    stsolcallback<P,Z> *callee;
+    indexedpath<stsolitem<P,Z>> h;
+    unsigned int i;
+    void* callees;
+};
+
+
+template <typename P, typename Z>
+class stsolution: public object,
+        public sctreecallback<typename Z::X_t, stsolutionstate<P,Z>>
 {
 public:
     using P_t = P;
-    using S_t = S;
-    using X_t = typename S::X_t;
+    using Z_t = Z;
+    using X_t = typename Z::X_t;
+    using V_t = typename P::V_t;
 
-    stsolution(const P& p, const S& s) :
-        fs(ptr<S>(new S(s))), fps(p.d), fcallee(0)
+    stsolution(const P& p, const Z& z) :
+        fz(ptr<Z>(new Z(z))), fps(p.d)
        {}
-    stsolution(const P& p, const ptr<S> s) :
-        fs(s), fps(p.d), fcallee(0)
+    stsolution(const P& p, const ptr<Z> z) :
+        fz(z), fps(p.d)
        {}
-    void set(const variables& x) { fx=ptr<variables>(new variables(x)); }
-    void set(const ptr<variables> x) { fx=x; }
+    void set(const variables<V_t>& x) { fx=ptr<variables<V_t>>(new variables<V_t>(x)); }
+    void set(const ptr<variables<V_t>> x) { fx=x; }
     const msproblemstructure& ps() const { return fps; }
-private: // state variables
-    stsolutioncallback<typename S::X_t> *fcallee;
-    indexedhistory<stsolitem<typename S::X_t>> fh;
-    unsigned int fi;
-public:
-    void foreachnode(stsolutioncallback<typename S::X_t> *callee)
+
+    void foreachnode(stsolcallback<P,Z> *callee, void* cs=0) const
     {
-        assert(fcallee == 0);
-        assert(fh.size()==0);
-        fcallee = callee;
-        fi=0;
-        fs->foreachnode(this);
-        assert(fi==fx->size());
-        fh.clear();
-        fcallee = 0;
+        stsolutionstate<P,Z> s;
+        s.callee = callee;
+        s.i = 0;
+        s.callees = cs;
+        fz->foreachnode(this, &s);
     }
-    virtual void callback(const indexedhistory<typename S::X_t>& h)
+
+
+    virtual void callback(const indexedpath<rvector<X_t>>& h,
+                                 stsolutionstate<P,Z>* s) const
     {
         assert(h.size() <= fps.size());
         assert(h.size());
         unsigned int k = h.size()-1;
-        variables n;
+        variables<V_t> n;
         for(unsigned int i=0; i<fps[k]; i++)
         {
-            assert(fi<fx->size());
-            n.push_back((*fx)[fi++]);
+            assert(s->i<fx->size());
+            n.push_back((*fx)[s->i++]);
         }
-        fh.resize(h.size());
-        const indexedatom<typename S::X_t>& a = h[k];
-        fh[k] = { {a.x,n }, a.p, a.i };
+        s->h.resize(h.size());
+        auto a=h[k];
+        s->h[k] = { stsolitem<P_t,Z_t>({a.x,n }), a.p,  a.i };
+
         for(unsigned int i=0; i<h.size(); i++)
-            assert(fh[i].i==h[i].i);
-        fcallee->callback(fh);
+            assert(s->h[i].i==h[i].i);
+        s->callee->callback(s->h, s->callees);
     }
-//    virtual void callback(const indexedhistory<stsolitem<typename S::X_t>>&) {};
-    variable &x(unsigned int i) const { return (*fx)[i]; }
-    const variables x() const { return *fx; }
+    V_t &x(unsigned int i) const { return (*fx)[i]; }
+    const variables<V_t> x() const { return *fx; }
 private:
-    ptr<variables> fx;
-    ptr<S> fs;
+    ptr<variables<V_t>> fx;
+    ptr<Z> fz;
     msproblemstructure fps;
 };
 
+template <typename V>
+struct  stsolreducerstate
+{
+    ptr<variables<V>> fv;
+    msproblemstructure fdps;
+};
+
 template <typename S, typename D>
-class stsolreducer : public object, public stsolutioncallback<typename S::X_t>
+class stsolreducer : public object,
+        public stsolcallback
+          <typename S::P_t, typename S::Z_t>
 {
 public:
-    void convert(S& s, D& d)
+    using V_t = typename S::P_t::V_t;
+    void convert(S& s, D& d) //const
     {
-        static_assert(std::is_same<typename S::S_t, typename D::S_t>::value);
-        assert(!fv);
-        fv.reset(new variables);
-        fdps = d.ps();
-        s.foreachnode(this);
-        d.set(fv);
-        fv.reset();
+        static_assert(std::is_same<typename S::Z_t, typename D::Z_t>::value);
+        stsolreducerstate<V_t> st;
+        st.fv.reset(new variables<V_t>);
+        st.fdps = d.ps();
+        s.foreachnode(this, &st);
+        d.set(*(st.fv));
     }
 
 private:
 // state variables
-    ptr<variables> fv;
-    msproblemstructure fdps;
-    virtual void callback(const indexedhistory<stsolitem<typename S::X_t>>& h)
+    virtual void callback
+      (const indexedpath<stsolitem<typename S::P_t, typename S::Z_t>>& h,
+                           void* sptr) const
     {
         assert(h.size());
-        assert(h.size() <= fdps.size());
+        stsolreducerstate<V_t>* state
+                = static_cast<stsolreducerstate<V_t>*>(sptr);
+        assert(h.size() <= state->fdps.size());
         unsigned int k=h.size()-1;
-        const variables& v=h[k].x.v;
-        assert(v.size() >= fdps[k]);
-        for(unsigned int i=0; i<fdps[k]; i++)
-            fv->push_back(v[i]);
+        const variables<V_t>& v=h[k].x.x;
+        assert(v.size() >= state->fdps[k]);
 
+        for(unsigned int i=v.size()-state->fdps[k]; i<v.size(); i++)
+            state->fv->push_back(v[i]);
     }
 };
+
 
 
 } // namespace

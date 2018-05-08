@@ -2,42 +2,108 @@
 #define MSPPTEST_H
 
 #include <cmath>
+#include <fstream>
 #include "mspp/lpsolver.h"
-#include "mspp/distribution.h"
+#include "mspp/random.h"
 
 using namespace mspp;
 
-template <typename X>
-class guiddistribution: public iddistribution<X>
+template <typename V>
+class csvlpsolver : public lpsolver<V>
 {
 public:
-    guiddistribution(const std::vector<X>& items) : fitems(items)
+
+    virtual void solve(
+            const lpproblem<V>& lp,
+            vector<double>& sol,
+            double& objvalue) const
     {
-        assert(fitems.size());
+        using namespace std;
+        ofstream f("problem.csv");
+        f << "variables" << endl;
+        for(int i=0;i<lp.vars.size(); i++)
+            f << lp.varnames[i] << ",";
+        f << endl;
+        f << endl;
+
+        f << "objective function" << endl;
+        for(int i=0;i<lp.f.size(); i++)
+           f << lp.f[i] << ",";
+        f << endl;
+
+        f << "lower consttraints" << endl;
+        for(int i=0;i<lp.vars.size(); i++)
+            if(lp.vars[i].islinf())
+                f << ",";
+            else
+                f << lp.vars[i].l() << ",";
+        f << endl;
+
+        f << "upper consttraints" << endl;
+        for(int i=0;i<lp.vars.size(); i++)
+            if(lp.vars[i].ishinf())
+                f << ",";
+            else
+                f << lp.vars[i].h() << ",";
+
+        f << endl;
+
+        for(int y=0; y<3; y++)
+        {
+            constraint::type t = (constraint::type) y;
+            f << "consttraints ";
+            switch(t)
+            {
+                case constraint::eq:
+                    f << "=";
+                break;
+                case constraint::geq:
+                    f << ">=";
+                break;
+                case constraint::leq:
+                    f << "<=";
+                break;
+            }
+            f << endl;
+            for(int i=0; i<lp.constraints.size(); i++)
+            {
+                const sparselinearconstraint& c = lp.constraints[i];
+                if(c.t() == t)
+                {
+                    shared_ptr<std::vector<double>> clhs(c.lhs());
+
+                    int j=0;
+                    for(; j<clhs->size(); j++)
+                        f << (*clhs)[j] << ",";
+                    for(; j<lp.vars.size(); j++)
+                        f << "0,";
+                    f << c.rhs << endl;
+                }
+             }
+        }
+        std::cout << "Test solver only produces problem.csv file.";
     }
-
-protected:
-    virtual void atoms_are(std::vector<atom<X>>& a) const
-    {
-        unsigned int N=fitems.size();
-        double p=1.0 / (double) N;
-        a.resize(N);
-        for(unsigned int i=0; i<N; i++)
-            a[i]= {fitems[i],p};
-    };
-private:
-    std::vector<X> fitems;
 };
 
-struct omega
+template <typename T>
+void print(std::ostream& o, vectors<T> v)
 {
-    double o1;
-    double o2;
-};
-
-extern void twostagetest(unsigned int N, const lpsolver& cps);
-extern void cvartest(double alpha, double lambda, const lpsolver& cps);
-extern void almtest(double alpha, double lambda, const lpsolver& cps);
+    o << "[";
+    for(unsigned int i=0; i<v.size(); i++)
+    {
+        o << "[";
+        if(v[i].size())
+            for(unsigned int j=0; ; j++)
+            {
+                o << v[i][j];
+                if(j==v[i].size()-1)
+                    break;
+                o << ",";
+            }
+        o << "]";
+    }
+    o << "]" << std::endl;
+}
 
 
 #endif // MSPPTEST_H

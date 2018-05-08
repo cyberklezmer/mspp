@@ -2,7 +2,7 @@
 #define DE_H
 
 #include "mspp/msproblem.h"
-#include "mspp/distribution.h"
+#include "mspp/random.h"
 #include "mspp/lpsolver.h"
 #include "mspp/mpcproblem.h"
 #include "mspp/stsolution.h"
@@ -14,102 +14,104 @@ namespace mspp
 /// \ingroup sms
 /// @{
 
+template<typename P,typename Z>
+struct demethodstate
+{
+    const P& p;
+    const Z& z;
 
+    unsigned int dim;
+    ptr<lpproblem<typename P::V_t>> lp;
+    vector<unsigned int> offsets;
+};
 
-
-template<typename P,typename S>
-class demethod : public object, public sctreecallback<typename S::X_t>
+template<typename P,typename Z, typename O>
+class demethod : public object, public sctreecallback<typename Z::X_t, demethodstate<P,Z>>
 {
 public:
+    using V_t = typename P::V_t;
     demethod()
     {
         static_assert(
-             std::is_same<typename P::R_t,expectation>::value
-               || std::is_same<typename P::R_t,mmpcvar>::value
-               || std::is_same<typename P::R_t,nestedmcvar>::value
+             std::is_same<typename P::C_t,expectation>::value
+               || std::is_same<typename P::C_t,mmpcvar>::value
+               || std::is_same<typename P::C_t,nestedmcvar>::value
                     );
     }
 
     bool solve(
-             const P& p,
-             const S& z,
-             const lpsolver& lps,
+             P& p,
+             Z& z,
              double& optimal,
-             stsolution<P,S>& sol)
+             stsolution<P,Z>& sol)
         {
-
-            if constexpr(std::is_same<typename P::R_t,expectation>::value)
+            if constexpr(std::is_same<typename P::C_t,expectation>::value)
             {
-                fp = &p;
-                fz = &z;
-                foffsets.resize(this->fp->T()+1);
-                fdim = 0;
-                fobj.clear();
-                fvars.clear();
-                fconstraints.clear();
-                fvarnames.clear();
-                assert(this->fz->T() == this->fp->T());
+                assert(p.T() == z.T());
 
-                this->fz->foreachnode(this);
-                std::vector<double> x(fdim);
-                lps.solve(fvars,fobj,fconstraints,fvarnames,x,optimal);
+                demethodstate<P,Z> s={p,z};
+                s.lp.reset(new lpproblem<V_t>);
+                s.offsets.resize(p.T()+1);
+                s.dim = 0;
+
+                z.foreachnode(this, &s);
+
+                vector<double> x(s.dim);
+                O solver;
+//                lpsolver<typename P::V_t> lps ;
+                solver.solve(*(s.lp),x,optimal);
                 sol.set(x);
                 return true;
             }
-            else if constexpr(std::is_same<typename P::R_t,mmpcvar>::value)
+            else if constexpr(std::is_same<typename P::C_t,mmpcvar>::value)
             {
                 mmpcvarequivalent<P> e(p);
-                stsolution<mmpcvarequivalent<P>,S> es(e,z);
-                demethod<mmpcvarequivalent<P>,S> m;
-                m.solve(e, z, lps, optimal, es);
+                stsolution<mmpcvarequivalent<P>,Z> es(e,z);
+                demethod<mmpcvarequivalent<P>,Z,O> m;
+                m.solve(e, z, optimal, es);
 
-                stsolreducer<stsolution<mmpcvarequivalent<P>,S>,
-                             stsolution<P,S>> r;
+                stsolreducer<stsolution<mmpcvarequivalent<P>,Z>,
+                             stsolution<P,Z>> r;
                 r.convert(es,sol);
                 return true;
             }
             return false;
         }
-
-private:
-    const P* fp;
-    const S* fz;
-    unsigned int fdim;
-    std::vector<double> fobj;
-    vardefs<realvar> fvars;
-    std::vector<sparselinearconstraint> fconstraints;
-    std::vector<std::string> fvarnames;
-
 public:
-    virtual void callback(const indexedhistory<typename S::X_t>& a)
+    virtual void callback(const indexedpath<rvector<typename Z::X_t>>& a,
+                          demethodstate<P,Z>* state) const
     {
         unsigned int stage = a.size()-1;
-        probability up = a.uncprob();
-        scenario<typename S::X_t> s = a.s();
 
-        unsigned int thisstagedim = this->fp->d[stage];
+        probability up = a.uncprob();
+        scenario<typename Z::X_t> s = a.pth();
+
+        unsigned int thisstagedim = state->p.d[stage];
 
         // calling original problems \p xset
 
-        vardefs<realvar> vars;
+        ranges<V_t> vars;
         msconstraints<typename P::G_t> constraints;
 
-        demethod::fp->xset(stage,s,vars,constraints);
+        state->p.xset(s,vars,constraints);
 
-        linearfunction f = this->fp->f(stage,s);
+        linearfunction f = state->p.f(s);
 
-        foffsets[stage] = fdim;
-        fobj.resize(fdim + thisstagedim);
+        state->offsets[stage] = state->dim;
 
-        // this stage variables and f
+        lpproblem<V_t>& lp = *(state->lp);
+
+        lp.f.resize(state->dim + thisstagedim);
+
+        // this stage variables and initialization of the objective
 
         for(unsigned int i=0; i<thisstagedim; i++)
         {
-            fobj[fdim] = up * f.c(i);
-            const realvar& v = vars[i];
-            fvars.push_back(v);
+            lp.f[state->dim] = 0;
+            const range<V_t>& v = vars[i];
+            lp.vars.push_back(v);
             std::ostringstream s;
-            s << this->fp->varname(stage,i) << "@";
+            s << state->p.varname(stage,i) << "@";
             for(unsigned int j=0;;)
             {
                 s << a[j].i;
@@ -117,43 +119,59 @@ public:
                     break;
                 s << "-";
             }
-            fvarnames.push_back(s.str());
-            fdim++;
+            lp.varnames.push_back(s.str());
+            state->dim++;
+        }
+
+        // this stage objective
+
+        unsigned int src=0;
+
+        for(unsigned int i=0; i<=stage; i++)
+        {
+            unsigned int dst=state->offsets[i];
+            for(unsigned int r=0; r<state->p.d[i]; r++)
+            {
+                if(state->p.includedinbarx(i,r,stage))
+// std::cout << stage << ":" << up << ":" <<  f.c(src) << std::endl;
+                    lp.f[dst] += up * f.c(src++);
+                dst++;
+            }
         }
 
         // this stage msconstraints
-        if(constraints.size())
-            for(unsigned int j=0; j<constraints.size(); j++)
-            {
-                const linearmsconstraint& s = constraints[j];
+        for(unsigned int j=0; j<constraints.size(); j++)
+        {
+            const linearmsconstraint& s = constraints[j];
 
-                sparselinearconstraint d;
-                unsigned int src=0;
-                unsigned int i=0;
-                for(; i<=stage; i++)
+            sparselinearconstraint d;
+            unsigned int src=0;
+
+            for(unsigned int i=0; i<=stage; i++)
+            {
+                unsigned int dst=state->offsets[i];
+                for(unsigned int r=0;
+                      r<state->p.d[i];
+                      r++)
                 {
-                    unsigned int dst=foffsets[i];
-                    for(unsigned int r=0;
-                          r<this->fp->d[i] && src<s.lhssize();
-                          r++)
+                    if(state->p.includedinbarx(i,r,stage))
                     {
                         double v = s.lhs(src++);
                         if(v)
                            d.set_lhs(dst,v);
-                        dst++;
                     }
-                    d.rhs = s.rhs();
-                    d.t = s.t();
+                    dst++;
                 }
-                fconstraints.push_back(d);
             }
+            d.rhs = s.rhs();
+            d.settype(s.t());
+            lp.constraints.push_back(d);
+        }
     }
-
-private:
-    std::vector<unsigned int> foffsets;
 };
 
 /// @}
+
 
 
 } // namespace

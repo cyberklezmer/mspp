@@ -1,7 +1,7 @@
 #ifndef MSPROBLEM_H
 #define MSPROBLEM_H
 
-#include "mspp/commons.h"
+#include "mspp/linear.h"
 
 namespace mspp
 {
@@ -12,13 +12,13 @@ namespace mspp
 /// @{
 
 
-class msproblemstructure: public std::vector<unsigned int>
+class msproblemstructure: public vector<unsigned int>
 {
 public:
     msproblemstructure() {}
-    msproblemstructure(unsigned int dim):std::vector<unsigned int>(dim) {}
-    msproblemstructure(const std::vector<unsigned int>& v ) :
-       std::vector<unsigned int>(v) {}
+    msproblemstructure(unsigned int dim):vector<unsigned int>(dim) {}
+    msproblemstructure(const vector<unsigned int>& v ) :
+       vector<unsigned int>(v) {}
 
     unsigned int sum(unsigned int k) const
     {
@@ -38,55 +38,40 @@ public:
     }
 };
 
+
 template <typename G>
-class msconstraints: public std::vector<G>
+class msconstraints: public vector<G>
 {
 public:
     G& add(const G& g)
     {
-        std::vector<G>::push_back(g);
-        return *std::vector<G>::rbegin();
+        vector<G>::push_back(g);
+        return *vector<G>::rbegin();
     }
 };
 
-/*
-
-template <typename C>
-class bar: public object
-{
-public:
-    using X_t = typename C::X_t;
-
-    X_t x;
-    C c;
-    bar(const scenario<X_t>& s) :
-        x(s[s.size()-1]), c(s,true)
-        {}
-};
-
-template <typename X>
-using barxi
-
-*/
 
 /// Base abstract class describing multistage problems
-template<typename V, typename F, typename G, typename R, typename C>
+template<typename C, typename F, typename G,
+          typename V, typename X, typename Rx=everything, typename Rxi=Rx>
 class msproblem : public object
 {
     public:
 
-        using V_t = V;
-        using G_t = G;
-        using F_t = F;
         using C_t = C;
-        using R_t = R;
+        using F_t = F;
+        using G_t = G;
+        using V_t = V;
+        using X_t = X;
+        using Rxi_t = Rxi;
+        using Rx_t = Rx;
 
-        msproblem(const msproblemstructure& ps, R rho=R()):
+        msproblem(const msproblemstructure& ps, C rho=C()):
              d(ps), frho(rho)
         {
         }
 
-        msproblem(const std::vector<unsigned int>& ps, R rho=R()):
+        msproblem(const vector<unsigned int>& ps, C rho=C()):
              d(ps), frho(rho)
         {
         }
@@ -95,18 +80,19 @@ class msproblem : public object
         /// @name Accessors
         unsigned int T() const { return d.size()-1; }
 
-        virtual F f(
-                unsigned int k,
-                const scenario<typename C::X_t>& s) const
+        virtual F f(const scenario<X>& s) const
         {
-            return f(k,C(s));
+            assert(s.size());
+            return f_tbd(s.size()-1,barxi(s));
         }
 
-        virtual F f(
+        virtual F f_tbd(
                 unsigned int k,
-                const C& barxi) const
+                const vectors<X>& barxi) const
         {
-            return f_is(k,barxi);
+            F f = f_is(k,barxi);
+            assert(f.xdim()==barxdim(k));
+            return f;
         }
 
 
@@ -118,26 +104,26 @@ class msproblem : public object
          * @param gh return value - msconstraints
          */
         void xset(
-                unsigned int k,
-                const scenario<typename C::X_t>& s,
-                vardefs<V>& r,
+                const scenario<X>& s,
+                ranges<V_t>& r,
                 msconstraints<G>& gh) const
         {
-            xset(k,C(s),r,gh);
+            assert(s.size());
+            xset_tbd(s.size()-1,barxi(s),r,gh);
         }
 
-        void xset(
+        void xset_tbd(
                 unsigned int k,
-                const barxi<C>& bx,
-                vardefs<V>& r,
+                const vectors<X>& barxi,
+                ranges<V>& r,
                 msconstraints<G>& gh) const
         {
             r.clear();
             r.resize(d[k]);
             gh.clear();
-            this->xset_is(k,bx,r,gh);
+            this->xset_is(k,barxi,r,gh);
             for(unsigned int i=0; i<gh.size(); i++)
-                assert(gh[i].check(d,k));
+                assert(!(gh[i].constantinlast(d[k])));
         }
 
         virtual std::string varname(unsigned int stage, unsigned int i) const
@@ -145,7 +131,7 @@ class msproblem : public object
             return varname_is(stage,i);
         }
 
-        R rho() const { return frho; }
+        C rho() const { return frho; }
 
         const msproblemstructure d;
         ///@}
@@ -154,21 +140,64 @@ class msproblem : public object
         /// @name Interface towards descendants
 protected:
 
-   G& addg(msconstraints<G>& gs, unsigned int k) const
-   {
-       gs.add(G(d,k));
-       return *gs.rbegin();
-   }
+    vectors<X> barxi(const scenario<X>& s) const
+    {
+        assert(s.size());
+        Rxi r;
+        return r(s, s.size()-1);
+    }
+public:
+    bool includedinbarx(unsigned int i, unsigned int j, unsigned int k) const
+    {
+        assert(i<=k);
+        assert(j<=d[i]);
+        Rx r;
+        return i==k ? true : r.included(i,j,k);
+    }
+    unsigned int barxdimupto(unsigned int i, unsigned int k) const
+    {
+        assert(k<d.size());
+        unsigned int s = 0;
+        for(unsigned int ii=0; ii<=i; ii++ )
+            for(unsigned int jj=0; jj<d[ii]; jj++)
+                if(includedinbarx(ii,jj,k))
+                    s++;
+        return s;
+    }
+
+    unsigned int tildexdim(unsigned int k) const
+    {
+        assert(k>0);
+        return barxdimupto(k-1, k);
+    }
+
+    unsigned int barxdim(unsigned int k) const
+    {
+        return barxdimupto(k, k);
+    }
+protected:
+    /// caution - reference stops to be valid after any change of gs.
+    G& addg(msconstraints<G>& gs, unsigned int k) const
+    {
+        gs.add(G(barxdim(k)));
+        return *gs.rbegin();
+    }
+
+    F newf(unsigned int k) const
+    {
+        return F(this->barxdim(k));
+    }
 
 private:
+
     virtual F f_is(
             unsigned int k,
-            const barxi<C>& bx) const = 0;
+            const vectors<X>& barxi) const = 0;
 
     virtual void xset_is(
             unsigned int k,
-            const barxi<C>& bx,
-            vardefs<V>& r,
+            const vectors<X>& barxi,
+            ranges<V>& r,
             msconstraints<G>& g
             ) const = 0;
 
@@ -181,7 +210,7 @@ private:
 
     ///@}
 
-   const R frho;
+    const C frho;
 };
 
 class expectation : public criterion
@@ -209,135 +238,45 @@ public:
     const double alpha;
 };
 
-class msconstraint : public constraint
+class msconstraint : virtual public constraint
 {
 public:
-    msconstraint(type t=eq) : constraint(t) {}
+    msconstraint(type t=eq) {}
 
-    virtual bool check(const msproblemstructure& d, unsigned int k) const = 0;
+    virtual bool constantinlast(unsigned int i) const = 0;
 };
 
-class linearmsconstraint : public msconstraint
+
+class linearmsconstraint : public msconstraint, public linearconstraint
 {
 public:
 
-    linearmsconstraint(const msproblemstructure& ps,
-                                             unsigned int k)
-        : flhssize(ps.sum(k)), frhs(0) {}
+    linearmsconstraint(unsigned int lhssize) :
+       linearconstraint(lhssize)
+    {}
 
-    linearmsconstraint(unsigned int lhssize, constraint::type t, double rhs )
-        : msconstraint(t), flhssize(lhssize), frhs(rhs) {}
-
-    virtual double lhs(unsigned int k) const = 0;
-    unsigned int lhssize() const { return flhssize; }
-    virtual bool check(const msproblemstructure& d, unsigned int k) const
+    linearmsconstraint(vector<double> lhs, constraint::type t=constraint::eq, double rhs = 0) :
+       linearconstraint(lhs,rhs), constraint(t)
     {
-        unsigned int dim = d.sum(k);
-        if(flhssize != dim)
-             return false;
+    }
+
+    virtual bool constantinlast(unsigned int d) const
+    {
         bool iszero = true;
-        for(unsigned int i=k ? d.sum(k-1) : 0; i<dim; i++)
-            if(lhs(i))
+        for(unsigned int i=0; i < d; i++)
+            if(lhs(xdim()-i-1))
             {
                 iszero = false;
                 break;
             }
-        return !iszero;
+        return iszero;
     }
-
-    double rhs() const { return frhs; }
-    void setrhs(double rhs ) { frhs = rhs; }
-    virtual void setlhs(unsigned int i, double v) = 0;
-private:
-    unsigned int flhssize;
-    double frhs;
-};
-
-class fulllinearconstraint : public linearmsconstraint
-{
-public:
-
-    fulllinearconstraint( const msproblemstructure& ps, unsigned int k )
-        : linearmsconstraint(ps,k), flhs(ps.sum(k),0) {}
-
-    fulllinearconstraint( const std::vector<double> lhs, constraint::type t,
-                                      double rhs)
-        : linearmsconstraint(lhs.size(),t,rhs), flhs(lhs) {}
-
-    double lhs(unsigned int k) const { assert(k<flhs.size()); return flhs[k]; }
-    void setlhs(const std::vector<double>& lhs)
-    {
-        assert(flhs.size() == lhs.size());
-        flhs = lhs;
-    }
-    void setlhs(unsigned int i, double v)
-    {
-        assert(i<flhs.size());
-        flhs[i] = v;
-    }
-
-    void set(const std::vector<double>& lhs,type t,double rhs)
+    void set(const vector<double>& lhs, type t, double rhs)
     {
         setlhs(lhs);
         settype(t);
         setrhs(rhs);
     }
-
-private:
-    std::vector<double> flhs;
-};
-
-
-class interstagelinearconstraint : public linearmsconstraint
-{
-public:
-
-    interstagelinearconstraint( const msproblemstructure& ps, unsigned int k )
-        : linearmsconstraint(ps,k), flast(k ? ps[k-1] : 0,0), fcurrent(ps[k],0) {}
-
-    const std::vector<double>& last() const  { return flast; }
-    double last(unsigned int k) const { assert(k<flast.size()); return flast[k]; }
-    unsigned int lastsize() const { return flast.size(); }
-
-    const std::vector<double>& current() const  { return fcurrent; }
-    double current(unsigned int k) const { assert(k<fcurrent.size()); return fcurrent[k]; }
-    unsigned int currentsize() const { return fcurrent.size(); }
-
-    double lhs(unsigned int k) const
-    {
-        assert(k<lhssize());
-        unsigned int cindex = lhssize()-fcurrent.size();
-        unsigned int lindex = cindex-fcurrent.size();
-        if(k<lindex)
-            return 0;
-        else if(k>=cindex)
-            return fcurrent[k-cindex];
-        else
-            return flast[k-lindex];
-    }
-
-    void setlast(const std::vector<double>& last)
-    {
-        assert(flast.size() == last.size());
-        flast = last;
-    }
-    void setcurrent(const std::vector<double>& current)
-    {
-        assert(fcurrent.size() == current.size());
-        fcurrent = current;
-    }
-    void set(const std::vector<double>& last,
-             const std::vector<double>& current, type t,double rhs)
-    {
-        setlast(last);
-        setcurrent(current);
-        settype(t);
-        setrhs(rhs);
-    }
-
-private:
-    std::vector<double> fcurrent;
-    std::vector<double> flast;
 };
 
 

@@ -10,46 +10,38 @@ namespace mspp
 /// \ingroup sms
 /// @{
 
+template <typename P, typename Z>
+using sddpsolution = variables<typename P::V_t>;
 
-using sddpsolution = variables;
-
-template <typename C>
+template <typename X=double>
 class indexer
 {
 public:
-    virtual unsigned int index(const C& c) const = 0;
+    virtual unsigned int index(const subvectors<X>& s) const = 0;
 };
 
-template <typename C>
-class trivialindexer
+template <typename X=double>
+class trivialindexer : public indexer<X>
 {
 public:
-    virtual unsigned int index(const C&) const
+    virtual unsigned int index(const subvectors<X>& s) const
     {
-        static_assert(std::is_same<C, emptycondition<typename C::X_t>>::value);
         return 0;
     }
 };
 
 
-template <typename P, typename Z>
+template <typename P, typename Z, typename O, typename I=trivialindexer<typename P::X_t>>
 class sddpmethod : public object
 {
 public:
     bool solve(
              const P& p,
              const Z& z,
-             const lpsolver& lps,
              double& optimal,
-             sddpsolution& sol)
+             sddpsolution<P,Z>& sol)
     {
-//        if constexpr (std::is_same<typename P::R_t,nestedmcvar>::value)
-//           throw("do it");
-//        else
-//           throw("emulate nested mcvar");
-        static_assert( std::is_same<typename P::C_t,
-                         emptycondition<typename P::X_t>>::value );
-//        return solve(p,z,lps, optimal, sol, trivialindexer<typename P::C_t>);
+// TO BE DONE
     }
 };
 

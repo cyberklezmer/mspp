@@ -3,12 +3,42 @@
 
 #include "mspp/msproblem.h"
 
+
 namespace mspp
 {
 
-template<class S>
+/// Adding the previous "u"
+template <typename R>
+class mpcvprestriction: public tilde
+{
+private:
+    virtual bool is_included(unsigned int i, unsigned int s) const
+    {
+        if(i==s-1)
+            return true;
+        else
+            return R().included(i,s);
+    }
+    virtual bool is_included(unsigned int i, unsigned int j, unsigned int s) const
+    {
+        unsigned int varsadded = i==0 ? 1 : 2;  // last stage souhol not come here
+        bool uincluded = i==s-1;
+        if(j==0)
+            return uincluded;
+        else if(j==1 && varsadded == 2)
+            return false;
+        else
+            return R().included(i,j-varsadded,s);
+    }
+};
+
+
+template<class P>
 class mmpcvarequivalent: public msproblem
-               <typename S::V_t, linearfunction, typename S::G_t, expectation, typename S::C_t>
+               <expectation, linearfunction, typename P::G_t, typename P::V_t,
+                           typename P::X_t,
+                           mpcvprestriction<typename P::Rx_t>,
+                           typename P::Rxi_t>
 {
     static msproblemstructure
         ps(const msproblemstructure& sps)
@@ -25,147 +55,221 @@ class mmpcvarequivalent: public msproblem
 
 public:
 
-    mmpcvarequivalent(const S& sp) :
-        msproblem<typename S::V_t,
-                  linearfunction,
-                  typename S::G_t,
-                  expectation,
-                  typename S::C_t>(ps(sp.d)),
-           fsp(new S(sp)),
+    mmpcvarequivalent(const P& sp) :
+        msproblem<expectation, linearfunction,
+             typename P::G_t, typename P::V_t,
+             typename P::X_t,
+             mpcvprestriction<typename P::Rx_t>,
+             typename P::Rxi_t>(ps(sp.d)),
+           fsp(new P(sp)),
            flambda( sp.rho().lambda),
            falpha( sp.rho().alpha)
     {
-        static_assert(std::is_same<typename S::R_t,mmpcvar>::value);
+        static_assert(std::is_same<typename P::C_t,mmpcvar>::value);
         assert(fsp->T()>0);
         assert(falpha > 0);
     }
 
-    mmpcvarequivalent(const S& sp,double lambda, double alpha) :
-        msproblem<typename S::V_t,
-                  linearfunction,
-                  typename S::G_t,
-                  expectation,
-                  typename S::C_t>(ps(sp.d)),
-           fsp(new S(sp)),
+    mmpcvarequivalent(const P& sp,double lambda, double alpha) :
+        msproblem<expectation, linearfunction,
+             typename P::G_t, typename P::V_t,
+             typename P::X_t,
+             mpcvprestriction<typename P::Rx_t>,
+             typename P::Rxi_t>(ps(sp.d)),
+           fsp(new P(sp)),
            flambda(lambda),falpha(alpha)
     {
-        static_assert(std::is_same<typename S::R_t,expectation>::value);
+        static_assert(std::is_same<typename P::R_t,expectation>::value);
         assert(fsp->T()>0);
         assert(falpha > 0);
     }
 
     virtual std::string varname_is(unsigned int stage, unsigned int i) const
     {
-        if(i<fsp->d[stage])
-            return fsp->varname(stage,i);
         if(stage == 0)
-            return "u";
-        if(stage == this->T())
-            return "theta";
-        else if(i==fsp->d[stage])
-            return "theta";
+        {
+            if(i==0)
+                return "u";
+            else
+                return fsp->varname(stage,i-1);
+        }
+        else if(stage==this->T())
+        {
+            if(i==0)
+                return "theta";
+            else
+                return fsp->varname(stage,i-1);
+        }
         else
-            return "u";
+        {
+            if(i==0)
+                return "u";
+            else if(i==1)
+                return "theta";
+            else
+                return fsp->varname(stage,i-2);
+        }
     }
 
     virtual linearfunction f_is(
             unsigned int k,
-            const typename S::C_t& barxi) const
+            const vectors<typename P::X_t>& barxi) const
     {
-        unsigned int dk = this->d[k];
-        linearfunction r(std::vector<double>(dk,0));
-        if(!k)
+        linearfunction r = this->newf(k);
+        if(k==0)
         {
-            typename S::F_t orig = fsp->f(0,barxi);
+            linearfunction orig = fsp->f_tbd(0,barxi);
 
-            for(unsigned int i=0;i<dk-1; i++)
-                r.setc(i,orig.c(i));
+            assert(orig.xdim()+1==r.xdim());
+
+            unsigned int i=0;
+            r.setc(i++,1);
+            for(;i-1<orig.xdim(); i++)
+                r.setc(i,orig.c(i-1));
         }
-        r.setc(dk-1,1);
-        if(k > 0 && k < this->T())
-            r.setc(dk-2,1);
+        else if(k < this->T())
+        {
+            assert(this->barxdim(k)>=this->tildexdim(k)+2);
+            r.setc(this->tildexdim(k),1);
+            r.setc(this->tildexdim(k)+1,1);
+        }
+        else // k==T
+        {
+            assert(this->barxdim(k)>=this->tildexdim(k)+1);
+            r.setc(this->tildexdim(k),1);
+        }
         return r;
     }
 
     virtual void xset_is(
             unsigned int k,
-            const typename S::C_t& barxi,
-            vardefs<typename S::V_t>& r,
-            msconstraints<typename S::G_t>& g
+            const vectors<typename P::X_t>& barxi,
+            ranges<typename P::V_t>& r,
+            msconstraints<typename P::G_t>& g
             ) const
     {
-        bool laststage = k == this->T();
+        using G_t = typename P::G_t;
+        using V_t = typename P::V_t;
 
-        unsigned int newsize = this->d.sum(k);
-
-        vardefs<typename S::V_t> srcr;
-
-        using G_t = typename S::G_t;
-
+        ranges<typename P::V_t> srcr;
         msconstraints<G_t> srcgs;
-        fsp->xset(k,barxi,srcr,srcgs);
-
-        unsigned int i=0;
-        for(; i<srcr.size(); i++)
-            r[i] = srcr[i];
-
-        if(k>0)
-            r[i++]=realvar(realvar::R);
-        if(!laststage)
-            r[i]=realvar(realvar::R);
+        fsp->xset_tbd(k,barxi,srcr,srcgs);
 
 
-        for(typename msconstraints<G_t>::iterator srcg = srcgs.begin();
-             srcg != srcgs.end(); srcg++)
+        unsigned int m; // # of new variables in this stage
+
+        if(k==0 || k==this->T())
+            m=1;
+        else
+            m=2;
+
+        unsigned int dst=0;
+        for(;dst<m;)
+            r[dst++]=range<V_t>(range<V_t>::realt);
+        for(unsigned int src=0; src<srcr.size(); )
+            r[dst++] = srcr[src++];
+
+        for(typename msconstraints<G_t>::iterator it = srcgs.begin();
+             it != srcgs.end(); it++)
         {
-//                    std::cout << "sd: " << flp->sumd(stage) << std::endl;
-            G_t& dstg = this->addg(g,k);
-            dstg.setrhs(srcg->rhs());
-            dstg.settype(srcg->t());
+            const linearmsconstraint& srcg = *it;
+
+            linearmsconstraint& dstg = this->addg(g,k);
 
             unsigned int src = 0;
             unsigned int dst = 0;
 
-            for(unsigned int i=0; i<=k; i++)
+            if(k>1) // we copy all coefs
             {
-                for(unsigned int j=0; j<fsp->d[i]; j++)
-                    dstg.setlhs(dst++,srcg->lhs(src++));
-                if(i<this->T())
-                    dstg.setlhs(dst++,0); // u
-                if(i > 0)
-                    dstg.setlhs(dst++,0); // theta
+                assert(this->barxdimupto(k-2,k)==this->fsp->barxdimupto(k-2,k));
+                for(;src<this->barxdimupto(k-2,k);)
+                    dstg.setlhs(dst++,srcg.lhs(src++));
             }
+            if(k>0) // here we make space for previous stage u
+            {
+                assert(this->barxdimupto(k-1,k)==fsp->barxdimupto(k-1,k)+1);
+                dstg.setlhs(dst++,0);
+                for(;src<this->fsp->barxdimupto(k-1,k);)
+                    dstg.setlhs(dst++,srcg.lhs(src++));
+            }
+            // now we make space for m vars
+            for(unsigned int i=0; i<m; i++)
+                dstg.setlhs(dst++,0);
+            for(;dst<this->barxdim(k);)
+                dstg.setlhs(dst++,srcg.lhs(src++));
+
+            assert(src==this->fsp->barxdim(k));
+            assert(dst==this->barxdim(k));
+
+            dstg.setrhs(srcg.rhs());
+            dstg.settype(srcg.t());
         }
 
-        if(k)
+        // next we add "mu" and "nu" cosntraints
+        if(k>0)
         {
-            typename S::F_t c = fsp->f(k,barxi);
+            typename P::F_t srcf = fsp->f_tbd(k,barxi);
+            assert(srcf.xdim() == this->fsp->barxdim(k));
 
-            G_t& muc = this->addg(g,k);
-            G_t& nuc = this->addg(g,k);
+            G_t muc(this->barxdim(k));
+            G_t nuc(this->barxdim(k));
+
+            unsigned int src = 0;
+            unsigned int dst = 0;
+
+            if(k>1) // we add coefs up to stage k-2
+            {
+                for(;src<this->fsp->barxdimupto(k-2,k);)
+                {
+                    muc.setlhs(dst,-mu() * srcf.c(src));
+                    nuc.setlhs(dst++,-nu() * srcf.c(src++));
+                }
+            }
+
+            // next we add a coef for u
+            muc.setlhs(dst,mu());
+            nuc.setlhs(dst++,nu());
+
+            for(;src<this->fsp->barxdimupto(k-1,k);)
+            {
+                muc.setlhs(dst,-mu() * srcf.c(src));
+                nuc.setlhs(dst++,-nu() * srcf.c(src++));
+            }
+
+            if(k<this->T())
+            {
+                // skip u in this stage
+                muc.setlhs(dst,0);
+                nuc.setlhs(dst++,0);
+            }
+
+            // add coef for this stage theta
+            muc.setlhs(dst,1);
+            nuc.setlhs(dst++,1);
+
+            // add remaining coefs
+            for(; src< this->fsp->barxdim(k);)
+            {
+                muc.setlhs(dst,-mu() * srcf.c(src));
+                nuc.setlhs(dst++,-nu() * srcf.c(src++));
+            }
+
+            assert(src==this->fsp->barxdim(k));
+            assert(dst==this->barxdim(k));
+
             muc.settype(constraint::geq);
             muc.setrhs(0);
             nuc.settype(constraint::geq);
             nuc.setrhs(0);
 
-            unsigned int i = newsize-(laststage ? 1 : 2);
-            muc.setlhs(i,1);
-            nuc.setlhs(i--,1);
-
-            for(int j=fsp->d[k]-1; j>=0; j--)
-            {
-                muc.setlhs(i,-mu() * c.c(j));
-                nuc.setlhs(i--,-nu() * c.c(j));
-            }
-
-            muc.setlhs(i,mu());
-            nuc.setlhs(i,nu());
+            g.add(muc);
+            g.add(nuc);
         }
     }
     double mu() const { return 1.0 - flambda; }
     double nu() const { return 1.0 - flambda + flambda / falpha; }
 public:
-    ptr<S> fsp;
+    ptr<P> fsp;
     double flambda;
     double falpha;
 };
