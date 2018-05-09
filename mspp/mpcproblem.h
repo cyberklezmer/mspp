@@ -34,7 +34,7 @@ private:
 
 
 template<class P>
-class mmpcvarequivalent: public msproblem
+class mpmcvarequivalent: public msproblem
                <expectation, linearfunction, typename P::G_t, typename P::V_t,
                            typename P::X_t,
                            mpcvprestriction<typename P::Rx_t>,
@@ -55,7 +55,7 @@ class mmpcvarequivalent: public msproblem
 
 public:
 
-    mmpcvarequivalent(const P& sp) :
+    mpmcvarequivalent(const P& sp) :
         msproblem<expectation, linearfunction,
              typename P::G_t, typename P::V_t,
              typename P::X_t,
@@ -65,12 +65,12 @@ public:
            flambda( sp.rho().lambda),
            falpha( sp.rho().alpha)
     {
-        static_assert(std::is_same<typename P::C_t,mmpcvar>::value);
+        static_assert(std::is_same<typename P::C_t,mpmcvar>::value);
         assert(fsp->T()>0);
         assert(falpha > 0);
     }
 
-    mmpcvarequivalent(const P& sp,double lambda, double alpha) :
+    mpmcvarequivalent(const P& sp,double lambda, double alpha) :
         msproblem<expectation, linearfunction,
              typename P::G_t, typename P::V_t,
              typename P::X_t,
@@ -113,12 +113,12 @@ public:
 
     virtual linearfunction f_is(
             unsigned int k,
-            const vectors<typename P::X_t>& barxi) const
+            const subvectors<typename P::X_t>& barxi) const
     {
         linearfunction r = this->newf(k);
         if(k==0)
         {
-            linearfunction orig = fsp->f_tbd(0,barxi);
+            linearfunction orig = fsp->f(0,barxi);
 
             assert(orig.xdim()+1==r.xdim());
 
@@ -141,9 +141,9 @@ public:
         return r;
     }
 
-    virtual void xset_is(
+    virtual void x_is(
             unsigned int k,
-            const vectors<typename P::X_t>& barxi,
+            const subvectors<typename P::X_t>& barxi,
             ranges<typename P::V_t>& r,
             msconstraints<typename P::G_t>& g
             ) const
@@ -153,7 +153,7 @@ public:
 
         ranges<typename P::V_t> srcr;
         msconstraints<G_t> srcgs;
-        fsp->xset_tbd(k,barxi,srcr,srcgs);
+        fsp->x(k,barxi,srcr,srcgs);
 
 
         unsigned int m; // # of new variables in this stage
@@ -208,7 +208,7 @@ public:
         // next we add "mu" and "nu" cosntraints
         if(k>0)
         {
-            typename P::F_t srcf = fsp->f_tbd(k,barxi);
+            typename P::F_t srcf = fsp->f(k,barxi);
             assert(srcf.xdim() == this->fsp->barxdim(k));
 
             G_t muc(this->barxdim(k));

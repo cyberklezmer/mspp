@@ -34,7 +34,7 @@ public:
     {
         static_assert(
              std::is_same<typename P::C_t,expectation>::value
-               || std::is_same<typename P::C_t,mmpcvar>::value
+               || std::is_same<typename P::C_t,mpmcvar>::value
                || std::is_same<typename P::C_t,nestedmcvar>::value
                     );
     }
@@ -63,14 +63,14 @@ public:
                 sol.set(x);
                 return true;
             }
-            else if constexpr(std::is_same<typename P::C_t,mmpcvar>::value)
+            else if constexpr(std::is_same<typename P::C_t,mpmcvar>::value)
             {
-                mmpcvarequivalent<P> e(p);
-                stsolution<mmpcvarequivalent<P>,Z> es(e,z);
-                demethod<mmpcvarequivalent<P>,Z,O> m;
+                mpmcvarequivalent<P> e(p);
+                stsolution<mpmcvarequivalent<P>,Z> es(e,z);
+                demethod<mpmcvarequivalent<P>,Z,O> m;
                 m.solve(e, z, optimal, es);
 
-                stsolreducer<stsolution<mmpcvarequivalent<P>,Z>,
+                stsolreducer<stsolution<mpmcvarequivalent<P>,Z>,
                              stsolution<P,Z>> r;
                 r.convert(es,sol);
                 return true;
@@ -88,12 +88,12 @@ public:
 
         unsigned int thisstagedim = state->p.d[stage];
 
-        // calling original problems \p xset
+        // calling original problems \p x
 
         ranges<V_t> vars;
         msconstraints<typename P::G_t> constraints;
 
-        state->p.xset(s,vars,constraints);
+        state->p.x(s,vars,constraints);
 
         linearfunction f = state->p.f(s);
 

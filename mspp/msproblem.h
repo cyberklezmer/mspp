@@ -83,18 +83,27 @@ class msproblem : public object
         virtual F f(const scenario<X>& s) const
         {
             assert(s.size());
-            return f_tbd(s.size()-1,barxi(s));
+            return f(s.size()-1,barxi(s));
         }
 
-        virtual F f_tbd(
+        virtual F f(
                 unsigned int k,
-                const vectors<X>& barxi) const
+                const subvectors<X>& barxi) const
         {
             F f = f_is(k,barxi);
             assert(f.xdim()==barxdim(k));
             return f;
         }
 
+
+
+        void x( const scenario<X>& s,
+                ranges<V_t>& r,
+                msconstraints<G>& gh) const
+        {
+            assert(s.size());
+            x(s.size()-1,barxi(s),r,gh);
+        }
 
         /**
          * @brief
@@ -103,25 +112,16 @@ class msproblem : public object
          * @param r return value - variable ranges
          * @param gh return value - msconstraints
          */
-        void xset(
-                const scenario<X>& s,
-                ranges<V_t>& r,
-                msconstraints<G>& gh) const
-        {
-            assert(s.size());
-            xset_tbd(s.size()-1,barxi(s),r,gh);
-        }
 
-        void xset_tbd(
-                unsigned int k,
-                const vectors<X>& barxi,
+        void x( unsigned int k,
+                const subvectors<X>& barxi,
                 ranges<V>& r,
                 msconstraints<G>& gh) const
         {
             r.clear();
             r.resize(d[k]);
             gh.clear();
-            this->xset_is(k,barxi,r,gh);
+            this->x_is(k,barxi,r,gh);
             for(unsigned int i=0; i<gh.size(); i++)
                 assert(!(gh[i].constantinlast(d[k])));
         }
@@ -140,7 +140,7 @@ class msproblem : public object
         /// @name Interface towards descendants
 protected:
 
-    vectors<X> barxi(const scenario<X>& s) const
+    subvectors<X> barxi(const scenario<X>& s) const
     {
         assert(s.size());
         Rxi r;
@@ -192,11 +192,11 @@ private:
 
     virtual F f_is(
             unsigned int k,
-            const vectors<X>& barxi) const = 0;
+            const subvectors<X>& barxi) const = 0;
 
-    virtual void xset_is(
+    virtual void x_is(
             unsigned int k,
-            const vectors<X>& barxi,
+            const subvectors<X>& barxi,
             ranges<V>& r,
             msconstraints<G>& g
             ) const = 0;
@@ -218,10 +218,10 @@ class expectation : public criterion
 };
 
 
-class mmpcvar: public criterion
+class mpmcvar: public criterion
 {
 public:
-    mmpcvar(double alambda, double aalpha=0.05) :
+    mpmcvar(double alambda, double aalpha=0.05) :
         lambda(alambda), alpha(aalpha)
     {}
     const double lambda;

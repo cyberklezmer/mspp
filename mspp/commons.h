@@ -443,7 +443,7 @@ const constraint::type geq = constraint::geq;
 
 class criterion: public object
 {
-};
+};;
 
 ///@}
 

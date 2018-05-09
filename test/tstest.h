@@ -17,9 +17,9 @@ public:
     {}
 private:
 
-    virtual void xset_is(
+    virtual void x_is(
             unsigned int k,
-            const vectors<double>& xi,
+            const subvectors<double>& xi,
             ranges<realvar>& xs,
             msconstraints<linearmsconstraint>& g
             ) const
@@ -44,7 +44,7 @@ private:
     }
 
     virtual linearfunction f_is(unsigned int k,
-            const vectors<double>& barxi) const
+            const subvectors<double>& barxi) const
     {
         return k ? linearfunction({0,0,1.0,1.0})
                  : linearfunction({1,1});

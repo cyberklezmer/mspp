@@ -4,20 +4,20 @@
 #include "mspptest.h"
 #include "mspp/de.h"
 
-class almproblem: public msproblem<mmpcvar, linearfunction,
+class almproblem: public msproblem<mpmcvar, linearfunction,
         linearmsconstraint,realvar,double>
 {
 
 public:
-    almproblem(double lambda, double alpha) : msproblem<mmpcvar, linearfunction,
+    almproblem(double lambda, double alpha) : msproblem<mpmcvar, linearfunction,
                    linearmsconstraint,realvar,double>
-        ({1,1,1,1},mmpcvar(lambda,alpha))
+        ({1,1,1,1},mpmcvar(lambda,alpha))
     {}
 
 
 
     virtual linearfunction f_is(unsigned int k,
-            const vectors<double>& barxi) const
+            const subvectors<double>& barxi) const
     {
        double c=barxi[0][0];
 //std::cout << "c="        << c << std::endl;
@@ -28,9 +28,9 @@ public:
        return r;
     }
 
-    virtual void xset_is(
+    virtual void x_is(
             unsigned int k,
-            const vectors<double>& xi,
+            const subvectors<double>& xi,
             ranges<realvar>& xs,
             msconstraints<linearmsconstraint>& g) const
     {

@@ -5,7 +5,7 @@
 #include "mspp/mpcproblem.h"
 #include "mspp/de.h"
 
-class psproblem: public msproblem< mmpcvar,
+class psproblem: public msproblem< mpmcvar,
         linearfunction,
         linearmsconstraint,realvar,double>
 {
@@ -16,15 +16,15 @@ class psproblem: public msproblem< mmpcvar,
 
 public:
     psproblem(double lambda, double alpha, bool secstagevars=true) :
-           msproblem<mmpcvar,
+           msproblem<mpmcvar,
            linearfunction,
            linearmsconstraint,realvar,double>
-          (initps(secstagevars),mmpcvar(lambda,alpha)), fssv(secstagevars)
+          (initps(secstagevars),mpmcvar(lambda,alpha)), fssv(secstagevars)
     {}
 
     virtual linearfunction f_is(
                     unsigned int k,
-                    const vectors<double>& bx) const
+                    const subvectors<double>& bx) const
     {
        if(fssv)
        {
@@ -44,9 +44,9 @@ public:
 
 
 
-    virtual void xset_is(
+    virtual void x_is(
             unsigned int k,
-            const vectors<double>& bx,
+            const subvectors<double>& bx,
             ranges<realvar>& r,
             msconstraints<linearmsconstraint>& g
             ) const
@@ -130,11 +130,11 @@ void cvartest(double alpha, double lambda, bool ssv)
     std::cout << "CVaRtest indirect ";
     std::cout << (ssv ? "with" : "without") << " second stage vars." << std::endl;
 
-    mmpcvarequivalent<psproblem> mcvproblem(rnproblem);
+    mpmcvarequivalent<psproblem> mcvproblem(rnproblem);
 
-    demethod<mmpcvarequivalent<psproblem>,gdscenariotree<double>,O> b;
+    demethod<mpmcvarequivalent<psproblem>,gdscenariotree<double>,O> b;
 
-    stsolution<mmpcvarequivalent<psproblem>,gdscenariotree<double>>
+    stsolution<mpmcvarequivalent<psproblem>,gdscenariotree<double>>
             sol(mcvproblem,stree);
 // jaktoze tu povolil sol(raproblem, stree)?
     double ovalue;
