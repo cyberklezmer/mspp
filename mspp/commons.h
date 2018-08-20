@@ -41,7 +41,7 @@ public:
     vectors(unsigned int dim) : vector<vector<T>>(dim) {}
     vectors(const vector<vector<T>>& v): vector<vector<T>>(v) {}
 
-    void convert(vector<T>& d)
+    void converttoonedim(vector<T>& d)
     {
         d.clear();
         for(typename vectors<T>::iterator i = this->begin();
@@ -56,7 +56,7 @@ public:
     operator vector<T>() const
     {
         vector<T> d;
-        convert(d);
+        converttoonedim(d);
         return d;
     }
     unsigned int totaldim() const
@@ -239,6 +239,7 @@ public:
         setlimits();
     }
 
+
     range(type t)
     {
         if constexpr( std::is_same<V,realvar>::value)
@@ -251,7 +252,7 @@ public:
             assert(t==intt);
             ft = intt;
         }
-        else if constexpr( std::is_same<V,intvar>::value)
+        else if constexpr( std::is_same<V,binvar>::value)
         {
             assert(t==bint);
             ft = bint;

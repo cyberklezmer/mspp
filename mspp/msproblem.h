@@ -176,7 +176,7 @@ public:
         return barxdimupto(k, k);
     }
 protected:
-    /// caution - reference stops to be valid after any change of gs.
+    /// caution - resulting reference stops to be valid after any change of gs.
     G& addg(msconstraints<G>& gs, unsigned int k) const
     {
         gs.add(G(barxdim(k)));
