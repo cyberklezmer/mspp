@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <fstream>
+#include "mspp/sddp.h"
 #include "mspp/lpsolver.h"
 #include "mspp/random.h"
 
@@ -70,7 +71,7 @@ public:
                 const sparselinearconstraint& c = lp.constraints[i];
                 if(c.t() == t)
                 {
-                    shared_ptr<std::vector<double>> clhs(c.lhs());
+                    ptr<vector<double>> clhs(c.lhs());
 
                     int j=0;
                     for(; j<clhs->size(); j++)

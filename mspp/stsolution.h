@@ -2,69 +2,75 @@
 #define STSOLUTION_H
 
 #include "mspp/msproblem.h"
-#include "mspp/random.h"
+#include "mspp/process.h"
 
 namespace mspp
 {
 
-template<typename P, typename Z>
+template<typename P, typename X>
 struct stsolitem
 {
-    rvector<typename Z::X_t> xi;
+    typename X::I_t xi;
     variables<typename P::V_t> x;
 };
 
 
-template <typename P, typename Z>
+template <typename P, typename X>
 class stsolcallback
 {
 public:
-    virtual void callback(const indexedpath<stsolitem<P,Z>>& path, void* state=0) const;
+    virtual void callback(const indexedpath<stsolitem<P,X>>& path, void* state=0) const;
 };
 
-template<typename P, typename Z>
+template<typename P, typename X>
 struct stsolutionstate
 {
 public:
-    stsolcallback<P,Z> *callee;
-    indexedpath<stsolitem<P,Z>> h;
+    stsolcallback<P,X> *callee;
+    indexedpath<stsolitem<P,X>> h;
     unsigned int i;
     void* callees;
 };
 
 
-template <typename P, typename Z>
+template <typename P, typename X>
 class stsolution: public object,
-        public sctreecallback<typename Z::X_t, stsolutionstate<P,Z>>
+        public sctreecallback<typename X::I_t, stsolutionstate<P,X>>
 {
 public:
     using P_t = P;
-    using Z_t = Z;
-    using X_t = typename Z::X_t;
+    using X_t = X;
+    using I_t = typename X::I_t;
     using V_t = typename P::V_t;
 
-    stsolution(const P& p, const Z& z) :
-        fz(ptr<Z>(new Z(z))), fps(p.d)
+    stsolution(const P& p, const X& x) :
+        fxi(ptr<X>(new X(x))), fps(p.d)
        {}
-    stsolution(const P& p, const ptr<Z> z) :
-        fz(z), fps(p.d)
+    stsolution(const P& p, const ptr<X> x) :
+        fxi(x), fps(p.d)
        {}
-    void set(const variables<V_t>& x) { fx=ptr<variables<V_t>>(new variables<V_t>(x)); }
-    void set(const ptr<variables<V_t>> x) { fx=x; }
+    void set(const variables<V_t>& x)
+    {
+        fx=ptr<variables<V_t>>(new variables<V_t>(x));
+    }
+    void set(const ptr<variables<V_t>> x)
+    {
+        fx=x;
+    }
     const msproblemstructure& ps() const { return fps; }
 
-    void foreachnode(stsolcallback<P,Z> *callee, void* cs=0) const
+    void foreachnode(stsolcallback<P,X> *callee, void* cs=0) const
     {
-        stsolutionstate<P,Z> s;
+        stsolutionstate<P,X> s;
         s.callee = callee;
         s.i = 0;
         s.callees = cs;
-        fz->foreachnode(this, &s);
+        fxi->foreachnode(this, &s);
     }
 
 
-    virtual void callback(const indexedpath<rvector<X_t>>& h,
-                                 stsolutionstate<P,Z>* s) const
+    virtual void callback(const indexedpath<I_t>& h,
+                                 stsolutionstate<P,X>* s) const
     {
         assert(h.size() <= fps.size());
         assert(h.size());
@@ -77,7 +83,7 @@ public:
         }
         s->h.resize(h.size());
         auto a=h[k];
-        s->h[k] = { stsolitem<P_t,Z_t>({a.x,n }), a.p,  a.i };
+        s->h[k] = { stsolitem<P_t,X_t>({a.x,n }), a.p,  a.i };
 
         for(unsigned int i=0; i<h.size(); i++)
             assert(s->h[i].i==h[i].i);
@@ -87,7 +93,7 @@ public:
     const variables<V_t> x() const { return *fx; }
 private:
     ptr<variables<V_t>> fx;
-    ptr<Z> fz;
+    ptr<X> fxi;
     msproblemstructure fps;
 };
 
@@ -101,13 +107,13 @@ struct  stsolreducerstate
 template <typename S, typename D>
 class stsolreducer : public object,
         public stsolcallback
-          <typename S::P_t, typename S::Z_t>
+          <typename S::P_t, typename S::X_t>
 {
 public:
     using V_t = typename S::P_t::V_t;
     void convert(S& s, D& d) //const
     {
-        static_assert(std::is_same<typename S::Z_t, typename D::Z_t>::value);
+        static_assert(std::is_same<typename S::X_t, typename D::X_t>::value);
         stsolreducerstate<V_t> st;
         st.fv.reset(new variables<V_t>);
         st.fdps = d.ps();
@@ -118,7 +124,7 @@ public:
 private:
 // state variables
     virtual void callback
-      (const indexedpath<stsolitem<typename S::P_t, typename S::Z_t>>& h,
+      (const indexedpath<stsolitem<typename S::P_t, typename S::X_t>>& h,
                            void* sptr) const
     {
         assert(h.size());

@@ -14,19 +14,19 @@ namespace mspp
 /// \ingroup sms
 /// @{
 
-template<typename P,typename Z>
+template<typename P,typename X>
 struct demethodstate
 {
     const P& p;
-    const Z& z;
+    const X& x;
 
     unsigned int dim;
     ptr<lpproblem<typename P::V_t>> lp;
     vector<unsigned int> offsets;
 };
 
-template<typename P,typename Z, typename O>
-class demethod : public object, public sctreecallback<typename Z::X_t, demethodstate<P,Z>>
+template<typename P,typename X, typename O>
+class demethod : public object, public sctreecallback<typename X::I_t, demethodstate<P,X>>
 {
 public:
     using V_t = typename P::V_t;
@@ -36,29 +36,28 @@ public:
              std::is_same<typename P::C_t,expectation>::value
                || std::is_same<typename P::C_t,mpmcvar>::value
                || std::is_same<typename P::C_t,nestedmcvar>::value
-                    );
+              );
     }
 
     bool solve(
-             P& p,
-             Z& z,
+             const P& p,
+             const X& xi,
              double& optimal,
-             stsolution<P,Z>& sol)
+             stsolution<P,X>& sol)
         {
             if constexpr(std::is_same<typename P::C_t,expectation>::value)
             {
-                assert(p.T() == z.T());
+                assert(p.T() == xi.T());
 
-                demethodstate<P,Z> s={p,z};
+                demethodstate<P,X> s={p,xi};
                 s.lp.reset(new lpproblem<V_t>);
                 s.offsets.resize(p.T()+1);
                 s.dim = 0;
 
-                z.foreachnode(this, &s);
+                xi.foreachnode(this, &s);
 
                 vector<double> x(s.dim);
                 O solver;
-//                lpsolver<typename P::V_t> lps ;
                 solver.solve(*(s.lp),x,optimal);
                 sol.set(x);
                 return true;
@@ -66,25 +65,25 @@ public:
             else if constexpr(std::is_same<typename P::C_t,mpmcvar>::value)
             {
                 mpmcvarequivalent<P> e(p);
-                stsolution<mpmcvarequivalent<P>,Z> es(e,z);
-                demethod<mpmcvarequivalent<P>,Z,O> m;
-                m.solve(e, z, optimal, es);
+                stsolution<mpmcvarequivalent<P>,X> es(e,xi);
+                demethod<mpmcvarequivalent<P>,X,O> m;
+                m.solve(e, xi, optimal, es);
 
-                stsolreducer<stsolution<mpmcvarequivalent<P>,Z>,
-                             stsolution<P,Z>> r;
+                stsolreducer<stsolution<mpmcvarequivalent<P>,X>,
+                             stsolution<P,X>> r;
                 r.convert(es,sol);
                 return true;
             }
             return false;
         }
 public:
-    virtual void callback(const indexedpath<rvector<typename Z::X_t>>& a,
-                          demethodstate<P,Z>* state) const
+    virtual void callback(const indexedpath<typename X::I_t>& a,
+                          demethodstate<P,X>* state) const
     {
         unsigned int stage = a.size()-1;
 
         probability up = a.uncprob();
-        scenario<typename Z::X_t> s = a.pth();
+        scenario<typename X::I_t> s = a.pth();
 
         unsigned int thisstagedim = state->p.d[stage];
 
@@ -125,19 +124,9 @@ public:
 
         // this stage objective
 
-        unsigned int src=0;
-
-        for(unsigned int i=0; i<=stage; i++)
-        {
-            unsigned int dst=state->offsets[i];
-            for(unsigned int r=0; r<state->p.d[i]; r++)
-            {
-                if(state->p.includedinbarx(i,r,stage))
-// std::cout << stage << ":" << up << ":" <<  f.c(src) << std::endl;
-                    lp.f[dst] += up * f.c(src++);
-                dst++;
-            }
-        }
+        unsigned int dst=state->offsets[stage];
+        for(unsigned int src=0; src<state->p.d[stage];)
+            lp.f[dst++] += up * f.c(src++);
 
         // this stage msconstraints
         for(unsigned int j=0; j<constraints.size(); j++)

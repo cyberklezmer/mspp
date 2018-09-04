@@ -4,22 +4,27 @@
 #include "mspptest.h"
 #include "mspp/de.h"
 
+struct omega
+{
+    double o1;
+    double o2;
+};
 
-template <typename Rxi>
+template <typename Z>
 class tsproblem: public msproblem<expectation,linearfunction,
-                linearmsconstraint,realvar,double,everything,Rxi>
+                linearmsconstraint,realvar,omega,everything,Z>
 {
 public:
     tsproblem() :
         msproblem<expectation,linearfunction,
-        linearmsconstraint,realvar,double,everything,Rxi>
+        linearmsconstraint,realvar,omega,everything,Z>
            (msproblemstructure({2,2}))
     {}
 private:
 
     virtual void x_is(
             unsigned int k,
-            const subvectors<double>& xi,
+            const omega& o,
             ranges<realvar>& xs,
             msconstraints<linearmsconstraint>& g
             ) const
@@ -35,19 +40,20 @@ private:
             xs[1].setpositive();
 
             linearmsconstraint& c=this->addg(g,k);
-            c.set({xi[1][0],1,1,0},constraint::geq, 7.0);
+
+            c.set({o.o1,1,1,0},constraint::geq, 7.0);
 
             linearmsconstraint& d = this->addg(g,k);
-            d.set({xi[1][1],1,0,1},constraint::geq, 4.0);
+            d.set({o.o2,1,0,1},constraint::geq, 4.0);
         }
 
     }
 
     virtual linearfunction f_is(unsigned int k,
-            const subvectors<double>& barxi) const
+                                const omega& zeta
+                                ) const
     {
-        return k ? linearfunction({0,0,1.0,1.0})
-                 : linearfunction({1,1});
+        return linearfunction({1.0,1.0});
     }
 };
 
@@ -57,7 +63,7 @@ void tst()
     unsigned int N=3;
 
     const unsigned int numleaves = N;
-    vector<rvector<double>> items(numleaves*numleaves);
+    vector<omega> items(numleaves*numleaves);
 
     for(unsigned int i=0; i<numleaves; i++)
     {
@@ -71,16 +77,16 @@ void tst()
 
     gddistribution g(items);
 
-    processdistribution<gddistribution<double>> pd({0,0},g,1);
+    processdistribution<gddistribution<omega>> pd({0,0},g,1);
 
 //    using myscenariotree=distrscenariotree<guiddistribution<double>>;
-    gdscenariotree<double> sp(pd);
+    gdscenariotree<omega> sp(pd);
 
     tsproblem<R> prp;
 
-    demethod<tsproblem<R>,gdscenariotree<double>,O> b;
+    demethod<tsproblem<R>,gdscenariotree<omega>,O> b;
 
-    stsolution<tsproblem<R>,gdscenariotree<double>> sol(prp,sp);
+    stsolution<tsproblem<R>,gdscenariotree<omega>> sol(prp,sp);
 
     double ov;
 
@@ -128,10 +134,8 @@ void tst()
 template <typename O>
 void twostagetest()
 {
-    std::cout << "Twostagetest with Rxi=everything" << std::endl;
-    tst<everything,O>();
-    std::cout << "Twostagetest with Rxi=nothing" << std::endl;
-    tst<nothing,O>();
+    std::cout << "Twostagetest with Rxi=lastxi" << std::endl;
+    tst<lastxi<omega>,O>();
 }
 
 

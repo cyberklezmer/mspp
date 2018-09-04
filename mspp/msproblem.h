@@ -51,9 +51,11 @@ public:
 };
 
 
+
 /// Base abstract class describing multistage problems
 template<typename C, typename F, typename G,
-          typename V, typename X, typename Rx=everything, typename Rxi=Rx>
+          typename V, typename I=double,
+          typename R=everything, typename Z=allxi<I>>
 class msproblem : public object
 {
     public:
@@ -62,17 +64,18 @@ class msproblem : public object
         using F_t = F;
         using G_t = G;
         using V_t = V;
-        using X_t = X;
-        using Rxi_t = Rxi;
-        using Rx_t = Rx;
+        using I_t = I;
+        using Z_t = Z;
+        using R_t = R;
+        using O_t = typename Z::C_t;
 
-        msproblem(const msproblemstructure& ps, C rho=C()):
-             d(ps), frho(rho)
+        msproblem(const msproblemstructure& ps, C arho=C()):
+             d(ps), rho(arho)
         {
         }
 
-        msproblem(const vector<unsigned int>& ps, C rho=C()):
-             d(ps), frho(rho)
+        msproblem(const vector<unsigned int>& ps, C arho=C()):
+             d(ps), rho(arho)
         {
         }
 
@@ -80,29 +83,29 @@ class msproblem : public object
         /// @name Accessors
         unsigned int T() const { return d.size()-1; }
 
-        virtual F f(const scenario<X>& s) const
+        virtual F f(const scenario<I>& s) const
         {
             assert(s.size());
-            return f(s.size()-1,barxi(s));
+            return f(s.size()-1,zeta(s));
         }
 
         virtual F f(
                 unsigned int k,
-                const subvectors<X>& barxi) const
+                const O_t& zeta) const
         {
-            F f = f_is(k,barxi);
-            assert(f.xdim()==barxdim(k));
+            F f = f_is(k,zeta);
+            assert(f.xdim()==xdim(k));
             return f;
         }
 
 
 
-        void x( const scenario<X>& s,
+        void x( const scenario<I>& s,
                 ranges<V_t>& r,
                 msconstraints<G>& gh) const
         {
             assert(s.size());
-            x(s.size()-1,barxi(s),r,gh);
+            x(s.size()-1,zeta(s),r,gh);
         }
 
         /**
@@ -114,14 +117,14 @@ class msproblem : public object
          */
 
         void x( unsigned int k,
-                const subvectors<X>& barxi,
+                const O_t& zeta,
                 ranges<V>& r,
                 msconstraints<G>& gh) const
         {
             r.clear();
             r.resize(d[k]);
             gh.clear();
-            this->x_is(k,barxi,r,gh);
+            this->x_is(k,zeta,r,gh);
             for(unsigned int i=0; i<gh.size(); i++)
                 assert(!(gh[i].constantinlast(d[k])));
         }
@@ -131,7 +134,7 @@ class msproblem : public object
             return varname_is(stage,i);
         }
 
-        C rho() const { return frho; }
+        const C rho;
 
         const msproblemstructure d;
         ///@}
@@ -140,18 +143,17 @@ class msproblem : public object
         /// @name Interface towards descendants
 protected:
 
-    subvectors<X> barxi(const scenario<X>& s) const
+    O_t zeta(const scenario<I>& s) const
     {
         assert(s.size());
-        Rxi r;
-        return r(s, s.size()-1);
+        return Z(s);
     }
 public:
     bool includedinbarx(unsigned int i, unsigned int j, unsigned int k) const
     {
         assert(i<=k);
         assert(j<=d[i]);
-        Rx r;
+        R r;
         return i==k ? true : r.included(i,j,k);
     }
     unsigned int barxdimupto(unsigned int i, unsigned int k) const
@@ -175,6 +177,12 @@ public:
     {
         return barxdimupto(k, k);
     }
+    unsigned int xdim(unsigned int k) const
+    {
+        assert(k <= this->T());
+        return d[k];
+    }
+
 protected:
     /// caution - resulting reference stops to be valid after any change of gs.
     G& addg(msconstraints<G>& gs, unsigned int k) const
@@ -185,18 +193,19 @@ protected:
 
     F newf(unsigned int k) const
     {
-        return F(this->barxdim(k));
+        return F(this->xdim(k));
     }
 
 private:
 
     virtual F f_is(
             unsigned int k,
-            const subvectors<X>& barxi) const = 0;
+            const O_t& zeta
+            ) const = 0;
 
     virtual void x_is(
             unsigned int k,
-            const subvectors<X>& barxi,
+            const O_t& zeta,
             ranges<V>& r,
             msconstraints<G>& g
             ) const = 0;
@@ -209,8 +218,6 @@ private:
     }
 
     ///@}
-
-    const C frho;
 };
 
 class expectation : public criterion

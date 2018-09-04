@@ -97,7 +97,7 @@ public:
             IloCplex cplex(model);
             cplex.setOut(sys::log());
             cplex.setWarning(sys::log());
-//            cplex.exportModel("model.lp"); //lp, mps, sav
+            cplex.exportModel("model.lp"); //lp, mps, sav
 
 
            // Optimize the problem and obtain solution.

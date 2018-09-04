@@ -36,9 +36,9 @@ private:
 template<class P>
 class mpmcvarequivalent: public msproblem
                <expectation, linearfunction, typename P::G_t, typename P::V_t,
-                           typename P::X_t,
-                           mpcvprestriction<typename P::Rx_t>,
-                           typename P::Rxi_t>
+                           typename P::I_t,
+                           mpcvprestriction<typename P::R_t>,
+                           typename P::Z_t>
 {
     static msproblemstructure
         ps(const msproblemstructure& sps)
@@ -58,12 +58,12 @@ public:
     mpmcvarequivalent(const P& sp) :
         msproblem<expectation, linearfunction,
              typename P::G_t, typename P::V_t,
-             typename P::X_t,
-             mpcvprestriction<typename P::Rx_t>,
-             typename P::Rxi_t>(ps(sp.d)),
+             typename P::I_t,
+             mpcvprestriction<typename P::R_t>,
+             typename P::Z_t>(ps(sp.d)),
            fsp(new P(sp)),
-           flambda( sp.rho().lambda),
-           falpha( sp.rho().alpha)
+           flambda( sp.rho.lambda),
+           falpha( sp.rho.alpha)
     {
         static_assert(std::is_same<typename P::C_t,mpmcvar>::value);
         assert(fsp->T()>0);
@@ -113,12 +113,12 @@ public:
 
     virtual linearfunction f_is(
             unsigned int k,
-            const subvectors<typename P::X_t>& barxi) const
+            const typename P::Z_t::C_t& zeta) const
     {
         linearfunction r = this->newf(k);
         if(k==0)
         {
-            linearfunction orig = fsp->f(0,barxi);
+            linearfunction orig = fsp->f(0,zeta);
 
             assert(orig.xdim()+1==r.xdim());
 
@@ -129,21 +129,21 @@ public:
         }
         else if(k < this->T())
         {
-            assert(this->barxdim(k)>=this->tildexdim(k)+2);
-            r.setc(this->tildexdim(k),1);
-            r.setc(this->tildexdim(k)+1,1);
+            assert(this->xdim(k)>=2);
+            r.setc(0,1);
+            r.setc(1,1);
         }
         else // k==T
         {
-            assert(this->barxdim(k)>=this->tildexdim(k)+1);
-            r.setc(this->tildexdim(k),1);
+            assert(this->xdim(k)>=1);
+            r.setc(0,1);
         }
         return r;
     }
 
     virtual void x_is(
             unsigned int k,
-            const subvectors<typename P::X_t>& barxi,
+            const typename P::Z_t::C_t& zeta,
             ranges<typename P::V_t>& r,
             msconstraints<typename P::G_t>& g
             ) const
@@ -153,7 +153,7 @@ public:
 
         ranges<typename P::V_t> srcr;
         msconstraints<G_t> srcgs;
-        fsp->x(k,barxi,srcr,srcgs);
+        fsp->x(k,zeta,srcr,srcgs);
 
 
         unsigned int m; // # of new variables in this stage
@@ -164,8 +164,12 @@ public:
             m=2;
 
         unsigned int dst=0;
-        for(;dst<m;)
-            r[dst++]=range<V_t>(range<V_t>::realt);
+        for(;dst<m;dst++)
+        {
+            r[dst]=range<V_t>(range<V_t>::realt);
+            if(k<this->T() && dst==0)  // it is u
+                r[dst].setlimits(min<realvar>(),max<realvar>());
+        }
         for(unsigned int src=0; src<srcr.size(); )
             r[dst++] = srcr[src++];
 
@@ -208,33 +212,19 @@ public:
         // next we add "mu" and "nu" cosntraints
         if(k>0)
         {
-            typename P::F_t srcf = fsp->f(k,barxi);
-            assert(srcf.xdim() == this->fsp->barxdim(k));
+            typename P::F_t srcf = fsp->f(k,zeta);
+            assert(srcf.xdim() == this->fsp->xdim(k));
 
             G_t muc(this->barxdim(k));
             G_t nuc(this->barxdim(k));
 
-            unsigned int src = 0;
-            unsigned int dst = 0;
-
-            if(k>1) // we add coefs up to stage k-2
-            {
-                for(;src<this->fsp->barxdimupto(k-2,k);)
-                {
-                    muc.setlhs(dst,-mu() * srcf.c(src));
-                    nuc.setlhs(dst++,-nu() * srcf.c(src++));
-                }
-            }
+            unsigned int dst = k>1 ? fsp->barxdimupto(k-2,k) : 0;
 
             // next we add a coef for u
             muc.setlhs(dst,mu());
-            nuc.setlhs(dst++,nu());
+            nuc.setlhs(dst,nu());
 
-            for(;src<this->fsp->barxdimupto(k-1,k);)
-            {
-                muc.setlhs(dst,-mu() * srcf.c(src));
-                nuc.setlhs(dst++,-nu() * srcf.c(src++));
-            }
+            dst = this->barxdimupto(k-1,k);
 
             if(k<this->T())
             {
@@ -247,14 +237,17 @@ public:
             muc.setlhs(dst,1);
             nuc.setlhs(dst++,1);
 
-            // add remaining coefs
-            for(; src< this->fsp->barxdim(k);)
+
+            // add original coefs
+            unsigned int src = 0;
+            for(; src< this->fsp->xdim(k);)
             {
+//cout << -mu() * srcf.c(src) << " ";
                 muc.setlhs(dst,-mu() * srcf.c(src));
                 nuc.setlhs(dst++,-nu() * srcf.c(src++));
             }
-
-            assert(src==this->fsp->barxdim(k));
+//cout << endl;
+            assert(src==this->fsp->xdim(k));
             assert(dst==this->barxdim(k));
 
             muc.settype(constraint::geq);

@@ -15,14 +15,12 @@ public:
     {}
 
 
-
     virtual linearfunction f_is(unsigned int k,
-            const subvectors<double>& barxi) const
+            const allxi<double>& zeta ) const
     {
-       double c=barxi[0][0];
-//std::cout << "c="        << c << std::endl;
-       for(unsigned int i=1; i<=k; i++)
-          c *= barxi[i][0];
+       double c=1;
+       for(unsigned int i=0; i <= k; i++)
+          c *= zeta[i];
        linearfunction r = newf(k);
        r.setc(k,c);
        return r;
@@ -30,7 +28,7 @@ public:
 
     virtual void x_is(
             unsigned int k,
-            const subvectors<double>& xi,
+            const Z_t& ,
             ranges<realvar>& xs,
             msconstraints<linearmsconstraint>& g) const
     {

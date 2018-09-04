@@ -13,11 +13,19 @@ static_assert(std::numeric_limits<double>::is_iec559, "IEEE 754 required");
 
 static_assert(__cplusplus >= 201703, "C++17 language standard required");
 
+static_assert(RAND_MAX >=2147483647, "RAND_MAX too small");
+
+
+using namespace std;
+
 namespace mspp
 {
 
 /// \addtogroup general General Definitions
 ///  @{
+
+const double probabilitytolerance = 1e-15;
+
 
 template <typename V>
 const V inf() { return std::numeric_limits<V>::infinity(); }
@@ -25,12 +33,20 @@ const V inf() { return std::numeric_limits<V>::infinity(); }
 template <typename V>
 const V minf() { return -inf<V>(); }
 
+// TBD
+template <typename V>
+const V max() { return 1e10; }
+
+template <typename V> const V min() {
+    return -1e10;
+              }
+
 
 template <typename T>
 using ptr=std::shared_ptr<T>;
 
-template <typename T>
-using vector=std::vector<T>;
+//template <typename T>
+//using vector=std::vector<T>;
 
 
 template <typename T>
@@ -101,83 +117,73 @@ private:
 
 class sys : public object
 {
-#ifdef MSPP_SYS
-    static sys* fself;
-#else
-    static constexpr sys* fself = 0;
-#endif
+    static sys& self()
+    {
+       static sys s;
+       return s;
+    }
 public:
     sys() : fout(0), flog(0), ferr(0)
     {
-#ifdef MSPP_SYS
-        fself=this;
-#endif
     }
     ~sys()
     {
-#ifdef MSPP_SYS
-        fself = 0;
-#endif
     }
 
     static void setout(std::ostream& o)
     {
-        assert(fself);
-#ifdef MSPP_SYS
-        fself->fout = &o;
-#endif
+        self().fout = &o;
     }
     static void resetout()
     {
-#ifdef MSPP_SYS
-        if(fself);
-            fself->fout = 0;
-#endif
+        self().fout = 0;
     }
 
     static void setlog(std::ostream& l)
     {
-        assert(fself);
-#ifdef MSPP_SYS
-        fself->flog = &l;
-#endif
+        self().flog = &l;
     }
     static void resetlog()
     {
-#ifdef MSPP_SYS
-        if(fself)
-            fself->flog=0;
-#endif
+        self().flog=0;
     }
 
     static void seterr(std::ostream& e)
     {
-        assert(fself);
-#ifdef MSPP_SYS
-        fself->ferr = &e;
-#endif
+        self().ferr = &e;
     }
     static void reseterr()
     {
-#ifdef MSPP_SYS
-        if(fself);
-            fself->ferr = 0;
-#endif
+        self().ferr = 0;
     }
 
     static std::ostream& out()
     {
-        return (fself && fself->flog) ? *(fself->flog) : std::clog;
+        return self().fout ? *(self().fout) : std::cout;
     }
     static std::ostream& log()
     {
-        return (fself && fself->flog) ? *(fself->flog) : std::clog;
+        return self().flog ? *(self().flog) : std::clog;
     }
     static std::ostream& err()
     {
-        assert(fself);
-        return (fself && fself->ferr) ? *(fself->ferr) : std::cerr;
+        return self().ferr ? *(self().ferr) : std::cerr;
     }
+    static void seed()
+    {
+        srand(time(0));
+    }
+
+    static void seed(unsigned int seed)
+    {
+        srand(seed);
+    }
+
+    static double uniform()
+    {
+        return ((double) rand() + 0.5) / ((double) RAND_MAX + 1);
+    }
+
 private:
     std::ostream* fout;
     std::ostream* flog;
@@ -240,7 +246,7 @@ public:
     }
 
 
-    range(type t)
+    range(type t, V l=minf<V>(), V h=inf<V>())
     {
         if constexpr( std::is_same<V,realvar>::value)
         {
@@ -262,7 +268,7 @@ public:
            assert(t==realt || t==intt || t==bint);
            ft = t;
         }
-        setlimits();
+        setlimits(l,h);
     }
 
     void setreal(realvar l=minf<realvar>(), realvar h=inf<realvar>())
@@ -444,7 +450,7 @@ const constraint::type geq = constraint::geq;
 
 class criterion: public object
 {
-};;
+};
 
 ///@}
 
@@ -535,25 +541,69 @@ private:
 
 ///@}
 
+
+
+
 /// \ingroup Distributions
+struct nocondition {};
+
+
+
+/// \ingroup Processes
 template <typename T>
 using path=std::vector<T>;
 
-/// \ingroup Distributions
-template <typename X>
-using rvector = vector<X>;
 
-/// \ingroup Distributions
-template <typename X>
-using scenario = vectors<X>;
+/// \ingroup Processes
+template <typename I=double>
+using scenario = path<I>;
 
-/// \ingroup Distributions
-/// declared as class to be distinquishable by compiler
-template <typename X>
-class condition: public subvectors<X>
+/// \ingroup Processes
+template <typename C>
+class zeta: public object
 {
 public:
-    condition(const vectors<X> v) : subvectors<X>(v)  {}
+    using C_t=C;
+    virtual operator C () const = 0;
+};
+
+/// \ingroup Processes
+
+template <typename I>
+class allxi: public zeta <scenario<I>>, public scenario<I>
+{
+public:
+    allxi(const scenario<I>& s) : scenario<I>(s)
+    {
+    }
+    operator scenario<I>() const { return *this; }
+};
+
+/// \ingroup Processes
+
+template <typename I>
+class lastxi: public zeta<I>
+{
+public:
+    lastxi(const scenario<I>& s)
+    {
+        assert(s.size());
+        fxi = s[s.size()-1];
+    }
+    operator I() const { return fxi; }
+private:
+    I fxi;
+};
+
+/// \ingroup Processes
+
+template <typename I>
+class noxi: public zeta<nocondition>
+{
+public:
+    noxi(const scenario<I>& s)
+    {}
+    operator nocondition() const { return nocondition(); }
 };
 
 } // namespace

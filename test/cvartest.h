@@ -7,52 +7,39 @@
 
 class psproblem: public msproblem< mpmcvar,
         linearfunction,
-        linearmsconstraint,realvar,double>
+        linearmsconstraint,realvar,
+        rvector<double>,everything,lastxi<vector<double>>>
 {
-    msproblemstructure initps(bool ssv)
-    {
-        return ssv ? msproblemstructure({2,2}) : msproblemstructure({2,0});
-    }
 
 public:
-    psproblem(double lambda, double alpha, bool secstagevars=true) :
+    psproblem(double lambda, double alpha) :
            msproblem<mpmcvar,
            linearfunction,
-           linearmsconstraint,realvar,double>
-          (initps(secstagevars),mpmcvar(lambda,alpha)), fssv(secstagevars)
+           linearmsconstraint,realvar,vector<double>,everything,lastxi<vector<double>>>
+          (msproblemstructure({2,2}),mpmcvar(lambda,alpha))
     {}
 
     virtual linearfunction f_is(
                     unsigned int k,
-                    const subvectors<double>& bx) const
+                    const Z_t::C_t& zeta) const
     {
-       if(fssv)
-       {
-          if(k)
-             return linearfunction({0,0,-bx[1][0],-bx[1][1]});
-          else
-             return linearfunction({0,0});
-       }
-       else
-       {
-           if(k)
-               return linearfunction({-bx[1][0],-bx[1][1]});
-           else
-               return linearfunction({0,0});
-       }
+      vector<double> xik=zeta;
+      if(k)
+         return linearfunction({-xik[0],-xik[1]});
+      else
+         return linearfunction({0,0});
     }
 
 
 
     virtual void x_is(
             unsigned int k,
-            const subvectors<double>& bx,
+            const Z_t::C_t& zeta,
             ranges<realvar>& r,
             msconstraints<linearmsconstraint>& g
             ) const
     {
         assert(k<=1);
-
 
         if(k == 0)
         {
@@ -61,7 +48,7 @@ public:
             r[0].setpositive();
             r[1].setpositive();
         }
-        else if(fssv)
+        else
         {
             r[0].setpositive();
             r[1].setpositive();
@@ -71,31 +58,28 @@ public:
                           constraint::eq, 0));
         }
     }
-private:
-    bool fssv;
 };
 
 template <typename O>
-void cvartest(double alpha, double lambda, bool ssv)
+void cvartest(double alpha, double lambda)
 {
+    gmdddistribution<double> d
+           = gddistribution({0, 1.0/3.0, 2.0 / 3.0})
+           * gddistribution({0.1+0, 0.1+ 1.0/3.0, 0.1+2.0 / 3.0});
 
-    gddistribution d = gddistribution({0, 1.0/3.0, 2.0 / 3.0})
-                        * gddistribution({0.1+0, 0.1+ 1.0/3.0, 0.1+2.0 / 3.0});
+    gmddscenariotree<double> stree(d,1);
 
-    gdscenariotree<double> stree(d,1);
-
-    psproblem rnproblem(lambda,alpha,ssv);
+    psproblem rnproblem(lambda,alpha);
 
     const double tol = 1e-5;
 
     double cvarobj = -0.266666666666667;
 
     std::cout << "CVaRtest direct ";
-    std::cout << (ssv ? "with" : "without") << " second stage vars." << std::endl;
 
 
-    demethod<psproblem,gdscenariotree<double>,O> m;
-    stsolution<psproblem,gdscenariotree<double>> s(rnproblem,stree);
+    demethod<psproblem,gmddscenariotree<double>,O> m;
+    stsolution<psproblem,gmddscenariotree<double>> s(rnproblem,stree);
 
     double o;
 
@@ -106,6 +90,10 @@ void cvartest(double alpha, double lambda, bool ssv)
         std::cerr << "cvartest direct: opt="
              << cvarobj << " expected, " << o << " achieved." << std::endl;
 
+        for(unsigned int i=0; i<2+9*2; i++)
+        {
+            cerr << s.x(i) << endl;
+        }
         throw;
     }
 
@@ -127,14 +115,13 @@ void cvartest(double alpha, double lambda, bool ssv)
 
     std::cout << "Passed."  << std::endl;
 
-    std::cout << "CVaRtest indirect ";
-    std::cout << (ssv ? "with" : "without") << " second stage vars." << std::endl;
+    std::cout << "CVaRtest indirect by DE ";
 
     mpmcvarequivalent<psproblem> mcvproblem(rnproblem);
 
-    demethod<mpmcvarequivalent<psproblem>,gdscenariotree<double>,O> b;
+    demethod<mpmcvarequivalent<psproblem>,gmddscenariotree<double>,O> b;
 
-    stsolution<mpmcvarequivalent<psproblem>,gdscenariotree<double>>
+    stsolution<mpmcvarequivalent<psproblem>,gmddscenariotree<double>>
             sol(mcvproblem,stree);
 // jaktoze tu povolil sol(raproblem, stree)?
     double ovalue;
@@ -156,6 +143,11 @@ void cvartest(double alpha, double lambda, bool ssv)
         std::cerr << "cvartest: opt="
              << cvarobj << " expected, " << ovalue << " achieved." << std::endl;
 
+        for(unsigned int i=0; i<3+9*3; i++)
+        {
+            cerr << s.x(i) << endl;
+        }
+
         throw;
     }
 
@@ -174,7 +166,7 @@ void cvartest(double alpha, double lambda, bool ssv)
 
     unsigned int l = sizeof(cvarthetas)/sizeof(cvarthetas[0]);
 
-    unsigned int thetafactor = ssv ? 3 : 1;
+    unsigned int thetafactor = 3;
     for(unsigned int i=0; i<l; i++)
     {
         if(fabs(sol.x(k+thetafactor*i)-cvarthetas[i]) > tol)
@@ -187,6 +179,31 @@ void cvartest(double alpha, double lambda, bool ssv)
         }
     }
     std::cout <<  "Passed." << std::endl;
+
+std::ofstream log("sddp.log");
+sys::setlog(log);
+
+    std::cout << "CVaRtest indirect by SDDP ";
+
+    sddpmethod<mpmcvarequivalent<psproblem>,gmdddistribution<double>> sm;
+
+
+    sddpsolution<mpmcvarequivalent<psproblem>> sddpsol(mcvproblem);
+
+    double sddpovalue;
+    vector<const gmdddistribution<double>*> dv;
+    dv.push_back(&d);
+
+    sm.solve(mcvproblem,dv, vector<double>(0), sddpovalue, sddpsol);
+
+    if(fabs(sddpovalue-cvarobj) > tol)
+    {
+        std::cerr << "cvartest: opt="
+             << cvarobj << " expected, " << sddpovalue << " achieved." << std::endl;
+
+        throw;
+    }
+
 }
 
 #endif // CVARTEST_H
