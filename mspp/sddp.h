@@ -50,7 +50,11 @@ template<typename P, typename D>
 class msppsddpmodel : public ScenarioModel
 {
     static constexpr bool fdebug = true;
-
+    static unsigned int countDebugModel()
+    {
+        static unsigned int cnt=0;
+        return ++cnt;
+    }
 
     using C_t = typename D::C_t;
     class msspDistribution : public DiscreteDistribution
@@ -75,6 +79,8 @@ class msppsddpmodel : public ScenarioModel
             {
                 rvector<double> x = fd->draw(fc);
                 sample.row(i) = rowvec(x);
+//atom<rvector<double>> a = (*fd)[i];
+//
             }
             if(fdebug)
                 sys::log() << sample <<  " returned" << endl;
@@ -95,7 +101,8 @@ class msppsddpmodel : public ScenarioModel
     };
 
     static constexpr bool fnestedcvar =
-            std::is_same<typename P::C_t,nestedmcvar>::value;
+            std::is_same<typename P::C_t,nestedmcvar>::value
+           || std::is_same<typename P::C_t,mpmcvar>::value;
     static bool constexpr fmarkov = std::is_same<typename D::C_t,unsigned int>::value;
 
     double lambda;
@@ -113,6 +120,8 @@ class msppsddpmodel : public ScenarioModel
              std::is_same<typename P::C_t,expectation>::value
                || fnestedcvar
               );
+        if constexpr(fnestedcvar && std::is_same<typename P::C_t,mpmcvar>::value)
+           assert(fp.T() < 2);
         if constexpr(fnestedcvar)
         {
             alpha = fp.rho.alpha;
@@ -152,8 +161,6 @@ public:
                      const rvector<double>& xi0 = 0)
            : ScenarioModel(p.d.size()), fp(p), fxi0(xi0), fdistrs(distrs)
        {
-cout << "stages:" << p.d.size()<<endl;
-
            if(fdebug)
                sys::log() << "swi ctr called" << endl;
            if(fdebug)
@@ -260,21 +267,26 @@ cout << "stages:" << p.d.size()<<endl;
 
         virtual unsigned int GetDecisionSize(unsigned int stage) const
         {
-           if(fdebug)
-               sys::log() << "GetDecisionSize called (may be my call, too)" << endl
-                          << "(" << stage << ")" << endl;
+//           if(fdebug)
+//               sys::log() << "GetDecisionSize called (may be my call, too)" << endl
+//                          << "(" << stage << ")" << endl;
 
             unsigned int nx = fp.d[stage-1];
-            if constexpr(std::is_same<typename P::C_t,nestedmcvar>::value)
+            if constexpr(fnestedcvar)
             {
+                unsigned int rv;
+                if(stage-1<fp.T())
+                    rv = nx+1;
+                else
+                    rv = nx;
                 if(fdebug)
-                    sys::log() << nx+1 << " returned" << endl;
-                return nx+1;
+                    sys::log() << rv << " returned" << endl;
+                return rv;
             }
             else
             {
-                if(fdebug)
-                    sys::log() << nx << " returned" << endl;
+//                if(fdebug)
+//                    sys::log() << nx << " returned" << endl;
                 return nx;
             }
         }
@@ -282,15 +294,20 @@ cout << "stages:" << p.d.size()<<endl;
        {
            if(fdebug)
                sys::log() << "GetRecourseLowerBound called" << endl;
-           return std::numeric_limits<double>::min();
+           return min<double>();
        }
         virtual double GetRecourseUpperBound(unsigned int stage) const
        {
            if(fdebug)
                 sys::log() << "GetRecourseUpperBound called" << endl;
-           return std::numeric_limits<double>::max();
+           return max<double>();
        }
-        virtual void FillSubradient(unsigned int stage, const double *prev_decisions, const double *scenario, double objective, const double *duals, double &recourse, double *subgradient) const
+        virtual void FillSubradient(unsigned int stage,
+                                    const double *prev_decisions,
+                                    const double *scenario,
+                                    double objective,
+                                    const double *duals,
+                                    double &recourse, double *subgradient) const
         {
            if(fdebug)
               sys::log() << "FillSubradient called" << endl;
@@ -300,14 +317,13 @@ cout << "stages:" << p.d.size()<<endl;
            if(stage == 1)
            {
                recourse = fnestedcvar ? (1-lambda) * objective : objective;
-
+               if(fdebug)
+                  sys::log() << "(1) " << endl << recourse << " returned" << endl;
 
                return;
            }
 
-
            unsigned int k= stage - 1;
-           bool last_stage = k == fp.T();
            ranges<typename P::V_t> vars;
            msconstraints<typename P::G_t> constraints;
            rvector<double> zeta = rvector<double>(scenario, scenario+ fdistrs[k-1]->dim);
@@ -315,19 +331,31 @@ cout << "stages:" << p.d.size()<<endl;
                 for(unsigned int i=0; i<fxi0.size(); i++)
                     assert(fxi0[i]==scenario[i]);
            fp.x(k,zeta,vars,constraints);
-
            if(fdebug)
            {
-               sys::log() << "(" << stage << ",(";
-               for(int i=0; i<GetDecisionSize(stage-2);i++)
+               sys::log() << "(" << stage << ",pd=(";
+               for(int i=0; i<GetDecisionSize(stage-1);i++)
                    sys::log() << prev_decisions[i] << ",";
-               sys::log() << "),(";
-               for(int i=0; i< fdistrs[stage-1]->dim; i++)
+               sys::log() << "),sc=(";
+               for(int i=0; i< fdistrs[stage-2]->dim; i++)
                    sys::log() << scenario[i] << ",";
-               sys::log() << "),"<< objective << ",(";
+               sys::log() << "), o="<< objective << ",duals=(";
                for(int i=0; i< constraints.size(); i++)
                    sys::log() << duals[i] << ",";
                sys::log() << "))" << endl;
+           }
+
+           if(fdebug)
+           {
+               sys::log() << "fp.x called, " << vars.size() << " vars, "
+                           << constraints.size() << " constraints returned"
+                           << endl;
+               for(unsigned int i=0; i<constraints.size(); i++)
+               {
+                   for(unsigned int j=0; j<constraints[i].xdim(); j++)
+                        sys::log() << constraints[i].lhs(j) << ", ";
+                   sys::log() << endl;
+               }
            }
 
            unsigned int nv = GetDecisionSize(stage-1);
@@ -341,12 +369,12 @@ cout << "stages:" << p.d.size()<<endl;
            else
                recourse = objective;
 
-           double g = 0;
            double* sgptr = subgradient;
            unsigned int vind = 0;
 
            for(unsigned int i=0; i<fp.d[k-1]; i++,sgptr++)
            {
+               double g = 0;
                if(fp.includedinbarx(k-1,i,k))
                {
                   for(int k=0; k< constraints.size(); k++)
@@ -366,13 +394,26 @@ cout << "stages:" << p.d.size()<<endl;
            if(fnestedcvar) // sg for u
                *sgptr = objective > prev_decisions[nv-1]
                            ? - lambda / alpha : 0;
-        }
+           if(fdebug)
+           {
+               sys::log() << "g=(";
+               for(unsigned int i=0; i<nv; i++)
+                    sys::log() << subgradient[i] << ",";
+               sys::log() << "), recourse=" << recourse << " returned" << endl;
+               sys::log().flush();
+           }
+       }
 
-        virtual double CalculateUpperBound(unsigned int stage, const double *prev_decisions, const double *decisions, const double *scenario, double recourse_estimate, bool cut_tail) const
+        virtual double CalculateUpperBound(unsigned int stage,
+                                           const double *prev_decisions,
+                                           const double *decisions,
+                                           const double *scenario,
+                                           double recourse_estimate,
+                                           bool cut_tail) const
         {
            if(fdebug)
            {
-              sys::log() << "CalculateUpporBound called" << endl;
+              sys::log() << "CalculateUpporBound called(stage=" << stage << ")" << endl;
            }
            assert(!cut_tail); // still not ready for this
 
@@ -392,21 +433,56 @@ cout << "stages:" << p.d.size()<<endl;
                 for(unsigned int i=0; i<fxi0.size(); i++)
                     assert(fxi0[i]==scenario[i]);
 
+           if(fdebug)
+           {
+               sys::log() << "(" << stage << ",pd=(";
+               if(k)
+                   for(int i=0; i<GetDecisionSize(stage-1);i++)
+                       sys::log() << prev_decisions[i] << ",";
+               sys::log() << "),decisions=(";
+               for(int i=0; i<GetDecisionSize(stage);i++)
+                   sys::log() << decisions[i] << ",";
+               sys::log() << "),sc=(";
+               for(int i=0; i< zeta.size(); i++)
+                   sys::log() << scenario[i] << ",";
+               sys::log() << "), re="<< recourse_estimate << ")" << endl;
+           }
+
+
            typename P::F_t f = fp.f(k,zeta);
 
            vector<double> x(decisions,decisions+fp.d[k]);
            double node_value = f(x);
+/*if(0 && stage > 1)
+{
+    double f = -decisions[1]*zeta[0] - decisions[2]*zeta[1];
+    double y = f-prev_decisions[0];
+
+   double mu=0.5;
+   double nu=10.5;
+   double truef = std::max(mu*y,nu*y);
+   sys::err()<< prev_decisions[0] << ","  << decisions[1] << "," << decisions[2] << "," <<  zeta[0] << "," << zeta[1] << "," << node_value << "," << truef << endl;
+}*/
+           if(fdebug)
+               sys::log() << "node value = " << node_value << endl;
 
            //coefficients from current stage
            if(!fnestedcvar)
+           {
+               if(fdebug)
+                   sys::log() << "returned: "
+                      << node_value+ recourse_estimate << endl;
+
                return node_value + recourse_estimate;
+           }
            else
            {
                double u = last_stage ? 0 : decisions[fp.d[k]];
 
+               double res;
                if(root_node)
                {
-                   return recourse_estimate + (1-lambda) * node_value
+                   res =  recourse_estimate + (1-lambda) * node_value
                             + lambda * u;
                }
                else
@@ -416,8 +492,12 @@ cout << "stages:" << p.d.size()<<endl;
                    double tv = (1-lambda) * rv;
                    if(tv > prevu)
                        tv += lambda / alpha * (tv > prevu);
-                   return tv;
+                   res = tv;
                }
+               if(fdebug)
+                   sys::log() << res << " returned." << endl;
+               return res;
+
            }
         }
         virtual void BuildCoinModel(CoinModelWrapper * coin_model, unsigned int stage, const double *prev_decisions, const double *scenario, vector<string> &decision_vars, vector<string> &dual_constraints) const {}
@@ -442,10 +522,11 @@ cout << "stages:" << p.d.size()<<endl;
            {
                sys::log() << "(" << stage << ",(";
                if(stage > 1)
-                  for(int i=0; i<GetDecisionSize(stage-2);i++)
+                  for(int i=0; i<GetDecisionSize(stage-1);i++)
                      sys::log() << prev_decisions[i] << ",";
                sys::log() << "),(";
-               for(int i=0; i< !k ? fxi0.size() : fdistrs[stage-1]->dim; i++)
+               unsigned int d = !k ? fxi0.size() : fdistrs[stage-2]->dim;
+               for(int i=0; i<d ; i++)
                    sys::log() << scenario[i] << ",";
                sys::log() << "))" << endl;
            }
@@ -466,14 +547,14 @@ cout << "stages:" << p.d.size()<<endl;
            typename P::F_t f = fp.f(k,zeta);
 
            IloNumVarArray x(env,vars.size());
-
-           assert(vars.size() == fp.barxdim(k));
+           assert(vars.size() == fp.xdim(k));
            for(int i=0; i<vars.size(); i++)
            {
                const range<realvar>& v = vars[i];
 
-               const IloNum l = v.islinf() ? -IloInfinity : v.l();
-               const IloNum h = v.ishinf() ? IloInfinity : v.h();
+               IloNum l = v.islinf() ? -IloInfinity : v.l();
+               IloNum h = v.ishinf() ? IloInfinity : v.h();
+
                IloNumVar::Type t;
                switch(v.t())
                {
@@ -531,26 +612,28 @@ cout << "stages:" << p.d.size()<<endl;
                    }
                 }
                 unsigned int srcvar = 0;
-                for(unsigned int i=0; i<fp.barxdim(k); i++)
+                for(unsigned int i=0; i<fp.xdim(k); i++)
                 {
                    if(fp.includedinbarx(k,i,k))
                        v+= c.lhs(srccoef++)*x[i];
                    srcvar++;
                }
                IloRange r =
-                   c.t() == constraint::eq ? IloRange(env,c.rhs(),v,c.rhs())
-                   : (c.t() == constraint::leq ? IloRange(env,v,c.rhs())
-                       : IloRange(env,c.rhs(),v));
+                   c.t() == constraint::eq ? IloRange(env,rhs,v,rhs)
+                   : (c.t() == constraint::leq ? IloRange(env,v,rhs)
+                       : IloRange(env,rhs,v));
                v.end();
                model.add(r);
                dual_constraints.push_back(r);
            }
-           if(fdebug)
+           if(0 && fdebug)
            {
                std::ostringstream s;
-               s << "model" << (rand() % 100) << ".lp";
+               s << "model" << countDebugModel() << ".lp";
 
                IloCplex cplex(model);
+
+               cplex.setOut(env.getNullStream());
                sys::log() << "Partial model exported to " << s.str() << endl;
                cplex.exportModel(s.str().c_str());
            }
@@ -566,17 +649,36 @@ private:
 
 
 template <typename P>
-class sddpsolution : public variables<typename P::V_t>
+class sddpsolution : public object
 {
 public:
     sddpsolution(const P& p) :
-        variables<typename P::V_t>(p.d[0]) {}
-    void set(const variables<typename P::V_t>& v)
+        fv(p.d[0]) {}
+    void set(const variables<typename P::V_t>& fsv,
+             double lb, double ubm, double ubb, time_t t)
     {
-        assert(v.size()==this->size());
-        for(unsigned int i=0; i<v.size(); i++)
-            (*this)[i] = v[i];
+        assert(fsv.size()==fv.size());
+        for(unsigned int i=0; i<fv.size(); i++)
+            fv[i] = fsv[i];
+        flb=lb;
+        fubm=ubm;
+        fubb=ubb;
+        ftime = t;
     }
+    const variables<typename P::V_t>& firststage() const
+    {
+        return fv;
+    }
+    double lb() const { return flb; }
+    double ubm() const { return fubm; }
+    double ubb() const { return fubb; }
+    time_t time() const { return ftime;}
+private:
+    double flb;
+    double fubm;
+    double fubb;
+    time_t ftime;
+    variables<typename P::V_t> fv;
 };
 
 
@@ -610,24 +712,24 @@ public:
              const P& p,
              const vector<const D*>& xi,
              const rvector<double> xi0,
-             double& optimal,
              sddpsolution<P>& sol)
     {
         if constexpr(std::is_same<typename P::C_t,mpmcvar>::value)
         {
-            mpmcvarequivalent<P> e(p);
-            sddpsolution<mpmcvarequivalent<P>> es;
-            sddpmethod<mpmcvarequivalent<P>,D> sm;
-            sm.solve(e, xi, xi0, optimal, es);
-            for(unsigned int i=0; i<sol.size(); i++)
-                sol[i]=es[i];
+            if(p.T()>=2)
+            {
+                mpmcvarequivalent<P> e(p);
+                sddpsolution<mpmcvarequivalent<P>> es(e);
+                sddpmethod<mpmcvarequivalent<P>,D> sm;
+                sm.solve(e, xi, xi0,  es);
+                variables<typename P::V_t> v(sol.firststage().size());
+                for(unsigned int i=0; i<v.size(); i++)
+                    v[i]=es.firststage()[i];
+                sol.set(v,es.lb(),es.ubm(),es.ubb(),es.time());
+            }
         }
-        else
-        {
-            msppsddpmodel<P,D> mm(p,xi,xi0);
-            do_solve(&mm,optimal,sol);
-        }
-
+        msppsddpmodel<P,D> mm(p,xi,xi0);
+        do_solve(&mm,sol);
     }
 
     static void solve(
@@ -635,7 +737,6 @@ public:
              const vector<const D*>& xi,
              const rvector<double> xi0,
              const vector<const markovchain*>& m,
-             double& optimal,
              sddpsolution<P>& sol)
     {
         if constexpr(std::is_same<typename P::C_t,mpmcvar>::value)
@@ -643,20 +744,19 @@ public:
             mpmcvarequivalent<P> e(p);
             sddpsolution<mpmcvarequivalent<P>> es;
             sddpmethod<mpmcvarequivalent<P>,D> sm;
-            sm.solve(e, xi, xi0, m, optimal, es);
+            sm.solve(e, xi, xi0, m, es);
             for(unsigned int i=0; i<sol.size(); i++)
                 sol[i]=es[i];
         }
         else
         {
             msppsddpmodel<P,D> mm(p,xi,xi0,m);
-            do_solve(&mm,optimal,sol);
+            do_solve(&mm,sol);
         }
     }
 private:
     static void do_solve(
              msppsddpmodel<P,D> *m,
-             double& optimal,
              sddpsolution<P>& sol)
     {
         const unsigned int SEED = 350916502;
@@ -685,6 +785,8 @@ private:
 
         //configure the SddpSolver
         SddpSolverConfig config;
+        config.debug_solver = 1;
+//config.forward_count = config.backward_count =  9;
         config.samples_per_stage = DESCENDANTS;
         config.reduced_samples_per_stage = REDUCED_DESCENDANTS;
         config.solver_strategy = STRATEGY_DEFAULT; // STRATEGY_CONDITIONAL
@@ -702,13 +804,14 @@ private:
 
         variables<typename P::V_t> vars;
         unsigned int sn;
-        if constexpr(std::is_same<typename P::C_t,nestedmcvar>::value)
-            sn = weights_o.n_cols;
-        else
+        if constexpr(std::is_same<typename P::C_t,nestedmcvar>::value ||
+                     std::is_same<typename P::C_t,mpmcvar>::value)
             sn = weights_o.n_cols - 1;
+        else
+            sn = weights_o.n_cols;
         for(unsigned int i=0; i<sn; i++)
             vars.push_back(weights_o(i));
-        sol.set(vars);
+        sol.set(vars, lb_o, ub_o_m, ub_o_b, time_o);
     }
 };
 

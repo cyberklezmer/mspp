@@ -180,7 +180,7 @@ void cvartest(double alpha, double lambda)
     }
     std::cout <<  "Passed." << std::endl;
 
-std::ofstream log("sddp.log");
+/*std::ofstream log("sddp.log");
 sys::setlog(log);
 
     std::cout << "CVaRtest indirect by SDDP ";
@@ -203,7 +203,7 @@ sys::setlog(log);
 
         throw;
     }
-
+*/
 }
 
 #endif // CVARTEST_H
