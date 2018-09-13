@@ -89,8 +89,8 @@ public:
 
         // calling original problems \p x
 
-        ranges<V_t> vars;
-        msconstraints<typename P::G_t> constraints;
+        vector<range<V_t>> vars;
+        vector<typename P::G_t> constraints;
 
         state->p.x(s,vars,constraints);
 

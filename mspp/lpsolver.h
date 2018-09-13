@@ -52,7 +52,7 @@ template <typename V>
 class lpproblem : public object
 {
 public:
-    ranges<V> vars;
+    vector<range<V>> vars;
     vector<double> f;
     vector<sparselinearconstraint> constraints;
     vector<std::string> varnames;

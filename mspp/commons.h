@@ -344,8 +344,6 @@ private:
     type ft;
 };
 
-template <typename V>
-using ranges = vector<range<V>>;
 
 ///@}
 
@@ -398,21 +396,15 @@ private:
     virtual bool is_included(unsigned int i, unsigned int j, unsigned int s) const = 0;
 };
 
-class nothing: public tilde
-{
-private:
-    virtual bool is_included(unsigned int, unsigned int ) const { return false; }
-    virtual bool is_included(unsigned int, unsigned int, unsigned int) const { return false; }
-};
 
-class everything: public tilde
+class allx: public tilde
 {
 private:
     virtual bool is_included(unsigned int, unsigned int ) const { return true; }
     virtual bool is_included(unsigned int, unsigned int, unsigned int) const { return true; }
 };
 
-class lastvalue: public tilde
+class lastx: public tilde
 {
 private:
     virtual bool is_included(unsigned int i, unsigned int s) const
@@ -435,13 +427,15 @@ class constraint: public object
 {
 public:
     enum type {eq, geq, leq};
-    constraint(type t=eq) : ft(t) {}
+    constraint(unsigned int xdim, type t=eq)
+        : fxdim(xdim), ft(t) {}
 
     type t() const { return ft; }
     void settype(type t) { ft = t; }
-    virtual unsigned int xdim() const = 0;
+    unsigned int xdim() const { return fxdim; }
 private:
     type ft;
+    unsigned int fxdim;
 };
 
 const constraint::type eq = constraint::eq;

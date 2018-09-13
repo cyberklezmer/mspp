@@ -40,22 +40,65 @@ public:
 
 
 template <typename G>
-class msconstraints: public vector<G>
+class msconstraints
 {
 public:
+    msconstraints(unsigned int n) : fn(n) {}
     G& add(const G& g)
     {
-        vector<G>::push_back(g);
-        return *vector<G>::rbegin();
+        assert(g.xdim()==fn);
+        fgs.push_back(g);
+        return *fgs.rbegin();
     }
+    G& add()
+    {
+        fgs.push_back(G(fn));
+        return *fgs.rbegin();
+    }
+    G& operator [] (unsigned int i)
+    {
+        assert(i<fgs.size());
+        return fgs[i];
+    }
+
+    operator vector<G> () const
+    {
+        return fgs;
+    }
+
+
+private:
+    unsigned int fn;
+    vector<G> fgs;
 };
 
+
+template <typename V>
+class ranges
+{
+public:
+    ranges(unsigned int n) : frs(n)
+    {
+    }
+    range<V>& operator [] (unsigned int i)
+    {
+        assert(i<frs.size());
+        return frs[i];
+    }
+    operator vector<range<V>> () const
+    {
+        return frs;
+    }
+
+private:
+    vector<range<V>> frs;
+};
 
 
 /// Base abstract class describing multistage problems
 template<typename C, typename F, typename G,
           typename V, typename I=double,
-          typename R=everything, typename Z=allxi<I>>
+          typename R=allx, typename Z=allxi<I>>
 class msproblem : public object
 {
     public:
@@ -68,6 +111,7 @@ class msproblem : public object
         using Z_t = Z;
         using R_t = R;
         using O_t = typename Z::C_t;
+
 
         msproblem(const msproblemstructure& ps, C arho=C()):
              d(ps), rho(arho)
@@ -93,16 +137,15 @@ class msproblem : public object
                 unsigned int k,
                 const O_t& zeta) const
         {
-            F f = f_is(k,zeta);
+            F f(this->xdim(k));
+            f_is(k,zeta,f);
             assert(f.xdim()==xdim(k));
             return f;
         }
 
-
-
         void x( const scenario<I>& s,
-                ranges<V_t>& r,
-                msconstraints<G>& gh) const
+                vector<range<V_t>>& r,
+                vector<G>& gh) const
         {
             assert(s.size());
             x(s.size()-1,zeta(s),r,gh);
@@ -118,15 +161,16 @@ class msproblem : public object
 
         void x( unsigned int k,
                 const O_t& zeta,
-                ranges<V>& r,
-                msconstraints<G>& gh) const
+                vector<range<V_t>>& v,
+                vector<G>& gh) const
         {
-            r.clear();
-            r.resize(d[k]);
-            gh.clear();
-            this->x_is(k,zeta,r,gh);
+            ranges<V_t> r(d[k]);
+            msconstraints<G_t> cs(this->barxdim(k));
+            this->x_is(k,zeta,r, cs);
             for(unsigned int i=0; i<gh.size(); i++)
                 assert(!(gh[i].constantinlast(d[k])));
+            v = r;
+            gh=cs;
         }
 
         virtual std::string varname(unsigned int stage, unsigned int i) const
@@ -183,30 +227,20 @@ public:
         return d[k];
     }
 
-protected:
-    /// caution - resulting reference stops to be valid after any change of gs.
-    G& addg(msconstraints<G>& gs, unsigned int k) const
-    {
-        gs.add(G(barxdim(k)));
-        return *gs.rbegin();
-    }
 
-    F newf(unsigned int k) const
-    {
-        return F(this->xdim(k));
-    }
 
 private:
 
-    virtual F f_is(
+    virtual void f_is(
             unsigned int k,
-            const O_t& zeta
+            const O_t& zeta,
+            F& f
             ) const = 0;
 
     virtual void x_is(
             unsigned int k,
             const O_t& zeta,
-            ranges<V>& r,
+            ranges<V_t>& r,
             msconstraints<G>& g
             ) const = 0;
 
@@ -259,11 +293,11 @@ class linearmsconstraint : public msconstraint, public linearconstraint
 public:
 
     linearmsconstraint(unsigned int lhssize) :
-       linearconstraint(lhssize)
+       linearconstraint(lhssize), constraint(lhssize)
     {}
 
     linearmsconstraint(vector<double> lhs, constraint::type t=constraint::eq, double rhs = 0) :
-       linearconstraint(lhs,rhs), constraint(t)
+       linearconstraint(lhs,rhs), constraint(lhs.size(),t)
     {
     }
 

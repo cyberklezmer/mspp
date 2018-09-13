@@ -9,10 +9,11 @@ namespace mspp
 class linearconstraint : virtual public constraint
 {
 public:
-    linearconstraint(unsigned int lhssize) :
-        flhs(lhssize), frhs(0) {}
-    linearconstraint(const vector<double>& lhs, double rhs=0) :
-        flhs(lhs), frhs(rhs) {}
+    linearconstraint(unsigned int xdim) :
+        constraint(xdim), flhs(xdim), frhs(0) {}
+    linearconstraint(const vector<double>& lhs, double rhs=0,
+            constraint::type t=constraint::eq) :
+        constraint(lhs.size(),t), flhs(lhs), frhs(rhs) {}
     double lhs(unsigned int i) const
     {
         assert(i<flhs.size());
@@ -25,10 +26,9 @@ public:
     }
     void setlhs(const vector<double>& lhs)
     {
-        assert(lhs.size()==flhs.size());
+        assert(lhs.size()==xdim());
         flhs = lhs;
     }
-    virtual unsigned int xdim() const { return  flhs.size(); }
     void setrhs(double rhs ) { frhs = rhs; }
     double rhs() const { return frhs; }
 private:

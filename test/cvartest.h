@@ -8,26 +8,27 @@
 class psproblem: public msproblem< mpmcvar,
         linearfunction,
         linearmsconstraint,realvar,
-        rvector<double>,everything,lastxi<vector<double>>>
+        rvector<double>,allx,lastxi<vector<double>>>
 {
 
 public:
     psproblem(double lambda, double alpha) :
            msproblem<mpmcvar,
            linearfunction,
-           linearmsconstraint,realvar,vector<double>,everything,lastxi<vector<double>>>
+           linearmsconstraint,realvar,vector<double>,allx,lastxi<vector<double>>>
           (msproblemstructure({2,2}),mpmcvar(lambda,alpha))
     {}
 
-    virtual linearfunction f_is(
+    virtual void f_is(
                     unsigned int k,
-                    const Z_t::C_t& zeta) const
+                    const Z_t::C_t& zeta,
+                    linearfunction& f) const
     {
       vector<double> xik=zeta;
       if(k)
-         return linearfunction({-xik[0],-xik[1]});
+         f = linearfunction({-xik[0],-xik[1]});
       else
-         return linearfunction({0,0});
+         f = linearfunction({0,0});
     }
 
 
@@ -61,7 +62,7 @@ public:
 };
 
 template <typename O>
-void cvartest(double alpha, double lambda)
+void cvartest()
 {
     gmdddistribution<double> d
            = gddistribution({0, 1.0/3.0, 2.0 / 3.0})
@@ -69,7 +70,7 @@ void cvartest(double alpha, double lambda)
 
     gmddscenariotree<double> stree(d,1);
 
-    psproblem rnproblem(lambda,alpha);
+    psproblem rnproblem(0.5,0.05);
 
     const double tol = 1e-5;
 
@@ -180,11 +181,24 @@ void cvartest(double alpha, double lambda)
     }
     std::cout <<  "Passed." << std::endl;
 
-/*std::ofstream log("sddp.log");
-sys::setlog(log);
 
-    std::cout << "CVaRtest indirect by SDDP ";
+    std::cout << "CVaRtest direct by SDDP ";
 
+    using pdist=processdistribution<gmdddistribution<double>>;
+
+    pdist pd(rvector<double>(0),d,1);
+
+    sddpmethod<psproblem,pdist> dsm;
+    sddpsolution<psproblem> dsddpsol(rnproblem);
+
+    dsm.solve(rnproblem, pd,  dsddpsol);
+
+    cout << "lb: " << dsddpsol.lb() << " ubm: " << dsddpsol.ubm()
+           <<     " ubb: " << dsddpsol.ubb() << endl;
+      for(unsigned int i=0; i<dsddpsol.firststage().size(); i++)
+          cout << "x" << i << "=" << dsddpsol.firststage()[i] << endl;
+
+/*
     sddpmethod<mpmcvarequivalent<psproblem>,gmdddistribution<double>> sm;
 
 

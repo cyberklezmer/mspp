@@ -111,34 +111,33 @@ public:
         }
     }
 
-    virtual linearfunction f_is(
+    virtual void f_is(
             unsigned int k,
-            const typename P::Z_t::C_t& zeta) const
+            const typename P::Z_t::C_t& zeta,
+            linearfunction& f) const
     {
-        linearfunction r = this->newf(k);
         if(k==0)
         {
             linearfunction orig = fsp->f(0,zeta);
 
-            assert(orig.xdim()+1==r.xdim());
+            assert(orig.xdim()+1==f.xdim());
 
             unsigned int i=0;
-            r.setc(i++,1);
+            f.setc(i++,1);
             for(;i-1<orig.xdim(); i++)
-                r.setc(i,orig.c(i-1));
+                f.setc(i,orig.c(i-1));
         }
         else if(k < this->T())
         {
             assert(this->xdim(k)>=2);
-            r.setc(0,1);
-            r.setc(1,1);
+            f.setc(0,1);
+            f.setc(1,1);
         }
         else // k==T
         {
             assert(this->xdim(k)>=1);
-            r.setc(0,1);
+            f.setc(0,1);
         }
-        return r;
     }
 
     virtual void x_is(
@@ -151,8 +150,8 @@ public:
         using G_t = typename P::G_t;
         using V_t = typename P::V_t;
 
-        ranges<typename P::V_t> srcr;
-        msconstraints<G_t> srcgs;
+        vector<range<typename P::V_t>> srcr;
+        vector<G_t> srcgs;
         fsp->x(k,zeta,srcr,srcgs);
 
 
@@ -173,12 +172,12 @@ public:
         for(unsigned int src=0; src<srcr.size(); )
             r[dst++] = srcr[src++];
 
-        for(typename msconstraints<G_t>::iterator it = srcgs.begin();
+        for(typename vector<G_t>::iterator it = srcgs.begin();
              it != srcgs.end(); it++)
         {
             const linearmsconstraint& srcg = *it;
 
-            linearmsconstraint& dstg = this->addg(g,k);
+            linearmsconstraint& dstg = g.add();
 
             unsigned int src = 0;
             unsigned int dst = 0;

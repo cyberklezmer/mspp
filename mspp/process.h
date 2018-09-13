@@ -14,10 +14,13 @@ namespace mspp
 
 
 
-template <typename D>
+template <typename D, typename Z=noxi<typename D::I_t>>
 class processdistribution : public object
 {
 public:
+    using Z_t = Z;
+    using D_t = D;
+
     processdistribution(const typename D::I_t& xi0,
                         const D& d, unsigned int T)
       : fxi0(xi0), fd(T,d)
@@ -34,8 +37,12 @@ public:
     }
 
     typename D::I_t xi0() const { return fxi0; }
-    const D& d(unsigned int k) const { assert(k<=fd.size()); return fd[k-1]; }
+    const D& d(unsigned int k) const { assert(k); assert(k<=fd.size()); return fd[k-1]; }
     unsigned int T() const { return fd.size(); }
+    typename D::C_t c(const scenario<typename D::I_t>& s) const
+    {
+        return Z(s);
+    }
 private:
     typename D::I_t fxi0;
     vector<D> fd;
@@ -149,25 +156,28 @@ class distrscenariotree : public scenariotree<typename D::I_t>
 {
     using I=typename D::I_t;
 public:
-    distrscenariotree(const processdistribution<D>& p):fp(p)
+    distrscenariotree(const processdistribution<D,Z>& p):fp(p)
     {}
     distrscenariotree(const D& d, unsigned int T) :
-        fp(processdistribution<D>(d,T))
+        fp(processdistribution<D,Z>(d,T))
     {}
     distrscenariotree(const I& xi0, const D& d, unsigned int T) :
-        fp(processdistribution<D>(xi0,d,T))
+        fp(processdistribution<D,Z>(xi0,d,T))
     {}
+
+    distrscenariotree(const I& xi0, const vector<D>&d) :
+        fp(processdistribution<D,Z>(xi0,d))
+    {}
+
 private:
-
-
     virtual void branches_are(vector<atom<I>>& bchs,
                               const indexedpath<I>& s) const
     {
         unsigned int k=s.size();
         assert(k);
         assert(fp.T());
-        Z z(s.pth());
-        typename D::C_t c = z;
+
+        typename D::C_t c = fp.c(s.pth());
         fp.d(k).ddistribution<typename D::I_t,typename D::C_t>::atoms(bchs,c);
     }
     virtual typename D::I_t root_is() const
@@ -176,7 +186,7 @@ private:
     }
     virtual unsigned int  T_is() const { return fp.T(); }
 private:
-    processdistribution<D> fp;
+    processdistribution<D,Z> fp;
 };
 
 template <typename X>

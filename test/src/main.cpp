@@ -1,13 +1,13 @@
 #include "mspp/msproblem.h"
 #include "mspp/random.h"
-//#include "mspp/cplex.h"
 //#include "test/tstest.h"
 #include "test/cvartest.h"
-//#include "test/almtest.h"
-
+#include "test/almtest.h"
+#include <mcheck.h>
 
 int main(int argc, char *argv[])
 {
+//    mcheck(0);
     std::ofstream log("sddp.log");
     sys::setlog(log);
 //    std::ofstream elog("esddp.log");
@@ -17,10 +17,11 @@ int main(int argc, char *argv[])
 //    using O=csvlpsolver<realvar>;
     using O=cplex<realvar>;
 //    twostagetest<O>();
-//    cvartest<O>(0.05,0.5); // tbd vysledky ale zavisej na hodnotach
-//    almtest<O>(0.05,0.5);
-
-    psproblem rnproblem(0.5,0.05);
+//    cvartest<O>();
+    almtest<O>();
+    return 1;
+/*
+  psproblem rnproblem(0.5,0.05);
     gmdddistribution<double> d
            = gddistribution({0, 1.0/3.0, 2.0 / 3.0})
            * gddistribution({0.1+0, 0.1+ 1.0/3.0, 0.1+2.0 / 3.0});
@@ -32,6 +33,8 @@ int main(int argc, char *argv[])
     sddpsolution<psproblem> dsddpsol(rnproblem);
 
     dsm.solve(rnproblem, dv, vector<double>(0), dsddpsol);
+
+
 
     cout << "lb: " << dsddpsol.lb() << " ubm: " << dsddpsol.ubm()
          <<     " ubb: " << dsddpsol.ubb() << endl;
@@ -51,5 +54,5 @@ int main(int argc, char *argv[])
         for(unsigned int i=0; i<sddpsol.firststage().size(); i++)
             cout << "x" << i << "=" << sddpsol.firststage()[i] << endl;
     }
-    return 0;
+    return 0;*/
 }

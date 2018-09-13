@@ -12,12 +12,12 @@ struct omega
 
 template <typename Z>
 class tsproblem: public msproblem<expectation,linearfunction,
-                linearmsconstraint,realvar,omega,everything,Z>
+                linearmsconstraint,realvar,omega,allx,Z>
 {
 public:
     tsproblem() :
         msproblem<expectation,linearfunction,
-        linearmsconstraint,realvar,omega,everything,Z>
+        linearmsconstraint,realvar,omega,allx,Z>
            (msproblemstructure({2,2}))
     {}
 private:
@@ -39,21 +39,22 @@ private:
             xs[0].setpositive();
             xs[1].setpositive();
 
-            linearmsconstraint& c=this->addg(g,k);
+            linearmsconstraint& c=g.add();
 
             c.set({o.o1,1,1,0},constraint::geq, 7.0);
 
-            linearmsconstraint& d = this->addg(g,k);
+            linearmsconstraint& d = g.add();
             d.set({o.o2,1,0,1},constraint::geq, 4.0);
         }
 
     }
 
-    virtual linearfunction f_is(unsigned int k,
-                                const omega& zeta
+    virtual void f_is(unsigned int k,
+                                const omega& zeta,
+                                linearfunction& f
                                 ) const
     {
-        return linearfunction({1.0,1.0});
+        f = linearfunction({1.0,1.0});
     }
 };
 

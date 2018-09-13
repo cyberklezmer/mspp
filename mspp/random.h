@@ -82,6 +82,49 @@ private:
     virtual I do_draw() const = 0;
 };
 
+template <typename I, typename J>
+struct pair{I i; J j;};
+
+
+template <typename D, typename E>
+class iterativedistribution:
+    virtual public distribution
+        <pair<typename D::I_t, typename E::I_t>, typename D::C_t>
+{
+public:
+    using I_t = pair<typename D::I_t, typename E::I_t>;
+    using C_t = typename D::C_t;
+    iterativedistribution(const D& d, const E& e) : fd(d), fe(e)
+    {
+        static_assert(std::is_same<typename E::C_t, typename D::I_t>::value);
+    }
+    const D& d() const { return fd; }
+    const E& e() const { return fe; }
+private:
+    D fd;
+    E fe;
+};
+
+template <typename D, typename E>
+class mciterativedistribution: public iterativedistribution<D,E>
+{
+public:
+    using I_t = typename iterativedistribution<D,E>::I_t;
+    using C_t = typename iterativedistribution<D,E>::C_t;
+    mciterativedistribution(const D& d, const E& e) :
+      iterativedistribution<D,E>(d,e)
+    {
+    }
+    virtual I_t do_draw(const C_t& c) const
+    {
+        I_t r;
+        r.i = this->d().draw(c);
+        r.j = this->e().draw(r.i);
+        return r;
+    }
+};
+
+
 /// @}
 
 /// \addtogroup discretedisc Discrete distributions
@@ -125,6 +168,7 @@ public:
     atom<I> operator () (unsigned int i, const C& c) const
     {
         assert(i<natoms_is(c));
+
         return atom_is(i,c);
     }
 
@@ -286,6 +330,59 @@ gmdddistribution<I> operator *(const iddistribution<I>& x,
     return gmdddistribution<I>(a);
 }
 
+
+template <typename D, typename E>
+class diterativedistribution:
+        public iterativedistribution<D,E>,
+        public ddistribution<pair<typename D::I_t,typename E::I_t>,
+                                               typename D::C_t>
+
+{
+public:
+    using I_t = typename iterativedistribution<D,E>::I_t;
+    using C_t = typename iterativedistribution<D,E>::C_t;
+    diterativedistribution(const D& d, const E& e) :
+        iterativedistribution<D,E>(d,e)
+    {
+    }
+private:
+    virtual void atoms_are(vector<atom<I_t>>& a, const C_t& c) const
+    {
+        a.clear();
+        vector<atom<typename D::I_t>> da;
+        this->d().atoms(da,c);
+        unsigned int nd=da.size();
+        for(unsigned int i=0; i<nd; i++)
+        {
+            atom<typename D::I_t> x = da[i];
+
+            vector<atom<typename E::I_t>> ea;
+            this->e().atoms(ea,x.x);
+            unsigned int ne=ea.size();
+
+            for(unsigned int j=0; j<ne; j++)
+            {
+                atom<typename E::I_t> y = ea[j];
+                a.push_back({{x.x,y.x},x.p*y.p});
+            }
+        }
+    }
+
+
+    virtual atom<I_t> atom_is(unsigned int i, const C_t& c) const
+    {
+        vector<atom<I_t>> a;
+        atoms_are(a,c);
+        assert(i<a.size());
+        return a[i];
+    }
+    virtual unsigned int natoms_is(const C_t& c) const
+    {
+        vector<atom<I_t>> a;
+        atoms_are(a,c);
+        return a.size();
+    }
+};
 
 
 /// @} - discrete distributions
