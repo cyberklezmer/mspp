@@ -172,7 +172,7 @@ void almtest()
 */
     unsigned int nl = 1;
 // tbd udělat pro něj dobrej draw
-    using mcd = mciterativedistribution<mmarkovchain,almdistribution>;
+    using mcd = diterativedistribution<mmarkovchain,almdistribution>;
     vector<mcd> dm;
     dm.push_back(mcd(mmarkovchain({{0.5,0.5}}),
                      almdistribution(nl,{ 0.8, 1.1}))
@@ -186,12 +186,12 @@ void almtest()
                      almdistribution(nl,{ 0.8*0.8*0.8, 0.8*0.8*1.1,
                                           0.8*1.1*1.1, 1.1*1.1*1.1 } ))
                  );
-    malmproblem mp(0.5,0.02);
+    malmproblem mp(0.5,0.05);
 
+// tbd dávat de jen distribution
+    using mctree = distrscenariotree<diterativedistribution<mmarkovchain,almdistribution>>;
 
-/*    using mctree = distrscenariotree<mmarkovchain, lastxi<unsigned int>>;
-
-    mctree mt(0,dv);
+    mctree mt(0,dm);
 
 
     std::cout <<"MALMtest DE..." << std::endl;
@@ -211,7 +211,9 @@ void almtest()
 
 
     std::cout <<  "Passed." << std::endl;
-*/
+
+    return;
+    /*std::cout <<"MALMtest DE..." << std::endl;
 
     msddpprocessdist<mmarkovchain, almdistribution> pd({0},dm);
     sddpsolution<malmproblem> ss(mp);
@@ -229,6 +231,7 @@ void almtest()
              " achieved." << std::endl;
         throw;
     }
+    */
 }
 
 #endif // ALMTEST_H
