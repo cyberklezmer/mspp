@@ -3,9 +3,9 @@
 
 #include <cmath>
 #include <fstream>
-#include "mspp/sddp.h"
 #include "mspp/lpsolver.h"
 #include "mspp/random.h"
+#include "mspp/cplex.h"
 
 using namespace mspp;
 

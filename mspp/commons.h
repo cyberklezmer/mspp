@@ -33,12 +33,12 @@ const V inf() { return std::numeric_limits<V>::infinity(); }
 template <typename V>
 const V minf() { return -inf<V>(); }
 
-// TBD
+
 template <typename V>
-const V max() { return 1e10; }
+const V max() { return std::numeric_limits<V>::max(); }
 
 template <typename V> const V min() {
-    return -1e10;
+    return std::numeric_limits<V>::lowest();
               }
 
 
@@ -452,10 +452,22 @@ class criterion: public object
 /// \addtogroup fns Functions
 /// @{
 
-class function: public object
+template <typename D,typename R>
+class mapping: public object
 {
 public:
-    function(unsigned int xdim) : fxdim(xdim) {}
+    using D_t=D;
+    using R_t=R;
+    virtual R operator() (const D& ) const = 0;
+};
+
+template <typename D>
+using function = mapping<D,double>;
+
+class efunction: public function<vector<double>>
+{
+public:
+    efunction(unsigned int xdim) : fxdim(xdim) {}
     unsigned int xdim() const { return fxdim; }
     double operator() (const vector<double>& x) const
     {
@@ -467,16 +479,16 @@ private:
     virtual double value_is(const vector<double>& x) const = 0;
 };
 
-class convexfunction: public function
+class convexefunction: public efunction
 {
 public:
-    convexfunction(unsigned int xdim) : function(xdim) {}
+    convexefunction(unsigned int xdim) : efunction(xdim) {}
 };
 
-class subdiffunction: public convexfunction
+class subdifefunction: public convexefunction
 {
 public:
-    subdiffunction(unsigned int dim) : convexfunction(dim) {}
+    subdifefunction(unsigned int dim) : convexefunction(dim) {}
 
     vector<double> sg(const vector<double> x) const
     {
@@ -486,14 +498,14 @@ private:
    virtual vector<double> sg_is(const vector<double>& x) const = 0;
 };
 
-class linearfunction: public subdiffunction
+class linearfunction: public subdifefunction
 {
 public:
     linearfunction(unsigned int dim):
-        subdiffunction(dim), fc(dim) {}
+        subdifefunction(dim), fc(dim) {}
 
     linearfunction(vector<double> c):
-        subdiffunction(c.size()), fc(c) {}
+        subdifefunction(c.size()), fc(c) {}
 
     void setc(const vector<double>& c)
     {
@@ -553,51 +565,42 @@ template <typename I=double>
 using scenario = path<I>;
 
 /// \ingroup Processes
-template <typename C>
-class zeta: public object
+template <typename I,typename C>
+class zeta: public mapping<scenario<I>,C>
 {
 public:
     using C_t=C;
-    virtual operator C () const = 0;
+    using I_t=I;
 };
 
 /// \ingroup Processes
 
 template <typename I>
-class allxi: public zeta <scenario<I>>, public scenario<I>
+class allxi: public zeta<I, scenario<I>>
 {
 public:
-    allxi(const scenario<I>& s) : scenario<I>(s)
-    {
-    }
-    operator scenario<I>() const { return *this; }
+    virtual scenario<I> operator() (const scenario<I>& s) const
+       { return s; }
 };
 
 /// \ingroup Processes
 
 template <typename I>
-class lastxi: public zeta<I>
+class lastxi: public zeta<I,I>
 {
 public:
-    lastxi(const scenario<I>& s)
-    {
-        assert(s.size());
-        fxi = s[s.size()-1];
-    }
-    operator I() const { return fxi; }
-private:
-    I fxi;
+    virtual I operator() (const scenario<I>& s) const
+       { assert(s.size()); return s[s.size()-1]; }
 };
 
 /// \ingroup Processes
 
 template <typename I>
-class noxi: public zeta<nocondition>
+class noxi: public zeta<I,nocondition>
 {
 public:
-    noxi(const scenario<I>& s)
-    {}
-    operator nocondition() const { return nocondition(); }
+    virtual nocondition operator() (const scenario<I>&) const
+       { return nocondition(); }
 };
 
 } // namespace

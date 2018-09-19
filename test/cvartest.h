@@ -2,10 +2,11 @@
 #define CVARTEST_H
 
 #include "mspptest.h"
+#include "mspp/sddp.h"
 #include "mspp/mpcproblem.h"
 #include "mspp/de.h"
 
-class psproblem: public msproblem< mpmcvar,
+class psproblem: public msproblem< expectation,
         linearfunction,
         linearmsconstraint,realvar,
         rvector<double>,allx,lastxi<vector<double>>>
@@ -13,10 +14,12 @@ class psproblem: public msproblem< mpmcvar,
 
 public:
     psproblem(double lambda, double alpha) :
-           msproblem<mpmcvar,
+           msproblem<expectation,
            linearfunction,
            linearmsconstraint,realvar,vector<double>,allx,lastxi<vector<double>>>
-          (msproblemstructure({2,2}),mpmcvar(lambda,alpha))
+          (msproblemstructure({2,2})
+//,mpmcvar(lambda,alpha)
+           )
     {}
 
     virtual void f_is(
@@ -59,6 +62,14 @@ public:
                           constraint::eq, 0));
         }
     }
+    virtual double minf_is(unsigned int) const
+    {
+        return -1e10;
+    }
+    virtual double maxf_is(unsigned int) const
+    {
+        return 1e10;
+    }
 };
 
 template <typename O>
@@ -68,7 +79,10 @@ void cvartest()
            = gddistribution({0, 1.0/3.0, 2.0 / 3.0})
            * gddistribution({0.1+0, 0.1+ 1.0/3.0, 0.1+2.0 / 3.0});
 
-    gmddscenariotree<double> stree(d,1);
+    using pdist = processdistribution<gmdddistribution<double>>;
+    pdist pd(d,1);
+    using myst = distrscenariotree<pdist>;
+    myst stree(pd);
 
     psproblem rnproblem(0.5,0.05);
 
@@ -78,13 +92,12 @@ void cvartest()
 
     std::cout << "CVaRtest direct ";
 
-
-    demethod<psproblem,gmddscenariotree<double>,O> m;
-    stsolution<psproblem,gmddscenariotree<double>> s(rnproblem,stree);
+    demethod<psproblem,myst,O> m;
+    stsolution<psproblem,myst> s(rnproblem,stree);
 
     double o;
 
-    m.solve(rnproblem, stree, o, s);
+/*    m.solve(rnproblem, stree, o, s);
 
     if(fabs(o-cvarobj) > tol)
     {
@@ -116,13 +129,14 @@ void cvartest()
 
     std::cout << "Passed."  << std::endl;
 
+
     std::cout << "CVaRtest indirect by DE ";
 
     mpmcvarequivalent<psproblem> mcvproblem(rnproblem);
 
-    demethod<mpmcvarequivalent<psproblem>,gmddscenariotree<double>,O> b;
+    demethod<mpmcvarequivalent<psproblem>,myst,O> b;
 
-    stsolution<mpmcvarequivalent<psproblem>,gmddscenariotree<double>>
+    stsolution<mpmcvarequivalent<psproblem>,myst>
             sol(mcvproblem,stree);
 // jaktoze tu povolil sol(raproblem, stree)?
     double ovalue;
@@ -181,12 +195,8 @@ void cvartest()
     }
     std::cout <<  "Passed." << std::endl;
 
-
+*/
     std::cout << "CVaRtest direct by SDDP ";
-
-    using pdist=processdistribution<gmdddistribution<double>>;
-
-    pdist pd(rvector<double>(0),d,1);
 
     sddpmethod<psproblem,pdist> dsm;
     sddpsolution<psproblem> dsddpsol(rnproblem);

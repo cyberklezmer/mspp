@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+
 ###required for sddp
 
 include_directories(../sddp/source)
@@ -58,6 +59,7 @@ find_library(CONCERT libconcert.a ${CONCERT_LIB_DIR} )
 #Threads for boost and CPLEX
 find_package (Threads REQUIRED)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -lmcheck -pedantic")
 
 
 file(GLOB SRC_LIST "src/*.cpp" "../sddp/source/*.cpp" "../sddp/source/alglib/*.cpp"  "../sddp/source/rngstream/*.cpp" )

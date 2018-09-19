@@ -2,6 +2,7 @@
 #define ALMTEST_H
 
 #include "mspptest.h"
+#include "mspp/sddp.h"
 #include "mspp/de.h"
 
 class almproblem: public msproblem<mpmcvar, linearfunction,
@@ -189,9 +190,13 @@ void almtest()
     malmproblem mp(0.5,0.05);
 
 // tbd dávat de jen distribution
-    using mctree = distrscenariotree<diterativedistribution<mmarkovchain,almdistribution>>;
+    using pdt = processdistribution<mcd,
+                   laststate<typename mcd::I_t>>;
 
-    mctree mt(0,dm);
+    pdt pd({0,{0}},dm);
+    using mctree = distrscenariotree<pdt>;
+
+    mctree mt(pd);
 
 
     std::cout <<"MALMtest DE..." << std::endl;

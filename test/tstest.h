@@ -80,14 +80,16 @@ void tst()
 
     processdistribution<gddistribution<omega>> pd({0,0},g,1);
 
-//    using myscenariotree=distrscenariotree<guiddistribution<double>>;
-    gdscenariotree<omega> sp(pd);
+    using myscenariotree=distrscenariotree<processdistribution<gddistribution<omega>>>;
+
+
+    myscenariotree sp(pd);
 
     tsproblem<R> prp;
 
-    demethod<tsproblem<R>,gdscenariotree<omega>,O> b;
+    demethod<tsproblem<R>,myscenariotree,O> b;
 
-    stsolution<tsproblem<R>,gdscenariotree<omega>> sol(prp,sp);
+    stsolution<tsproblem<R>,myscenariotree> sol(prp,sp);
 
     double ov;
 

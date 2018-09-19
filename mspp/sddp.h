@@ -9,6 +9,8 @@
 #include "mspp/mpcproblem.h"
 #include "mspp/cplex.h"
 
+#include <mcheck.h>
+
 namespace mspp
 {
 
@@ -67,17 +69,11 @@ private:
 
 
 template <typename I>
-class laststate : public zeta<unsigned int>
+class laststate : public zeta<pair<unsigned int, I>,unsigned int>
 {
 public:
-    laststate(const scenario<pair<unsigned int, I>>& s)
-    {
-        assert(s.size());
-        fstate = s[s.size()-1].i;
-    }
-    operator unsigned int () const { return fstate; }
-private:
-    unsigned int fstate;
+    virtual unsigned int operator() (const scenario<pair<unsigned int, I>>& s) const
+              { assert(s.size()); return s[s.size()-1].first(); }
 };
 
 
@@ -109,17 +105,11 @@ public:
 
 
 template <typename I>
-class lastmdxi : public zeta<pair<unsigned int,I>>
+class lastmdxi : public zeta<pair<unsigned int,I>, unsigned int>
 {
 public:
-    lastmdxi(const scenario<pair<unsigned int,I>>& s)
-    {
-        assert(s.size());
-        fx = s[s.size()-1].j;
-    }
-    operator I () const { return fx; }
-private:
-    I fx;
+    virtual I operator() (const scenario<I>& s) const
+       { assert(s.size()); return s[s.size()-1].second(); }
 };
 
 
@@ -160,7 +150,7 @@ private:
 template<typename P, typename D>
 class msppsddpmodel : public ScenarioModel
 {
-    static constexpr bool fdebug = false;
+    static constexpr bool fdebug = true;
     static unsigned int countDebugModel()
     {
         static unsigned int cnt=0;
@@ -190,8 +180,6 @@ class msppsddpmodel : public ScenarioModel
             {
                 rvector<double> x = fd->draw(fc);
                 sample.row(i) = rowvec(x);
-//atom<rvector<double>> a = (*fd)[i];
-//
             }
             if(fdebug)
                 sys::log() << sample <<  " returned" << endl;
@@ -405,21 +393,24 @@ public:
        {
            if(fdebug)
                sys::log() << "GetRecourseLowerBound called" << endl;
-           return min<double>();
+           return fp.minf(stage-1);
        }
         virtual double GetRecourseUpperBound(unsigned int stage) const
        {
            if(fdebug)
                 sys::log() << "GetRecourseUpperBound called" << endl;
-           return max<double>();
+           return fp.maxf(stage-1);
        }
         virtual void FillSubradient(unsigned int stage,
                                     const double *prev_decisions,
                                     const double *scenario,
                                     double objective,
                                     const double *duals,
-                                    double &recourse, double *subgradient) const
+                                    double &recourse,
+                                    double *subgradient) const
         {
+std::vector<double> zz;
+zz.resize(2);
            if(fdebug)
               sys::log() << "FillSubradient called" << endl;
 
@@ -434,13 +425,18 @@ public:
                return;
            }
            unsigned int k= stage - 1;
+vector<double> zzz;
+           //           vector<double> zeta;
+zzz.resize(2);
+for(unsigned int i=0; i<zzz.size(); i++)
+     zzz[i]=scenario[i];
            vector<range<typename P::V_t>> vars;
            vector<typename P::G_t> constraints;
-           rvector<double> zeta(scenario, scenario+ fdistrs[k-1]->dim);
+//           rvector<double> zeta(scenario, scenario+ fdistrs[k-1]->dim);
            if(!k)
                 for(unsigned int i=0; i<fxi0.size(); i++)
                     assert(fxi0[i]==scenario[i]);
-           fp.x(k,zeta,vars,constraints);
+           fp.x(k,zzz,vars,constraints);
            if(fdebug)
            {
                sys::log() << "(" << stage << ",pd=(";
@@ -627,7 +623,7 @@ public:
 
            assert(stage <= fp.T()+1);
            assert(stage > 0);
-           unsigned int k= stage - 1;
+           unsigned int k = stage - 1;
 
            if(fdebug)
            {
@@ -737,7 +733,7 @@ public:
                model.add(r);
                dual_constraints.push_back(r);
            }
-           if(0 && fdebug)
+           if(1 || fdebug)
            {
                std::ostringstream s;
                s << "model" << countDebugModel() << ".lp";
@@ -785,7 +781,7 @@ public:
        // config.cut_nodes_not_tail = true;
        //there are more settings, for instace:
        //config.debug_solver = true;
-       SddpSolver solver(this, config);
+        SddpSolver solver(this, config);
 
        solver.Solve(weights_o, lb_o, ub_o_m, ub_o_b);
        time_o = time(NULL) - time_o;
@@ -865,7 +861,7 @@ public:
                 return;
             }
         }
-        msppsddpmodel<P,typename D::X_t> mm(p,xi,xi0);
+        msppsddpmodel<P,typename D::D_t> mm(p,xi,xi0);
         mm.solve(sol);
     }
 };

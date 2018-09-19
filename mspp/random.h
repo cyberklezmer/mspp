@@ -82,9 +82,6 @@ private:
     virtual I do_draw() const = 0;
 };
 
-template <typename I, typename J>
-struct pair{I i; J j;};
-
 
 template <typename D, typename E>
 class iterativedistribution:

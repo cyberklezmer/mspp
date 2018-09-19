@@ -7,8 +7,6 @@ namespace mspp
 {
 
 
-
-
 /// \addtogroup processes Proceses
 /// @{
 
@@ -17,23 +15,32 @@ namespace mspp
 template <typename D, typename Z=noxi<typename D::I_t>>
 class processdistribution : public object
 {
+    static constexpr void check()
+    {
+        static_assert(std::is_same<typename D::C_t, typename Z::C_t>::value);
+    }
+
 public:
     using Z_t = Z;
     using D_t = D;
+    using I_t = typename D::I_t;
 
     processdistribution(const typename D::I_t& xi0,
                         const D& d, unsigned int T)
       : fxi0(xi0), fd(T,d)
     {
+        check();
     }
     processdistribution(const D& d, unsigned int T)
       : fxi0(0), fd(T,d)
     {
+        check();
     }
 
     processdistribution(const typename D::I_t& xi0, const vector<D>& d)
       : fxi0(xi0), fd(d)
     {
+        check();
     }
 
     typename D::I_t xi0() const { return fxi0; }
@@ -41,7 +48,7 @@ public:
     unsigned int T() const { return fd.size(); }
     typename D::C_t c(const scenario<typename D::I_t>& s) const
     {
-        return Z(s);
+        return Z()(s);
     }
 private:
     typename D::I_t fxi0;
@@ -151,34 +158,28 @@ public:
     using I_t = I;
 };
 
-template <typename D,typename Z=noxi<typename D::I_t>>
-class distrscenariotree : public scenariotree<typename D::I_t>
+template <typename D>
+class distrscenariotree : public scenariotree<typename D::D_t::I_t>
 {
-    using I=typename D::I_t;
 public:
-    distrscenariotree(const processdistribution<D,Z>& p):fp(p)
-    {}
-    distrscenariotree(const D& d, unsigned int T) :
-        fp(processdistribution<D,Z>(d,T))
-    {}
-    distrscenariotree(const I& xi0, const D& d, unsigned int T) :
-        fp(processdistribution<D,Z>(xi0,d,T))
-    {}
+    using I_t=typename D::D_t::I_t;
+    distrscenariotree(const D& p):fp(p)
+    {
 
-    distrscenariotree(const I& xi0, const vector<D>&d) :
-        fp(processdistribution<D,Z>(xi0,d))
-    {}
+    }
+
 
 private:
-    virtual void branches_are(vector<atom<I>>& bchs,
-                              const indexedpath<I>& s) const
+    virtual void branches_are(vector<atom<I_t>>& bchs,
+                              const indexedpath<I_t>& s) const
     {
         unsigned int k=s.size();
         assert(k);
         assert(fp.T());
 
-        typename D::C_t c = fp.c(s.pth());
-        fp.d(k).ddistribution<typename D::I_t,typename D::C_t>::atoms(bchs,c);
+        typename D::D_t::C_t c = fp.c(s.pth());
+        fp.d(k).ddistribution<typename D::D_t::I_t,
+                     typename D::D_t::C_t>::atoms(bchs,c);
     }
     virtual typename D::I_t root_is() const
     {
@@ -186,14 +187,8 @@ private:
     }
     virtual unsigned int  T_is() const { return fp.T(); }
 private:
-    processdistribution<D,Z> fp;
+    D fp;
 };
-
-template <typename X>
-using gdscenariotree=distrscenariotree<gddistribution<X>>;
-
-template <typename X>
-using gmddscenariotree=distrscenariotree<gmdddistribution<X>>;
 
 
 /// @} - processes

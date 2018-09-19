@@ -1,13 +1,23 @@
 #include "mspp/msproblem.h"
 #include "mspp/random.h"
-//#include "test/tstest.h"
+#include "test/tstest.h"
 #include "test/cvartest.h"
-#include "test/almtest.h"
+//#include "test/almtest.h"
 #include <mcheck.h>
 
 int main(int argc, char *argv[])
 {
-//    mcheck(0);
+    int res;
+    if(res=mcheck(0))
+    {
+        cerr << "error stargin mcheck" << endl;
+        throw;
+    }
+    char* c = new(char) ;
+    res = mprobe(c);
+    if(res)
+        throw;
+
     std::ofstream log("sddp.log");
     sys::setlog(log);
 //    std::ofstream elog("esddp.log");
@@ -16,9 +26,9 @@ int main(int argc, char *argv[])
     sys::seed(0);
 //    using O=csvlpsolver<realvar>;
     using O=cplex<realvar>;
-//    twostagetest<O>();
-//    cvartest<O>();
-    almtest<O>();
+    twostagetest<O>();
+    cvartest<O>();
+//    almtest<O>();
     return 1;
 /*
   psproblem rnproblem(0.5,0.05);

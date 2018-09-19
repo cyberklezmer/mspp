@@ -1,6 +1,7 @@
 #ifndef DE_H
 #define DE_H
 
+#include <utility>
 #include "mspp/msproblem.h"
 #include "mspp/random.h"
 #include "mspp/lpsolver.h"
@@ -37,6 +38,9 @@ public:
                || std::is_same<typename P::C_t,mpmcvar>::value
                || std::is_same<typename P::C_t,nestedmcvar>::value
               );
+        static_assert(
+             std::is_same<typename P::Z_t::I_t, typename X::I_t>::value
+                    );
     }
 
     bool solve(

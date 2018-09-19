@@ -168,12 +168,24 @@ class msproblem : public object
             msconstraints<G_t> cs(this->barxdim(k));
             this->x_is(k,zeta,r, cs);
             for(unsigned int i=0; i<gh.size(); i++)
-                assert(!(gh[i].constantinlast(d[k])));
+                assert(!(cs[i].constantinlast(d[k])));
             v = r;
             gh=cs;
         }
 
-        virtual std::string varname(unsigned int stage, unsigned int i) const
+        double maxf(unsigned int stage) const
+        {
+            assert(stage <= T());
+            return maxf_is(stage);
+        }
+
+        double minf(unsigned int stage) const
+        {
+            assert(stage <= T());
+            return minf_is(stage);
+        }
+
+        std::string varname(unsigned int stage, unsigned int i) const
         {
             return varname_is(stage,i);
         }
@@ -190,7 +202,7 @@ protected:
     O_t zeta(const scenario<I>& s) const
     {
         assert(s.size());
-        return Z(s);
+        return Z()(s);
     }
 public:
     bool includedinbarx(unsigned int i, unsigned int j, unsigned int k) const
@@ -243,6 +255,17 @@ private:
             ranges<V_t>& r,
             msconstraints<G>& g
             ) const = 0;
+
+    virtual double maxf_is(unsigned int) const
+    {
+        return max<double>();
+    }
+
+    virtual double minf_is(unsigned int) const
+    {
+        return min<double>();
+    }
+
 
     virtual std::string varname_is(unsigned int stage, unsigned int i) const
     {
