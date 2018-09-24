@@ -59,7 +59,7 @@ find_library(CONCERT libconcert.a ${CONCERT_LIB_DIR} )
 #Threads for boost and CPLEX
 find_package (Threads REQUIRED)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -lmcheck -pedantic")
+# set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -lmcheck -pedantic")
 
 
 file(GLOB SRC_LIST "src/*.cpp" "../sddp/source/*.cpp" "../sddp/source/alglib/*.cpp"  "../sddp/source/rngstream/*.cpp" )

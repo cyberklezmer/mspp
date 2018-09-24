@@ -452,6 +452,9 @@ class criterion: public object
 /// \addtogroup fns Functions
 /// @{
 
+struct nocondition {};
+
+
 template <typename D,typename R>
 class mapping: public object
 {
@@ -463,6 +466,21 @@ public:
 
 template <typename D>
 using function = mapping<D,double>;
+
+template <typename I>
+class idmapping: public mapping<I,I>
+{
+public:
+    virtual I operator() (const I& i) const { return i; }
+};
+
+template <typename I>
+class nomapping: public mapping<I,nocondition>
+{
+public:
+    virtual nocondition operator() (const I& i) const { return nocondition(); }
+};
+
 
 class efunction: public function<vector<double>>
 {
@@ -550,8 +568,6 @@ private:
 
 
 
-/// \ingroup Distributions
-struct nocondition {};
 
 
 

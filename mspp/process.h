@@ -7,17 +7,37 @@ namespace mspp
 {
 
 
+
 /// \addtogroup processes Proceses
 /// @{
 
-
-
-template <typename D, typename Z=noxi<typename D::I_t>>
-class processdistribution : public object
+template <typename I>
+class treedistribution: virtual vdistribution<I,nocondition>
 {
+
+};
+
+
+
+template <typename I>
+struct extendededatom{
+    I x;
+    probability p;
+    probatility up;
+//    unsigned int i;
+};
+
+
+
+template <typename D, typename Z>
+class processdistribution :
+    public ipdistribution<diracdistribution<typename D::I_t>,
+                          ivdistribution<D,Z> >
+{
+public:
     static constexpr void check()
     {
-        static_assert(std::is_same<typename D::C_t, typename Z::C_t>::value);
+        static_assert(std::is_same<typename D::C_t, typename Z::R_t>::value);
     }
 
 public:
@@ -56,18 +76,6 @@ private:
 };
 
 
-template <typename I>
-struct indexedatom{
-//    indexedatom(const I& ax, probability ap, unsigned int ai) :
-//        x(ax), p(ap), i(ai)
-//    {}
-    I x;
-    probability p;
-    unsigned int i;
-};
-
-
-
 
 template <typename I>
 class indexedpath : public path<indexedatom<I>>
@@ -94,7 +102,7 @@ public:
 
 
 template<typename I, typename S=void>
-class ptreecallback
+class ptreecallback : public object
 {
 public:
     virtual void callback(const indexedpath<I>& path, S* state=0) const = 0;
@@ -178,7 +186,7 @@ private:
         assert(fp.T());
 
         typename D::D_t::C_t c = fp.c(s.pth());
-        fp.d(k).ddistribution<typename D::D_t::I_t,
+        fp.d(k).fdistribution<typename D::D_t::I_t,
                      typename D::D_t::C_t>::atoms(bchs,c);
     }
     virtual typename D::I_t root_is() const

@@ -5,73 +5,22 @@
 #include "mspp/sddp.h"
 #include "mspp/de.h"
 
+
 class almproblem: public msproblem<mpmcvar, linearfunction,
-        linearmsconstraint,realvar>
+        linearmsconstraint,realvar,pair<unsigned int,rvector<double>>,lastx,lastmdxi<rvector<double>>>
 {
 
 public:
-    almproblem(double lambda, double alpha) : msproblem<mpmcvar, linearfunction,
-                   linearmsconstraint,realvar>
-        ({1,1,1,1},mpmcvar(lambda,alpha))
-    {}
-
-
-    virtual void f_is(unsigned int k,
-            const vector<double>& zeta,
-                      linearfunction f) const
-    {
-       double c=1;
-       for(unsigned int i=0; i <= k; i++)
-          c *= zeta[i];
-       f.setc(0,c);
-    }
-
-    virtual void x_is(
-            unsigned int k,
-            const vector<double>& ,
-            ranges<realvar>& xs,
-            msconstraints<linearmsconstraint>& g) const
-    {
-        if(k==0)
-           xs[0].setlimits(0,1);
-        else if(k==1)
-        {
-           xs[0].setpositive();
-           g.add(linearmsconstraint({1.0,1.0},constraint::geq, 0.0));
-           g.add(linearmsconstraint({1.0,1.0},constraint::leq, 1.0));
-        }
-        else if(k==2)
-        {
-           xs[0].setpositive();
-           g.add(linearmsconstraint({1.0,1.0,1.0},
-                                    constraint::geq, 0.0));
-           g.add(linearmsconstraint({1.0,1.0,1.0},
-                                    constraint::leq, 1.0));
-        }
-        else
-        {
-            xs[0].setpositive();
-            g.add(linearmsconstraint({1.0,1.0,1.0,1.0},
-                                     constraint::eq, 1.0));
-        }
-    }
-};
-
-class malmproblem: public msproblem<mpmcvar, linearfunction,
-        linearmsconstraint,realvar,rvector<double>,lastx,lastxi<rvector<double>>>
-{
-
-public:
-    malmproblem(double lambda, double alpha) :
+    almproblem(double lambda, double alpha) :
         msproblem<mpmcvar, linearfunction,
-        linearmsconstraint,realvar,rvector<double>,
-        lastx,lastxi<rvector<double>>>
+        linearmsconstraint,realvar,pair<unsigned int,rvector<double>>,
+        lastx,lastmdxi<rvector<double>>>
         ({1,2,2,2},mpmcvar(lambda,alpha))
     {}
 
 
     virtual void f_is(unsigned int k,
-            const rvector<double>& zeta,
+                      const rvector<double>& zeta,
                       linearfunction& f
                       ) const
     {
@@ -109,7 +58,7 @@ class almdistribution: public
         ddistribution<rvector<double>, unsigned int>
 {
 public:
-   using I_t = rvector<double>;
+    using I_t = rvector<double>;
     using C_t = unsigned int ;
     almdistribution(unsigned int n, const vector<double>& sc) :
         mddistribution<double, unsigned int>(1), fn(n), fsc(sc) {}
@@ -131,48 +80,28 @@ template <typename O>
 void almtest()
 {
     const double tol = 1e-5;
-    double almsol[]={0,0,1,0,0,0.727273,0.272727,0.272727,0,1,0,0,0.727273,0.272727,0.272727};
-    double almobj = 0.906063;
-    unsigned int k = sizeof(almsol)/sizeof(almsol[0]);
+    double sol[]={0,0,1,0,0,0.727273,0.272727,0.272727,0,1,0,0,0.727273,0.272727,0.272727};
+    double obj = 0.906063;
+    unsigned int k = sizeof(sol)/sizeof(sol[0]);
 
+    unsigned int nl = 1;
 
-/*    gdscenariotree<double> st({1},gddistribution({0.8,1.1}),3);
+    // tbd soution nemusí vědět o scénáři?
 
-    almproblem prp(0.5,0.02);
-
-    std::cout <<"ALMtest..." << std::endl;
-
-    demethod<almproblem,gdscenariotree<double>, O> b;
-    stsolution<almproblem,gdscenariotree<double>> s(prp,st);
-
-    double ov;
-    b.solve(prp,st,ov,s);
-
-
-
-    if(fabs(ov-almobj) > tol)
+/*    for(unsigned int i=0; i<k; i++)
     {
-        std::cerr << "almtest: opt="
-             << almobj << " expected, " << ov << " achieved." << std::endl;
-        throw;
-    }
-
-    for(unsigned int i=0; i<k; i++)
-    {
-        if(fabs(s.x(i)-almsol[i]) > tol)
+        if(fabs(x.x(i)-sol[i]) > tol)
         {
-            std::cerr << "almtest: x[" << i << "]="
-                 << almsol[i] << " expected, " << s.x(i)
+            std::cerr << "x[" << i << "]="
+                 << sol[i] << " expected, " << x.x(i)
                  << " achieved." << std::endl;
-            std::cerr << "x=";
-
+            std::cerr << endl;
             throw;
         }
     }
     std::cout <<  "Passed." << std::endl;
 */
-    unsigned int nl = 1;
-// tbd udělat pro něj dobrej draw
+
     using mcd = diterativedistribution<mmarkovchain,almdistribution>;
     vector<mcd> dm;
     dm.push_back(mcd(mmarkovchain({{0.5,0.5}}),
@@ -187,7 +116,8 @@ void almtest()
                      almdistribution(nl,{ 0.8*0.8*0.8, 0.8*0.8*1.1,
                                           0.8*1.1*1.1, 1.1*1.1*1.1 } ))
                  );
-    malmproblem mp(0.5,0.05);
+
+    almproblem mp(0.5,0.05);
 
 // tbd dávat de jen distribution
     using pdt = processdistribution<mcd,
@@ -196,28 +126,25 @@ void almtest()
     pdt pd({0,{0}},dm);
     using mctree = distrscenariotree<pdt>;
 
-    mctree mt(pd);
-
+    mctree s(pd);
 
     std::cout <<"MALMtest DE..." << std::endl;
 
-    demethod<malmproblem,mctree, O> mb;
-    stsolution<malmproblem,mctree> ms(mp,mt);
+    stsolution<almproblem,mctree> x(mp,s);
 
-    double mov;
-    mb.solve(mp,mt,mov,ms);
+    demethod::solve<almproblem,mctree, O>(mp,s,x);
 
-    if(fabs(mov-almobj) > tol)
+    if(fabs(x.obj()-obj) > tol)
     {
         std::cerr << "almtest: opt="
-             << almobj << " expected, " << mov << " achieved." << std::endl;
+             << obj << " expected, " << x.obj() << " achieved." << std::endl;
         throw;
     }
 
-
-    std::cout <<  "Passed." << std::endl;
+    std::cout <<  "passed." << std::endl;
 
     return;
+
     /*std::cout <<"MALMtest DE..." << std::endl;
 
     msddpprocessdist<mmarkovchain, almdistribution> pd({0},dm);
@@ -236,7 +163,7 @@ void almtest()
              " achieved." << std::endl;
         throw;
     }
-    */
-}
+*/
 
+}
 #endif // ALMTEST_H

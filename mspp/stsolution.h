@@ -34,8 +34,7 @@ public:
 
 
 template <typename P, typename X>
-class stsolution: public object,
-        public sctreecallback<typename X::I_t, stsolutionstate<P,X>>
+class stsolution: public sctreecallback<typename X::I_t, stsolutionstate<P,X>>
 {
 public:
     using P_t = P;
@@ -44,18 +43,20 @@ public:
     using V_t = typename P::V_t;
 
     stsolution(const P& p, const X& x) :
-        fxi(ptr<X>(new X(x))), fps(p.d)
+        fxi(ptr<X>(new X(x))), fps(p.d), fopt(inf<double>())
        {}
     stsolution(const P& p, const ptr<X> x) :
-        fxi(x), fps(p.d)
+        fxi(x), fps(p.d), fopt(inf<double>())
        {}
-    void set(const variables<V_t>& x)
+    void set(const variables<V_t>& x, double opt)
     {
         fx=ptr<variables<V_t>>(new variables<V_t>(x));
+        fopt = opt;
     }
-    void set(const ptr<variables<V_t>> x)
+    void set(const ptr<variables<V_t>> x, double opt)
     {
         fx=x;
+        fopt = opt;
     }
     const msproblemstructure& ps() const { return fps; }
 
@@ -91,11 +92,17 @@ public:
     }
     V_t &x(unsigned int i) const { return (*fx)[i]; }
     const variables<V_t> x() const { return *fx; }
+    double obj() const { return fopt; }
 private:
     ptr<variables<V_t>> fx;
     ptr<X> fxi;
     msproblemstructure fps;
+    double fopt;
 };
+
+template <typename P, typename D>
+using pdsolution = stsolution<P,distrscenariotree<D>>;
+
 
 template <typename V>
 struct  stsolreducerstate
@@ -118,7 +125,7 @@ public:
         st.fv.reset(new variables<V_t>);
         st.fdps = d.ps();
         s.foreachnode(this, &st);
-        d.set(*(st.fv));
+        d.set(*(st.fv),s.obj());
     }
 
 private:

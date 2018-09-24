@@ -78,3 +78,4 @@ Thumbs.db
 /test/cmake_install.cmake
 /test/mspptest.cbp
 /test/CMakeLists.txt.user
+/Doxyfile.bak

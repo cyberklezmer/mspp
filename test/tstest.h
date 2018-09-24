@@ -76,24 +76,22 @@ void tst()
         }
     }
 
-    gddistribution g(items);
+    ldistribution g(items);
 
-    processdistribution<gddistribution<omega>> pd({0,0},g,1);
+    processdistribution<ldistribution<omega>> pd({0,0},g,1);
 
-    using myscenariotree=distrscenariotree<processdistribution<gddistribution<omega>>>;
+    using myscenariotree=distrscenariotree<processdistribution<ldistribution<omega>>>;
 
 
     myscenariotree sp(pd);
 
     tsproblem<R> prp;
 
-    demethod<tsproblem<R>,myscenariotree,O> b;
+    demethod b;
 
     stsolution<tsproblem<R>,myscenariotree> sol(prp,sp);
 
-    double ov;
-
-    b.solve(prp,sp, ov, sol);
+    demethod::solve<tsproblem<R>,myscenariotree,O>(prp,sp,sol);
 
 
     // brought from testproblems.xlsx
@@ -103,10 +101,10 @@ void tst()
     double tsobj=5.75;
 
     const double tol = 1e-5;
-    if(fabs(ov-tsobj) > tol)
+    if(fabs(sol.obj()-tsobj) > tol)
     {
         std::cerr << "twostagetest: opt="
-             << tsobj << " expected, " << ov << " achieved." << std::endl;
+             << tsobj << " expected, " << sol.obj() << " achieved." << std::endl;
         throw;
     }
 

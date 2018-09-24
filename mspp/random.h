@@ -21,19 +21,22 @@ public:
     using C_t = C;
 };
 
-template<typename X=double>
-using rvector = vector<X>;
+template <typename I, typename J, typename C=nocondition>
+class jointdistribution: virtual public distribution
+        <pair<I, J>, C>
+{
+};
 
 
 template <typename X=double, typename C=nocondition>
-class mddistribution : virtual public distribution<rvector<X>>
+class vdistribution : virtual public distribution<vector<X>>
 {
 public:
-    mddistribution(unsigned int adim) : dim(adim) {}
+    vdistribution(unsigned int adim) : dim(adim) {}
     const unsigned dim;
 };
 
-template <typename P, typename I=double, typename C=nocondition>
+/*template <typename P, typename I=double, typename C=nocondition>
 class parametricdistribution: virtual public distribution<I,C>
 {
 public:
@@ -42,7 +45,7 @@ protected:
     const P& p() { return fp; }
 private:
     P fp;
-};
+};*/
 
 
 /// \addtogroup mcdisc MC distributions
@@ -57,69 +60,10 @@ public:
     {
         return do_draw(c);
     }
-
 private:
     virtual I do_draw(const C& c) const = 0;
 };
 
-
-template <typename I=double>
-class imcdistribution: public mcdistribution<I, nocondition>
-{
-public:
-    I draw() const
-    {
-        return draw();
-    }
-
-private:
-    virtual I do_draw(const nocondition& c) const
-    {
-        return do_draw();
-    }
-
-
-    virtual I do_draw() const = 0;
-};
-
-
-template <typename D, typename E>
-class iterativedistribution:
-    virtual public distribution
-        <pair<typename D::I_t, typename E::I_t>, typename D::C_t>
-{
-public:
-    using I_t = pair<typename D::I_t, typename E::I_t>;
-    using C_t = typename D::C_t;
-    iterativedistribution(const D& d, const E& e) : fd(d), fe(e)
-    {
-        static_assert(std::is_same<typename E::C_t, typename D::I_t>::value);
-    }
-    const D& d() const { return fd; }
-    const E& e() const { return fe; }
-private:
-    D fd;
-    E fe;
-};
-
-template <typename D, typename E>
-class mciterativedistribution: public iterativedistribution<D,E>
-{
-public:
-    using I_t = typename iterativedistribution<D,E>::I_t;
-    using C_t = typename iterativedistribution<D,E>::C_t;
-    mciterativedistribution(const D& d, const E& e) :
-      iterativedistribution<D,E>(d,e)
-    {
-    }
-    virtual I_t do_draw(const C_t& c) const
-    {
-        I_t r;
-        r.i = this->d().draw(c);
-        r.j = this->e().draw(r.i);
-        return r;
-    }
-};
 
 
 /// @}
@@ -137,12 +81,35 @@ struct atom
 };
 
 template <typename I=double, typename C=nocondition>
-class ddistribution: virtual public distribution<I,C>,
-                     virtual public mcdistribution<I,C>
+class ddistribution: public distribution<I,C>,
+                     public mcdistribution<I,C>
 {
 public:
-    ddistribution() {}
+    atom<I> operator () (unsigned int i, const C& c=C()) const
+    {
+        return atom_is(i,c);
+    }
+private:
+    virtual atom<I> atom_is(unsigned int i, const C& c) const  = 0;
+    virtual I do_draw(const C& c) const
+    {
+        double u = sys::uniform();
+        double sum = 0;
+        for(unsigned int i=0; ; i++)
+        {
+            atom<I> a = (*this)(i,c) ;
+            sum += a.p;
+            if(sum >= u)
+                return a.x;
+        }
+        assert(0);
+    }
+};
 
+template <typename I=double, typename C=nocondition>
+class fdistribution: public ddistribution<I,C>
+{
+public:
     void atoms(vector<atom<I>>& a, const C& c) const
     {
         a.resize(0);
@@ -161,41 +128,20 @@ public:
         return natoms_is(c);
     }
 
-
-    atom<I> operator () (unsigned int i, const C& c) const
-    {
-        assert(i<natoms_is(c));
-
-        return atom_is(i,c);
-    }
-
 private:
     virtual void atoms_are(vector<atom<I>>& a, const C& c) const
     {
         a.resize(0);
         unsigned int s= natoms_is(c);
         for(unsigned int i=0; i<s; i++)
-            a.push_back(atom_is(i,c));
+            a.push_back((*this)(i,c));
     }
-    virtual atom<I> atom_is(unsigned int i, const C& c) const  = 0;
     virtual unsigned int natoms_is(const C& c) const = 0;
-
-    virtual I do_draw(const C& c) const
-    {
-        double u = sys::uniform();
-        unsigned int n = natoms(c);
-        double sum = 0;
-        for(unsigned int i=0; i<n; i++)
-        {
-            atom<I> a = (*this)(i,c) ;
-            sum += a.p;
-            if(sum >= u)
-                return a.x;
-        }
-        assert(0);
-    }
 };
 
+
+
+/*
 template <typename I>
 class iddistribution: virtual public ddistribution<I,nocondition>
 {
@@ -239,23 +185,18 @@ protected:
     }
     virtual atom<I> atom_is(unsigned int i) const = 0;
 };
-
+*/
 
 template <typename I=double>
-class gddistribution: public iddistribution<I>
+class ldistribution: public fdistribution<I,nocondition>
 {   
 public:
-    gddistribution(const vector<atom<I>>& atoms) :
+    ldistribution(const vector<atom<I>>& atoms) :
         fatoms(atoms)
     {
     }
 
-    gddistribution(const iddistribution<I>& d)
-    {
-       d.atoms(fatoms);
-    }
-
-    gddistribution(const vector<I>& values) :
+    ldistribution(const vector<I>& values) :
         fatoms(values.size())
     {
         assert(fatoms.size());
@@ -266,74 +207,147 @@ public:
             fatoms[i].p = p;
         }
     }
-
-
-protected:
-    virtual void atoms_are(vector<atom<I>>& a) const
+private:
+    virtual void atoms_are(vector<atom<I>>& a, const nocondition&) const
     {
         a = fatoms;
     };
 
-    unsigned int natoms_is() const
+    virtual unsigned int natoms_is(const nocondition&) const
     {
         return fatoms.size();
     }
 
-    virtual atom<I> atom_is(unsigned int i) const
+    virtual atom<I> atom_is(unsigned int i, const nocondition&) const
     {
         return fatoms[i];
     }
-
 private:
     vector<atom<I>> fatoms;
 };
 
+template <typename I>
+class diracdistribution: public ldistribution<I>
+{
+public:
+    diracdistribution(const I& a)
+        : ldistribution<I>({a}) {}
+};
+
+
+/*
 template <typename X=double>
-class gmdddistribution: public gddistribution<rvector<X>>,
+class gmdddistribution: public ldistribution<rvector<X>>,
      public mddistribution<X,nocondition>
 {
 public:
     gmdddistribution(const vector<rvector<X>>& values) :
-        gddistribution<rvector<X>>(values),
+        ldistribution<rvector<X>>(values),
         mddistribution<X>(values[0].size())
     {
     }
     gmdddistribution(const vector<atom<rvector<X>>>& atoms) :
-        gddistribution<rvector<X>>(atoms),
+        ldistribution<rvector<X>>(atoms),
         mddistribution<X>(atoms[0].x.size())
      {}
-
-
-};
+};*/
 
 
 template <typename I>
-gmdddistribution<I> operator *(const iddistribution<I>& x,
-                             const iddistribution<I>& y)
+ldistribution<vector<I>> operator *(const fdistribution<I,nocondition>& x,
+                             const fdistribution<I,nocondition>& y)
 {
-    assert(x.natoms());
-    assert(y.natoms());
-    vector<atom<vector<I>>> a(x.natoms()*y.natoms());
+    assert(x.natoms(nocondition()));
+    assert(y.natoms(nocondition()));
+    vector<atom<vector<I>>> a(x.natoms(nocondition())*y.natoms(nocondition()));
 
     unsigned int dst = 0;
-    for(unsigned int i=0; i<x.natoms(); i++)
-        for(unsigned int j=0; j<y.natoms(); j++)
+    for(unsigned int i=0; i<x.natoms(nocondition()); i++)
+        for(unsigned int j=0; j<y.natoms(nocondition()); j++)
         {
-            atom<I> xa = x[i];
-            atom<I> ya = y[j];
-            rvector<I> r = { xa.x, ya.x };
+            atom<I> xa = x(i,nocondition());
+            atom<I> ya = y(j,nocondition());
+            vector<I> r = { xa.x, ya.x };
             a[dst++]= { r, xa.p*ya.p};
         }
-    return gmdddistribution<I>(a);
+    return ldistribution<vector<I>>(a);
 }
 
 
-template <typename D, typename E>
-class diterativedistribution:
-        public iterativedistribution<D,E>,
+
+/// @} - discrete distributions
+
+/// \addtogroup iterativedists Iteratively defined distributions
+/// \ingroup Distributions
+/// @{
+
+
+
+template <typename D, typename E,
+          typename Z=nomapping<pair<typename D::C_t,typename D::I_t>>>
+class ipdistribution:
+     public jointdistribution<typename D::I_t, typename E::I_t, typename D::C_t>
+{
+public:
+//    using I_t = pair<typename D::I_t, typename E::I_t>;
+//    using C_t = typename D::C_t;
+    ipdistribution(const D& d, const E& e) : fd(d), fe(e)
+    {
+        static_assert(std::is_convertible<typename Z::R_t&,typename E::C_t&>::value);
+    }
+    const D& d() const { return fd; }
+    const E& e() const { return fe; }
+private:
+    D fd;
+    E fe;
+};
+
+template <typename D, typename E, typename Z>
+class mcipdistribution: public ipdistribution<D,E,Z>
+{
+public:
+    using I_t = typename ipdistribution<D,E>::I_t;
+    using C_t = typename ipdistribution<D,E>::C_t;
+    mcipdistribution(const D& d, const E& e) :
+      ipdistribution<D,E,Z>(d,e)
+    {
+    }
+    virtual I_t do_draw(const C_t& c) const
+    {
+        typename D::I_t i = this->d().draw(c);
+        pair<C_t,typename D::I_t> p = { c, i };
+        typename E::I_t j = this->e().draw(Z()(p));
+        return {i,j};
+    }
+};
+
+
+
+template <typename D,
+          typename Z=nomapping<vector<typename D::I_t>>>
+class ivdistribution:
+     public vdistribution<typename D::I_t,typename Z::R_t>
+{
+public:
+    ivdistribution(const vector<D>& d)
+       : vdistribution<typename D::I_t,typename Z::R_t>(d.size())
+    {
+        assert(d.size());
+        static_assert(std::is_same<typename Z::D_t,
+                           std::vector<typename D::I_t>>::value);
+    }
+    const vector<D>& d() const { return fd; }
+private:
+    vector<D> fd;
+};
+
+
+/*
+template <typename D, typename E, typename Z>
+class dipdistribution:
+        public ipdistribution<D,E,Z>,
         public ddistribution<pair<typename D::I_t,typename E::I_t>,
                                                typename D::C_t>
-
 {
 public:
     using I_t = typename iterativedistribution<D,E>::I_t;
@@ -365,7 +379,6 @@ private:
         }
     }
 
-
     virtual atom<I_t> atom_is(unsigned int i, const C_t& c) const
     {
         vector<atom<I_t>> a;
@@ -373,16 +386,27 @@ private:
         assert(i<a.size());
         return a[i];
     }
+
     virtual unsigned int natoms_is(const C_t& c) const
     {
         vector<atom<I_t>> a;
         atoms_are(a,c);
         return a.size();
     }
+
+    virtual I_t do_draw(const C_t& c) const
+    {
+        I_t r;
+        r.i = this->d().draw(c);
+        r.j = this->e().draw(r.i);
+        return r;
+    }
 };
 
+*/
 
-/// @} - discrete distributions
+/// @} - iterative distributions
+
 
 
 /// @} - distribution

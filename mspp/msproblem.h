@@ -96,29 +96,26 @@ private:
 
 
 /// Base abstract class describing multistage problems
-template<typename C, typename F, typename G,
-          typename V, typename I=double,
-          typename R=allx, typename Z=allxi<I>>
+template<typename O, typename F, typename G,
+          typename X, typename V, typename R=allx>
 class msproblem : public object
 {
     public:
 
-        using C_t = C;
+        using O_t = O;
         using F_t = F;
         using G_t = G;
+        using I_t = X;
         using V_t = V;
-        using I_t = I;
-        using Z_t = Z;
         using R_t = R;
-        using O_t = typename Z::C_t;
 
 
-        msproblem(const msproblemstructure& ps, C arho=C()):
+        msproblem(const msproblemstructure& ps, O arho=O()):
              d(ps), rho(arho)
         {
         }
 
-        msproblem(const vector<unsigned int>& ps, C arho=C()):
+        msproblem(const vector<unsigned int>& ps, O arho=O()):
              d(ps), rho(arho)
         {
         }
@@ -127,29 +124,16 @@ class msproblem : public object
         /// @name Accessors
         unsigned int T() const { return d.size()-1; }
 
-        virtual F f(const scenario<I>& s) const
-        {
-            assert(s.size());
-            return f(s.size()-1,zeta(s));
-        }
-
         virtual F f(
                 unsigned int k,
-                const O_t& zeta) const
+                const I_t& xi) const
         {
             F f(this->xdim(k));
-            f_is(k,zeta,f);
+            f_is(k,xi,f);
             assert(f.xdim()==xdim(k));
             return f;
         }
 
-        void x( const scenario<I>& s,
-                vector<range<V_t>>& r,
-                vector<G>& gh) const
-        {
-            assert(s.size());
-            x(s.size()-1,zeta(s),r,gh);
-        }
 
         /**
          * @brief
@@ -159,14 +143,14 @@ class msproblem : public object
          * @param gh return value - msconstraints
          */
 
-        void x( unsigned int k,
-                const O_t& zeta,
+        void I( unsigned int k,
+                const I_t& xi,
                 vector<range<V_t>>& v,
                 vector<G>& gh) const
         {
             ranges<V_t> r(d[k]);
             msconstraints<G_t> cs(this->barxdim(k));
-            this->x_is(k,zeta,r, cs);
+            this->x_is(k,xi,r, cs);
             for(unsigned int i=0; i<gh.size(); i++)
                 assert(!(cs[i].constantinlast(d[k])));
             v = r;
@@ -190,20 +174,13 @@ class msproblem : public object
             return varname_is(stage,i);
         }
 
-        const C rho;
+        const O rho;
 
         const msproblemstructure d;
         ///@}
 
         ///@{
         /// @name Interface towards descendants
-protected:
-
-    O_t zeta(const scenario<I>& s) const
-    {
-        assert(s.size());
-        return Z()(s);
-    }
 public:
     bool includedinbarx(unsigned int i, unsigned int j, unsigned int k) const
     {
@@ -245,13 +222,13 @@ private:
 
     virtual void f_is(
             unsigned int k,
-            const O_t& zeta,
+            const I_t& xi,
             F& f
             ) const = 0;
 
     virtual void x_is(
             unsigned int k,
-            const O_t& zeta,
+            const I_t& xi,
             ranges<V_t>& r,
             msconstraints<G>& g
             ) const = 0;
@@ -266,11 +243,10 @@ private:
         return min<double>();
     }
 
-
     virtual std::string varname_is(unsigned int stage, unsigned int i) const
     {
         std::ostringstream s;
-        s << "x" << stage << "_" << i;
+        s << "I" << stage << "_" << i;
         return s.str();
     }
 

@@ -167,7 +167,7 @@ public:
         {
             r[dst]=range<V_t>(range<V_t>::realt);
             if(k<this->T() && dst==0)  // it is u
-                r[dst].setlimits(min<realvar>(),max<realvar>());
+                r[dst].setlimits(fsp->minf(k+1),fsp->maxf(k+1));
         }
         for(unsigned int src=0; src<srcr.size(); )
             r[dst++] = srcr[src++];
@@ -258,6 +258,15 @@ public:
             g.add(nuc);
         }
     }
+    virtual double minf_is(unsigned int k) const
+    {
+        return fsp->minf(k);
+    }
+    virtual double maxf_is(unsigned int k) const
+    {
+        return fsp->maxf(k);
+    }
+
     double mu() const { return 1.0 - flambda; }
     double nu() const { return 1.0 - flambda + flambda / falpha; }
 public:
