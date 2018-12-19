@@ -8,21 +8,20 @@
 
 class cvarproblem: public msproblem<mpmcvar,
         linearfunction,
-        linearmsconstraint,realvar,
-        rvector<double>,allx,lastxi<vector<double>>>
+        linearmsconstraint,
+        vector<double>,realvar,allx>
 {
-
 public:
     cvarproblem(double lambda, double alpha) :
            msproblem<mpmcvar,
            linearfunction,
-           linearmsconstraint,realvar,vector<double>,allx,lastxi<vector<double>>>
+           linearmsconstraint,vector<double>,realvar,allx>
           (msproblemstructure({2,2}), mpmcvar(lambda,alpha))
     {}
 
     virtual void f_is(
                     unsigned int k,
-                    const Z_t::C_t& zeta,
+                    const Y_t& zeta,
                     linearfunction& f) const
     {
       vector<double> xik=zeta;
@@ -36,7 +35,7 @@ public:
 
     virtual void x_is(
             unsigned int k,
-            const Z_t::C_t& zeta,
+            const Y_t& zeta,
             ranges<realvar>& r,
             msconstraints<linearmsconstraint>& g
             ) const
@@ -73,15 +72,13 @@ public:
 template <typename O>
 void cvartest(bool sddp=false, bool indirect=false)
 {
-    gmdddistribution<double> d
-           = ldistribution({0, 1.0/3.0, 2.0 / 3.0})
-           * ldistribution({0.1+0, 0.1+ 1.0/3.0, 0.1+2.0 / 3.0});
 
-    using dist = processdistribution<gmdddistribution<double>>;
-    dist pd(d,1);
+  ldistribution<double> d1({0, 1.0/3.0, 2.0 / 3.0});
+  ldistribution<double> d2({0.1+0, 0.1+ 1.0/3.0, 0.1+2.0 / 3.0});
+  lvdistribution<double> d = d1*d2;
 
-    using dst = distrscenariotree<dist>;
-    dst s(pd);
+    using dist = fdprocessdistribution<lvdistribution<double>,noxi<vector<double>>>;
+    dist pd({0,0},d,1);
 
     cvarproblem p(0.5,0.05);
 
@@ -103,24 +100,26 @@ void cvartest(bool sddp=false, bool indirect=false)
     {
         std::cout << "CVaRtest direct by DE... ";
 
-        stsolution<cvarproblem,dst> x(p,s);
-        demethod::solve<cvarproblem,dst,O>(p, s, x);
+        desolution<cvarproblem,dist,lastxi<vector<double>>,O> s(p,pd);
 
-        if(fabs(x.obj()-obj) > tol)
+        vector<double> x;
+        s.x()->exportlinear(x);
+
+        if(fabs(s.obj()-obj) > tol)
         {
             std::cerr << "opt="
-             << obj << " expected, " << x.obj() << " achieved."
+             << obj << " expected, " << s.obj() << " achieved."
              << std::endl;
 
             for(unsigned int i=0; i<2+9*2; i++)
-                cerr << x.x(i) << endl;
+                cerr << x[i] << endl;
             throw;
         }
 
-        if(fabs(x.x(0)) > tol)
+        if(fabs(x[0]) > tol)
         {
             std::cerr << "x[" << 0 << "]="
-                 << 0 << " expected, " << x.x(0)
+                 << 0 << " expected, " << x[0]
                  << " achieved." << std::endl;
             throw;
         }
@@ -132,18 +131,19 @@ void cvartest(bool sddp=false, bool indirect=false)
     {
         std::cout << "CVaRtest indirect by DE...";
 
-        stsolution<mpmcvarequivalent<cvarproblem>,dst> x(ep,s);
+        desolution<mpmcvarequivalent<cvarproblem>,dist,lastxi<vector<double>>,O> s(ep,pd);
 
-        demethod::solve<mpmcvarequivalent<cvarproblem>,dst,O>(ep,s,x);
+        vector<double> x;
+        s.x()->exportlinear(x);
 
-        if(fabs(x.obj()-obj) > tol)
+        if(fabs(s.obj()-obj) > tol)
         {
             std::cerr << "opt="
-             << obj << " expected, " << x.obj() << " achieved."
+             << obj << " expected, " << s.obj() << " achieved."
              << std::endl;
 
             for(unsigned int i=0; i<3+9*3; i++)
-                cerr << x.x(i) << endl;
+                cerr << x[i] << endl;
             throw;
         }
 
@@ -151,10 +151,10 @@ void cvartest(bool sddp=false, bool indirect=false)
         unsigned int k = sizeof(sol)/sizeof(sol[0]);
         for(unsigned int i=0; i<k; i++)
         {
-            if(fabs(x.x(i)-sol[i]) > tol)
+            if(fabs(x[i]-sol[i]) > tol)
             {
                 std::cerr << "x[" << i << "]="
-                     << sol[i] << " expected, " << x.x(i)
+                     << sol[i] << " expected, " << x[i]
                      << " achieved." << std::endl;
                 throw;
             }
@@ -164,10 +164,10 @@ void cvartest(bool sddp=false, bool indirect=false)
         unsigned int thetafactor = 3;
         for(unsigned int i=0; i<l; i++)
         {
-            if(fabs(x.x(k+thetafactor*i)-thetas[i]) > tol)
+            if(fabs(x[k+thetafactor*i]-thetas[i]) > tol)
             {
                 std::cerr << "theta[" << i << "]="
-                 << thetas[i] << " expected, " << x.x(k+2+3*i)
+                 << thetas[i] << " expected, " << x[k+2+3*i]
                  << " achieved." << std::endl;
 
                 throw;
@@ -180,18 +180,16 @@ void cvartest(bool sddp=false, bool indirect=false)
     {
         std::cout << "CVaRtest direct by SDDP... ";
 
-        sddpsolution<cvarproblem> x(p);
+        sddpsolution<cvarproblem,dist, lastxi<vector<double>>,O> x(p,pd);
 
-        sddpmethod::solve<cvarproblem,dist>(p, pd, x);
-
-        if(fabs(x.lb()-obj) > 0.1 || fabs(x.ubb()-obj) > 0.1)
+        if(fabs(x.obj().lb()-obj) > 0.1 || fabs(x.obj().ubb()-obj) > 0.1)
         {
             std::cerr << "obj="
-               << obj << " expected, " << x.lb()
-               << "-" << x.ubb() << " achieved." << std::endl;
+               << obj << " expected, " << x.obj().lb()
+               << "-" << x.obj().ubb() << " achieved." << std::endl;
 
-            for(unsigned int i=0; i<x.firststage().size(); i++)
-               cerr << "x" << i << "=" << x.firststage()[i] << endl;
+            for(unsigned int i=0; i<x.x()->size(); i++)
+               cerr << "x" << i << "=" << (*x.x())[i] << endl;
 
             throw;
         }
@@ -203,18 +201,17 @@ void cvartest(bool sddp=false, bool indirect=false)
     {
         std::cout << "CVaRtest indirect by SDDP... ";
 
-        sddpsolution<mpmcvarequivalent<cvarproblem>> x(ep);
+        sddpsolution<mpmcvarequivalent<cvarproblem>,dist, lastxi<vector<double>>,O> x(p,pd);
 
-        sddpmethod::solve<mpmcvarequivalent<cvarproblem>,dist>(ep, pd, x);
 
-        if(fabs(x.lb()-obj) > 0.01 || fabs(x.ubb()-obj) > 0.01)
+        if(fabs(x.obj().lb()-obj) > 0.01 || fabs(x.obj().ubb()-obj) > 0.01)
         {
             std::cerr << "obj="
-               << obj << " expected, " << x.lb()
-               << "-" << x.ubb() << " achieved." << std::endl;
+               << obj << " expected, " << x.obj().lb()
+               << "-" << x.obj().ubb() << " achieved." << std::endl;
 
-            for(unsigned int i=0; i<x.firststage().size(); i++)
-               cerr << "x" << i << "=" << x.firststage()[i] << endl;
+            for(unsigned int i=0; i<x.x()->size(); i++)
+               cerr << "x" << i << "=" << (*x.x())[i] << endl;
 
             throw;
         }

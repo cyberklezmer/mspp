@@ -10,18 +10,17 @@ struct omega
     double o2;
 };
 
-template <typename Z>
+
 class tsproblem: public msproblem<expectation,linearfunction,
-                linearmsconstraint,realvar,omega,allx,Z>
+                linearmsconstraint,omega, realvar,allx>
 {
 public:
     tsproblem() :
         msproblem<expectation,linearfunction,
-        linearmsconstraint,realvar,omega,allx,Z>
+        linearmsconstraint,omega,realvar,allx>
            (msproblemstructure({2,2}))
     {}
 private:
-
     virtual void x_is(
             unsigned int k,
             const omega& o,
@@ -46,7 +45,6 @@ private:
             linearmsconstraint& d = g.add();
             d.set({o.o2,1,0,1},constraint::geq, 4.0);
         }
-
     }
 
     virtual void f_is(unsigned int k,
@@ -78,26 +76,19 @@ void tst()
 
     ldistribution g(items);
 
-    processdistribution<ldistribution<omega>> pd({0,0},g,1);
+    using pdist = fdprocessdistribution<ldistribution<omega>,noxi<omega>>;
+    pdist pd({0,0},g,1);
 
-    using myscenariotree=distrscenariotree<processdistribution<ldistribution<omega>>>;
+    tsproblem prp;
 
-
-    myscenariotree sp(pd);
-
-    tsproblem<R> prp;
-
-    demethod b;
-
-    stsolution<tsproblem<R>,myscenariotree> sol(prp,sp);
-
-    demethod::solve<tsproblem<R>,myscenariotree,O>(prp,sp,sol);
+    desolution<tsproblem,pdist,lastxi<omega>,O> sol(prp,pd);
 
 
     // brought from testproblems.xlsx
     // x0_0,x0_1,x1_0_0,x1_1_0,x1_0_1,x1_1_1,x1_0_2,x1_1_2,x1_0_3,x1_1_3,x1_0_4,x1_1_4,x1_0_5,x1_1_5,x1_0_6,x1_1_6,x1_0_7,x1_1_7,x1_0_8,x1_1_8,,,
 
-    double tssol[]={2.25,2.5,2.25,0.75,2.25,0,2.25,0,3.33066907387547E-16,0.75,3.33066907387547E-16,0,0,0,0,0.75,0,0,0,0};
+
+     double tssol[]={2.25,2.5,2.25,0.75,2.25,0,2.25,0,3.33066907387547E-16,0.75,3.33066907387547E-16,0,0,0,0,0.75,0,0,0,0};
     double tsobj=5.75;
 
     const double tol = 1e-5;
@@ -109,12 +100,16 @@ void tst()
     }
 
     unsigned int k = sizeof(tssol)/sizeof(tssol[0]);
+    vector<double> x;
+
+    sol.x()->exportlinear(x);
+
     for(unsigned int i=0; i<k; i++)
-    {
-        if(fabs(sol.x(i)-tssol[i]) > tol)
+    {        
+        if(fabs(x[i]-tssol[i]) > tol)
         {
             std::cerr << "twostagetest: x[" << i << "]="
-                 << tssol[i] << " expected, " << sol.x(i)
+                 << tssol[i] << " expected, " << x[i]
                  << " achieved." << std::endl;
             throw;
         }
@@ -135,7 +130,7 @@ void tst()
 template <typename O>
 void twostagetest()
 {
-    std::cout << "Twostagetest with Rxi=lastxi" << std::endl;
+    std::cout << "Twostagetest " << std::endl;
     tst<lastxi<omega>,O>();
 }
 

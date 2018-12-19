@@ -6,7 +6,9 @@
 #include "SddpSolver.h"
 #include "mspp/msproblem.h"
 #include "mspp/process.h"
+#include "mspp/markov.h"
 #include "mspp/mpcproblem.h"
+#include "mspp/solution.h"
 #include "mspp/cplex.h"
 
 #include <mcheck.h>
@@ -18,139 +20,118 @@ namespace mspp
 /// \ingroup sms
 /// @{
 
-
-
-class markovchain : public ddistribution<unsigned int,unsigned int>
+template <typename X>
+class laststate : public zeta<pair<unsigned int, X>,unsigned int>
 {
 public:
-    unsigned int natoms() const
+    virtual unsigned int operator() (const scenario<pair<unsigned int, X>>& s) const
     {
-        return nstates();
-    }
-private:
-    virtual probability transprob(unsigned int from, unsigned int to) const = 0;
-    virtual unsigned int nstates() const = 0;
-    virtual atom<unsigned int>
-         atom_is(unsigned int i,const unsigned int& c) const
-    {
-        return {i,this->transprob(c,i)};
-    }
-    virtual unsigned int natoms_is(const unsigned int& ) const
-    {
-         return nstates();
+        assert(s.size());
+        return s[s.size()-1].first;
     }
 };
 
-
-class mmarkovchain: public markovchain
+class onlylaststate : public mapping<pair<unsigned int, unsigned int>, unsigned int>
 {
 public:
-    mmarkovchain(const vector<vector<double>> m) : fm(m)
+    virtual unsigned int operator() (const pair<unsigned int, unsigned int>& d) const
     {
-        assert(fm.size());
-        assert(fm[0].size());
-        for(unsigned int i=0; i<fm.size(); i++)
-            for(unsigned int j=1; j<fm.size(); j++)
-                assert(fm[i].size()==fm[0].size());
+        return d.second;
     }
-    virtual probability transprob(unsigned int from, unsigned int to) const
-    {
-        assert(from < fm.size());
-        assert(to<fm[0].size());
-        return fm[from][to];
-    }
-    virtual unsigned int nstates() const
-    {
-        return fm[0].size();
-    }
-private:
-    vector<vector<double>> fm;
 };
 
+template<typename M, typename D >
+using hmcdistribution = mijdistribution<M,D,onlylaststate>;
 
-template <typename I>
-class laststate : public zeta<pair<unsigned int, I>,unsigned int>
-{
-public:
-    virtual unsigned int operator() (const scenario<pair<unsigned int, I>>& s) const
-              { assert(s.size()); return s[s.size()-1].first(); }
-};
+template<typename M, typename D >
+using fhmcdistribution = fijdistribution<M,D,onlylaststate>;
 
 
-
-template<typename M, typename X>
-class msddpprocessdist:
-        public processdistribution<mciterativedistribution<M,X>,
-            laststate<pair<unsigned int, typename X::I_t>>>
+template<typename M, typename D>
+class hmcprocessdistritubion: public processdistribution<hmcdistribution<M,D>,
+        laststate<typename D::I_t>>
 {
 public:
     using M_t = M;
-    using X_t = X;
-    msddpprocessdist(
-        typename X::I_t xi0,
-                  const M& md, const X& xid, unsigned int T) :
-        processdistribution<mciterativedistribution<M,X>,
-          laststate<pair<unsigned int, typename X::I_t>>>
-             ({0,xi0},mciterativedistribution<M,X>(md,xid))
-    {}
-    msddpprocessdist(
-           typename X::I_t xi0,
-           const vector<mciterativedistribution<M,X>>& xi) :
-        processdistribution<mciterativedistribution<M,X>,
-          laststate<pair<unsigned int, typename X::I_t>>>
-             ({0,xi0},xi)
+    using D_t = D;
+    hmcprocessdistritubion(
+                  typename D::I_t xi0,
+                  const M& md, const D& xid, unsigned int T) :
+        processdistribution<hmcdistribution<M,D>,
+                                                  laststate<typename D::I_t>>({0,xi0},hmcdistribution<M,D>(md,xid))
     {}
 
-};
-
-
-template <typename I>
-class lastmdxi : public zeta<pair<unsigned int,I>, I>
-{
-public:
-    virtual I operator() (const scenario<pair<unsigned int,I>>& s) const
-       { assert(s.size()); return s[s.size()-1].second(); }
-};
-
-
-template <typename P>
-class sddpsolution : public object
-{
-public:
-    sddpsolution(const P& p) :
-        fv(p.d[0]) {}
-    void set(const variables<typename P::V_t>& fsv,
-             double lb, double ubm, double ubb, time_t t)
+    static vector<hmcdistribution<M,D>>
+       makexi(const vector<M>& m, const vector<D>& xi )
     {
-        assert(fsv.size()==fv.size());
-        for(unsigned int i=0; i<fv.size(); i++)
-            fv[i] = fsv[i];
+        vector<hmcdistribution<M,D>> ret;
+        assert(xi.size()==m.size());
+        for(unsigned int i=0; i<xi.size(); i++)
+            ret.push_back(hmcdistribution<M,D>(m[i],xi[i]));
+        return ret;
+    }
+    hmcprocessdistritubion(
+           typename D::I_t xi0,
+            const vector<M>& m,
+           const vector<D>& xi
+            ) :
+        processdistribution<hmcdistribution<M,D>,
+                                                  laststate<typename D::I_t>>({0,xi0},makexi(m,xi)),
+        vdistribution<typename hmcdistribution<M,D>::I_t,novalue>(m.size()+1)
+    {}
+
+};
+
+template <typename X>
+class onlyx : public mapping<pair<unsigned int, X>, X>
+{
+public:
+    virtual X operator() (const pair<unsigned int, X>& d) const
+    {
+        return d.second;
+    }
+};
+
+
+
+template <typename X>
+using lastmdxi = lastxi<pair<unsigned int, X>,onlyx<X>>;
+
+
+template <typename V>
+using sddpx = variables<V>;
+
+//         assert(fsv.size()==fv.size());
+// for(unsigned int i=0; i<fv.size(); i++)
+//    fv[i] = fsv[i];
+
+
+struct sddpobj
+{
+    double lb() const { return flb; }
+    double ubm() const { return fubm; }
+    double ubb() const { return fubb; }
+    time_t time() const { return ftime;}
+    void set(double lb, double ubm, double ubb, time_t t)
+    {
         flb=lb;
         fubm=ubm;
         fubb=ubb;
         ftime = t;
     }
-    const variables<typename P::V_t>& firststage() const
-    {
-        return fv;
-    }
-    double lb() const { return flb; }
-    double ubm() const { return fubm; }
-    double ubb() const { return fubb; }
-    time_t time() const { return ftime;}
 private:
     double flb;
     double fubm;
     double fubb;
     time_t ftime;
-    variables<typename P::V_t> fv;
 };
 
 
-template<typename P, typename D>
+template<typename P, typename D, typename M, bool markov>
 class msppsddpmodel : public ScenarioModel
 {
     static constexpr bool fdebug = true;
+    static constexpr bool fmarkov = markov;
     static unsigned int countDebugModel()
     {
         static unsigned int cnt=0;
@@ -166,7 +147,7 @@ class msppsddpmodel : public ScenarioModel
         msspDistribution(const D* d, C_t c) :
             DiscreteDistribution(mat()),
             fd(d), fc(c) {}
-        // only because I have a te,úprarymember
+        // only because I have a temporarymember
         virtual void GenerateAnalytic(mat &sample, int count)
         {
             if(fdebug)
@@ -175,11 +156,19 @@ class msppsddpmodel : public ScenarioModel
                            << "(count=" << count << ")" << endl;
             }
 
-            sample.set_size(count, fd->dim);
+            sample.set_size(count, fd->dim());
             for(unsigned int i=0; i<count; i++)
             {
-                rvector<double> x = fd->draw(fc);
-                sample.row(i) = rowvec(x);
+                if constexpr(fmarkov)
+                {
+                    vector<double> x = M()({fc,fd->draw(fc)});
+                    sample.row(i) = rowvec(x);
+                }
+                else
+                {
+                    vector<double> x = M()(fd->draw(fc));
+                    sample.row(i) = rowvec(x);
+                }
             }
             if(fdebug)
                 sys::log() << sample <<  " returned" << endl;
@@ -200,26 +189,31 @@ class msppsddpmodel : public ScenarioModel
     };
 
     static constexpr bool fnestedcvar =
-            std::is_same<typename P::C_t,nestedmcvar>::value
-           || std::is_same<typename P::C_t,mpmcvar>::value;
-    static bool constexpr fmarkov = std::is_same<typename D::C_t,unsigned int>::value;
+            std::is_same<typename P::O_t,nestedmcvar>::value
+           || std::is_same<typename P::O_t,mpmcvar>::value;
 
     double lambda;
     double alpha;
 
     void initandcheck()
     {
+        assert(fxi0.size());
         assert(fp.T()>0);
         assert(fdistrs.size()==fp.T());
         static_assert(std::is_same<typename P::V_t,realvar>::value);
-        static_assert(std::is_same<typename P::I_t,rvector<double>>::value);
+        static_assert(std::is_same<typename P::Y_t,vector<double>>::value);
 
+        for(unsigned int i=0; i<=fp.T(); i++)
+        {
+            assert(fp.maxf(i) <  max<double>());
+            assert(fp.minf(i) >  min<double>());
+        }
         // mp cvar comes reformulated
         static_assert(
-             std::is_same<typename P::C_t,expectation>::value
+             std::is_same<typename P::O_t,expectation>::value
                || fnestedcvar
               );
-        if constexpr(fnestedcvar && std::is_same<typename P::C_t,mpmcvar>::value)
+        if constexpr(fnestedcvar && std::is_same<typename P::O_t,mpmcvar>::value)
            assert(fp.T() < 2);
         if constexpr(fnestedcvar)
         {
@@ -240,15 +234,15 @@ class msppsddpmodel : public ScenarioModel
 public:
        msppsddpmodel(const P& p,
                      const vector<const D*>& distrs,
-                     const rvector<double> &xi0,
-                     const vector<const markovchain*>& chains)
-           : ScenarioModel(p.d.size()), fp(p), fdistrs(distrs),
+                     const vector<double> &xi0,
+                     const vector<const mcdistribution*>& chains)
+           : ScenarioModel(p.d().size()), fp(p), fdistrs(distrs),
                             fxi0(xi0), fchains(chains)
        {
            if(fdebug)
                sys::log() << "markov ctr called" << endl;
            if(fdebug)
-               sys::log() << "stages = " << p.d.size() << endl;
+               sys::log() << "stages = " << p.d().size() << endl;
 
            assert(fmarkov);
            static_assert(std::is_same<typename D::C_t,unsigned int>::value);
@@ -257,16 +251,16 @@ public:
 
        msppsddpmodel(const P& p,
                      const vector<const D*>& distrs,
-                     const rvector<double>& xi0 = 0)
-           : ScenarioModel(p.d.size()), fp(p), fxi0(xi0), fdistrs(distrs)
+                     const vector<double>& xi0 = 0)
+           : ScenarioModel(p.d().size()), fp(p), fxi0(xi0), fdistrs(distrs)
        {
            if(fdebug)
                sys::log() << "swi ctr called" << endl;
            if(fdebug)
-               sys::log() << "stages = " << p.d.size() << endl;
+               sys::log() << "stages = " << p.d().size() << endl;
 
            assert(!fmarkov);
-           static_assert(std::is_same<typename D::C_t,nocondition>::value);
+           static_assert(std::is_same<typename D::C_t,novalue>::value);
            initandcheck();
        }
 
@@ -285,13 +279,16 @@ public:
             {
                 mat sample(1,fxi0.size());
                 sample.row(0)= rowvec(fxi0);
-                return new DiscreteDistribution(sample);
+                DiscreteDistribution* d = new DiscreteDistribution(sample);
+                d->UnbiasedEstimate(); // to initialize mu_, which is later used in
+                             // determining the dimension of rv.'s
+                return d;
             }
             if constexpr(fmarkov)
                 return new msspDistribution(fdistrs[stage-2],state-1);
             else
             {
-                nocondition n;
+                novalue n;
                 return new msspDistribution(fdistrs[stage-2],n);
             }
        }
@@ -305,8 +302,8 @@ public:
            assert(stage-1 <= fchains.size());
            if(fmarkov)
            {
-               const markovchain& ch = *fchains[stage-1];
-               unsigned int dstn=ch.natoms();
+               const mcdistribution& ch = *fchains[stage-1];
+               unsigned int dstn=ch.nstates();
                if(stage == 1)
                {
                    mat prob(1,dstn);
@@ -319,7 +316,7 @@ public:
                }
                else
                {
-                   unsigned int srcn = fchains[stage-2]->natoms();
+                   unsigned int srcn = fchains[stage-2]->nstates();
 
                    mat prob(srcn,dstn);
                    for(unsigned int i=0; i<srcn; i++)
@@ -345,8 +342,8 @@ public:
            {
                assert(stage-1 <= fchains.size());
                if(fdebug)
-                   sys::log() << fchains[stage-2]->natoms() <<" returned" << endl;
-               return fchains[stage-2]->natoms();
+                   sys::log() << fchains[stage-2]->nstates() <<" returned" << endl;
+               return fchains[stage-2]->nstates();
            }
            else
            {
@@ -366,11 +363,11 @@ public:
 
         virtual unsigned int GetDecisionSize(unsigned int stage) const
         {
-           if(fdebug)
+           if(0 && fdebug)
                sys::log() << "GetDecisionSize called (may be my call, too)" << endl
                           << "(" << stage << ")" << endl;
 
-            unsigned int nx = fp.d[stage-1];
+            unsigned int nx = fp.d()[stage-1];
             if constexpr(fnestedcvar)
             {
                 unsigned int rv;
@@ -378,13 +375,13 @@ public:
                     rv = nx+1;
                 else
                     rv = nx;
-                if(fdebug)
+                if(0 && fdebug)
                     sys::log() << rv << " returned" << endl;
                 return rv;
             }
             else
             {
-                if(fdebug)
+                if(0 && fdebug)
                     sys::log() << nx << " returned" << endl;
                 return nx;
             }
@@ -410,7 +407,7 @@ public:
                                     double *subgradient) const
         {
            if(fdebug)
-              sys::log() << "FillSubradient called" << endl;
+              sys::log() << "FillSubradient called";
 
            assert(stage >= 1);
            assert(stage <= fp.T()+1);
@@ -418,25 +415,25 @@ public:
            {
                recourse = fnestedcvar ? (1-lambda) * objective : objective;
                if(fdebug)
-                  sys::log() << "(1) " << endl << recourse << " returned" << endl;
+                  sys::log() << "(1)" << endl << "recourse=" << recourse << " returned" << endl;
 
                return;
            }
            unsigned int k= stage - 1;
            vector<range<typename P::V_t>> vars;
            vector<typename P::G_t> constraints;
-           rvector<double> zeta(scenario, scenario+ fdistrs[k-1]->dim);
+           vector<double> zeta(scenario, scenario+ fdistrs[k-1]->dim());
            if(!k)
                 for(unsigned int i=0; i<fxi0.size(); i++)
                     assert(fxi0[i]==scenario[i]);
            fp.x(k,zeta,vars,constraints);
            if(fdebug)
            {
-               sys::log() << "(" << stage << ",pd=(";
+               sys::log() << "(stage=" << stage << ",pd=(";
                for(int i=0; i<GetDecisionSize(stage-1);i++)
                    sys::log() << prev_decisions[i] << ",";
                sys::log() << "),sc=(";
-               for(int i=0; i< fdistrs[stage-2]->dim; i++)
+               for(int i=0; i< fdistrs[stage-2]->dim(); i++)
                    sys::log() << scenario[i] << ",";
                sys::log() << "), o="<< objective << ",duals=(";
                for(int i=0; i< constraints.size(); i++)
@@ -471,7 +468,7 @@ public:
            double* sgptr = subgradient;
            unsigned int vind = 0;
 
-           for(unsigned int i=0; i<fp.d[k-1]; i++,sgptr++)
+           for(unsigned int i=0; i<fp.d()[k-1]; i++,sgptr++)
            {
                double g = 0;
                if(fp.includedinbarx(k-1,i,k))
@@ -484,8 +481,8 @@ public:
                {
                    double parentu = prev_decisions[nv-1];
 
-                   *sgptr = (1-lambda) * g -
-                        objective > parentu ? lambda / alpha * g : 0;
+                   *sgptr = (1-lambda) * g +
+                        (objective > parentu ? lambda / alpha * g : 0);
                }
                else
                    *sgptr = g;
@@ -499,7 +496,7 @@ public:
                sys::log() << "g=(";
                for(unsigned int i=0; i<nv; i++)
                     sys::log() << subgradient[i] << ",";
-               sys::log() << "), recourse=" << recourse << " returned" << endl;
+               sys::log() << "), recourse=" << recourse << " returned" << endl << endl;
                sys::log().flush();
            }
        }
@@ -519,15 +516,15 @@ public:
 
            assert(stage <= fp.T()+1);
            assert(stage > 0);
-           unsigned int k= stage - 1;
+           unsigned int k = stage - 1;
 
            bool root_node = (stage == 1);
            bool last_stage = (stage == GetStagesCount());
 
            vector<typename P::V_t> vars;
 //          vector<typename P::G_t> constraints;
-           rvector<double> zeta =
-                k ? rvector<double>(scenario, scenario+ fdistrs[k-1]->dim)
+           vector<double> zeta =
+                k ? vector<double>(scenario, scenario+ fdistrs[k-1]->dim())
                   : fxi0;
            if(!k)
                 for(unsigned int i=0; i<fxi0.size(); i++)
@@ -548,10 +545,9 @@ public:
                sys::log() << "), re="<< recourse_estimate << ")" << endl;
            }
 
-
            typename P::F_t f = fp.f(k,zeta);
 
-           vector<double> x(decisions,decisions+fp.d[k]);
+           vector<double> x(decisions,decisions+fp.d()[k]);
            double node_value = f(x);
 
            if(fdebug)
@@ -568,15 +564,14 @@ public:
            }
            else
            {
-               double u = last_stage ? 0 : decisions[fp.d[k]];
+               double u = last_stage ? 0 : decisions[fp.d()[k]];
 
                double res;
                if(root_node)
-                   res =  recourse_estimate + (1-lambda) * node_value
-                            + lambda * u;
+                   res =  recourse_estimate + node_value + u;
                else
                {
-                   double prevu = prev_decisions[fp.d[k-1]];
+                   double prevu = prev_decisions[fp.d()[k-1]];
 
                    double rv;
                    if(last_stage)
@@ -617,7 +612,7 @@ public:
                   for(int i=0; i<GetDecisionSize(stage-1);i++)
                      sys::log() << prev_decisions[i] << ",";
                sys::log() << "),(";
-               unsigned int d = !k ? fxi0.size() : fdistrs[stage-2]->dim;
+               unsigned int d = !k ? fxi0.size() : fdistrs[stage-2]->dim();
                for(int i=0; i<d ; i++)
                    sys::log() << scenario[i] << ",";
                sys::log() << "))" << endl;
@@ -627,8 +622,8 @@ public:
            bool last_stage = k == fp.T();
            vector<range<typename P::V_t>> vars;
            vector<typename P::G_t> constraints;
-           rvector<double> zeta=
-                   k ? rvector<double>(scenario, scenario+ fdistrs[k-1]->dim)
+           vector<double> zeta=
+                   k ? vector<double>(scenario, scenario+ fdistrs[k-1]->dim())
                      : fxi0;
            if(!k)
                 for(unsigned int i=0; i<fxi0.size(); i++)
@@ -696,7 +691,7 @@ public:
                    // thx to the check from ctr, we are sure that no < stage-1 vars are involved in the constraint
 
                    const double* srcv = prev_decisions;
-                   for(unsigned int i=0; i<fp.d[k-1];i++)
+                   for(unsigned int i=0; i<fp.d()[k-1];i++)
                    {
                         if(fp.includedinbarx(k-1,i,k))
                             rhs -= c.lhs(srccoef++) * *srcv;
@@ -718,7 +713,7 @@ public:
                model.add(r);
                dual_constraints.push_back(r);
            }
-           if(1 || fdebug)
+           if(0 && fdebug)
            {
                std::ostringstream s;
                s << "model" << countDebugModel() << ".lp";
@@ -731,7 +726,7 @@ public:
            }
         }
 
-   void solve(sddpsolution<P>& sol)
+   pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve()
    {
        const unsigned int SEED = 350916502;
 
@@ -775,16 +770,18 @@ public:
        sys::log() << "Original problem: " << weights_o << endl;
        sys::log() << "Original problem @ " << time_o << "s, lb: " << lb_o << ", ub_mean:" << ub_o_m << ", ub_bound:" << ub_o_b << endl;
 
-       variables<typename P::V_t> vars;
+       ptr<sddpx<typename P::V_t>> vars(new sddpx<typename P::V_t>);
        unsigned int sn;
-       if constexpr(std::is_same<typename P::C_t,nestedmcvar>::value ||
-                    std::is_same<typename P::C_t,mpmcvar>::value)
+       if constexpr(std::is_same<typename P::O_t,nestedmcvar>::value ||
+                    std::is_same<typename P::O_t,mpmcvar>::value)
            sn = weights_o.n_cols - 1;
        else
            sn = weights_o.n_cols;
        for(unsigned int i=0; i<sn; i++)
-           vars.push_back(weights_o(i));
-       sol.set(vars, lb_o, ub_o_m, ub_o_b, time_o);
+           vars->push_back(weights_o(i));
+       sddpobj obj;
+       obj.set(lb_o, ub_o_m, ub_o_b, time_o);
+       return { vars, obj};
    }
 
 private:
@@ -792,79 +789,167 @@ private:
 
         const P& fp;
         vector<const D*> fdistrs;
-        rvector<double> fxi0;
-        vector<const markovchain*> fchains;
-};
-
-
-
-
-class sddpmethod : public object
-{
-    template<typename P, typename D>
-    static constexpr void check()
-    {
-        static_assert(
-             std::is_same<typename P::C_t,expectation>::value
-               || std::is_same<typename P::C_t,mpmcvar>::value
-               || std::is_same<typename P::C_t,nestedmcvar>::value,
-                 "only problems with expectation, mp- or nested- cvar can be solved"
-              );
-        static_assert(
-             std::is_same<typename D::D_t::I_t,rvector<double>>::value,
-                 "only distributions with I=vector<double> may be used"   );
-    }
-
+        vector<double> fxi0;
+        vector<const mcdistribution*> fchains;
 public:
-
-    template <typename P, typename D /* typename O*/>
-    static void solve(
-             const P& p,
-             const D& xi,
-             sddpsolution<P>& sol)
+    static pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve
+        (const P& p,const vector<const D*>& ds, const vector<double>& xi0)
     {
-        check<P,D>();
+       if constexpr(std::is_same<typename P::O_t,mpmcvar>::value)
+       {
+            if(p.T()>=2)
+            {
+                mpmcvarequivalent<P> e(p);
+                msppsddpmodel<mpmcvarequivalent<P>,D,M,false> mm(e,ds,xi0);
+                return mm.solve();
+            }
+        }
+       msppsddpmodel<P,D,M,false> mm(p,ds,xi0);
+       return mm.solve();
 
-        vector<const typename D::D_t*> ds;
-        for(unsigned int i=1; i<=xi.T(); i++)
-            ds.push_back(&(xi.d(i)));
-        solve<P,D>(p,ds,xi.xi0(),sol);
-    }
-
-    template <typename P, typename D /* typename O*/>
-    static void solve(
-             const P& p,
-             const vector<const typename D::D_t*>& xi,
-             const typename D::D_t::I_t xi0,
-             sddpsolution<P>& sol)
+     }
+    static pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve
+       (const P& p,const vector<const D*>& ds,
+            const vector<const mcdistribution*>& ms, const vector<double>& xi0 )
     {
-        // zkontrolovat meze
-        check<P,D>();
-        if constexpr(std::is_same<typename P::C_t,mpmcvar>::value)
+        if constexpr(std::is_same<typename P::O_t,mpmcvar>::value)
         {
             if(p.T()>=2)
             {
                 mpmcvarequivalent<P> e(p);
-                sddpsolution<mpmcvarequivalent<P>> es(e);
-                sddpmethod::solve<mpmcvarequivalent<P>,D>(e, xi, xi0,  es);
-                variables<typename P::V_t> v(sol.firststage().size());
-                for(unsigned int i=0; i<v.size(); i++)
-                    v[i]=es.firststage()[i];
-                sol.set(v,es.lb(),es.ubm(),es.ubb(),es.time());
-                return;
+                msppsddpmodel<mpmcvarequivalent<P>,D,M,true> mm(e,ds,xi0,ms);
+                return mm.solve();
             }
         }
-        msppsddpmodel<P,typename D::D_t> mm(p,xi,xi0);
-        mm.solve(sol);
+        msppsddpmodel<P,D,M,true> mm(p,ds,xi0,ms);
+        return mm.solve();
     }
 };
 
 
+template <typename P, typename D, typename Z, typename O>
+class sddpsolbase : public solution<P,D,Z,sddpx<typename P::V_t>,sddpobj>
+{
+protected:
+    static constexpr void check()
+    {
+        static_assert(std::is_same<O,cplex<realvar>>::value);
+        static_assert(std::is_same
+              <Z,lastxi<vector<double>, typename Z::M_t>>::value);
+        static_assert(
+             std::is_same<typename P::O_t,expectation>::value
+               || std::is_same<typename P::O_t,mpmcvar>::value
+               || std::is_same<typename P::O_t,nestedmcvar>::value,
+                 "only problems with expectation, mp- or nested- cvar can be solved"
+              );
+        /*        static_assert(
+           (markov && std::is_same<typename D::D_t::S_t::I_t,vector<double>>::value)
+             || std::is_same<typename D::X_t,vector<double>>::value,
+                 "only distributions with X=vector<double> may be used"   );*/
+    }
+
+public:
+    using P_t = P;
+    using D_t = D;
+    using Z_t = Z;
+    using X_t = typename D::X_t;
+    using V_t = typename P::V_t;
+
+    sddpsolbase(const pair<ptr<sddpx<typename P::V_t>>,sddpobj>& p) :
+        solution<P,D,Z,sddpx<typename P::V_t>,sddpobj>(p)
+    {}
+};
 
 
+template <typename P, typename D, typename Z, typename O>
+class sddpsolution: public sddpsolbase<P,D,Z,O>
+{
+public:
+    sddpsolution(const P& p, const D& d)
+        : sddpsolbase<P,D,Z,O>(solve(p,d))
+    {
+        static_assert(std::is_same
+           <typename D::Z_t, noxi<typename D::X_t>>::value,
+                      "D has to ve stagewise independent");
+    }
+private:
+    static pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve
+        (const P& p,const D& xi)
+    {
+        vector<const typename D::D_t*> ds;
+        for(unsigned int i=1; i<=xi.T(); i++)
+            ds.push_back(&(xi.d(i)));
+        return
+         msppsddpmodel<P, typename D::D_t, typename Z::M_t, false>
+                ::solve(p,ds,xi.x0());
+    }
+};
 
-template <typename P, typename D /* typename O*/>
-class msddpmethod : public object
+template <typename P, typename D, typename Z, typename O>
+class msddpsolution: public sddpsolbase<P,D,Z,O>
+{
+public:
+    using D_t = typename D::D_t;
+    using F_t = typename D_t::F_t;
+    using S_t = typename D_t::S_t;
+
+    msddpsolution(const P& p, const D& d)
+        : sddpsolbase<P,D,Z,O>(solve(p,d))
+    {
+        static_assert(std::is_base_of<
+            mijdistribution
+               <typename D_t::F_t,typename D_t::S_t,typename D_t::M_t>, D_t>::value);
+
+        static_assert(std::is_same<typename D_t::M_t, onlylaststate>::value);
+
+        static_assert(std::is_base_of<mcdistribution,F_t>::value);
+
+        static_assert(std::is_same
+           <typename D::Z_t, laststate<vector<double>>>::value);
+    }
+private:
+    static pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve
+        (const P& p,const D& xi)
+    {
+        vector<const typename D_t::S_t*> ds;
+        vector<const mcdistribution*> ms;
+        for(unsigned int i=1; i<=xi.T(); i++)
+        {
+            ds.push_back(&(xi.d(i).second()));
+            ms.push_back(&(xi.d(i).first()));
+        }
+        return
+         msppsddpmodel<P, typename D_t::S_t, typename Z::M_t, true>
+                ::solve(p,ds,ms,xi.x0().second);
+    }
+};
+
+
+/*
+template <typename P, typename D, typename Z, typename O>
+class msddpsolution : public sddpsolbase<P,D,Z,O,true>
+{
+public:
+    using D_t = typename D::D_t;
+    using F_t = typename D_t::F_t;
+    using S_t = typename D_t::S_t;
+    static void constexpr check()
+    {
+    }
+
+    msddpsolution(const P& p, const D& d) : sddpsolbase<P,D,Z,O,true>(p,d)
+    {
+        check();
+
+    }
+    solve()
+    {
+    }
+};
+*/
+/*
+template <typename P, typename D, typename Z, typename O>
+class msddpsolution : public solution<P,D,Z,sddpx<typename P::V_t>,sddpobj>
 {
 public:
     msddpmethod()
@@ -875,7 +960,7 @@ public:
                || std::is_same<typename P::C_t,nestedmcvar>::value
               );
         static_assert(
-             std::is_same<typename D::X_t::I_t,rvector<double>>::value);
+             std::is_same<typename D::X_t::I_t,vector<double>>::value);
     }
 
     static void solve(
@@ -883,14 +968,12 @@ public:
              const D& xi,
              sddpsolution<P>& sol)
     {
-        vector<const markovchain*> ms;
-        vector<const typename D::X_t*> ds;
-        for(unsigned int i=0; i<xi.T(); i++)
+        for(unsigned int i=1; i<=xi.T(); i++)
         {
-            ms.push_back(&xi.d(i+1).d());
-            ds.push_back(&xi.d(i+1).e());
+            ds.push_back(&(xi.d(i).second()));
+            ms.push_back(&(xi.d(i).first()));
         }
-        solve(p,ds,xi.xi0().j,ms,sol);
+
     }
 
 
@@ -898,7 +981,7 @@ public:
              const P& p,
              const vector<const typename D::X_t*>& xi,
              const typename D::X_t::I_t& xi0,
-             const vector<const markovchain*>& m,
+             const vector<const mcdistribution*>& m,
              sddpsolution<P>& sol)
     {
         if constexpr(std::is_same<typename P::C_t,mpmcvar>::value)
@@ -922,6 +1005,7 @@ public:
     }
 };
 
+*/
 
 /// @}
 

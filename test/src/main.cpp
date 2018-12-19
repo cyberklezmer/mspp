@@ -1,12 +1,11 @@
 #include <fstream>
 #include "mspp/random.h"
 #include "mspp/process.h"
-//#include "mspp/de.h"
 //#include "mspp/msproblem.h"
 //#include "mspp/cplex.h"
 //#include "test/tstest.h"
-//#include "test/cvartest.h"
-//#include "test/almtest.h"
+#include "test/cvartest.h"
+#include "test/almtest.h"
 #include <mcheck.h>
 
 using namespace mspp;
@@ -22,12 +21,14 @@ int main(int, char **)
 
     sys::seed(0);
 //    using O=csvlpsolver<realvar>;
-//    using O=cplex<realvar>;
+    using O=cplex<realvar>;
 //    twostagetest<O>();
 //    cvartest<O>(false,false);
 //    cvartest<O>(false,true);
 //    cvartest<O>(true,false);
 //    cvartest<O>(true,true);
-//    almtest<O>();
+    almtest<O>(2,2); // dává lb< ub
+//    alm1test<O>(false);
+
     return 0;
 }

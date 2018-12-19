@@ -11,8 +11,9 @@ namespace mspp
 /// @{
 
 using probability = double;
+const double probabilitytolerance = 1e-15;
 
-template <typename I=double, typename C=nocondition>
+template <typename I=double, typename C=novalue>
 class distribution: public object
 {
 public:
@@ -21,50 +22,47 @@ public:
     using C_t = C;
 };
 
-template <typename I, typename J, typename C=nocondition>
-class jointdistribution: virtual public distribution
-        <pair<I, J>, C>
-{
-};
-
-
-template <typename X=double, typename C=nocondition>
-class vdistribution : virtual public distribution<vector<X>>
+template <typename F, typename S, typename C>
+class jdistribution: virtual public distribution
+        <pair<F, S>, C>
 {
 public:
-    vdistribution(unsigned int adim) : dim(adim) {}
-    const unsigned dim;
+    using F_t = F;
+    using S_t = S;
 };
 
-/*template <typename P, typename I=double, typename C=nocondition>
-class parametricdistribution: virtual public distribution<I,C>
+template <typename X, typename C>
+class vdistribution : virtual public distribution<vector<X>,C>
 {
 public:
-    parametricdistribution(const P& p): fp(p) {}
-protected:
-    const P& p() { return fp; }
+    using X_t = X;
+    vdistribution(unsigned int dim) : fdim(dim) {}
+    unsigned int dim() const { return fdim; }
 private:
-    P fp;
-};*/
+    const unsigned int fdim;
+};
 
 
-/// \addtogroup mcdisc MC distributions
+/// \addtogroup mdisc MC distributions
 /// \ingroup Distributions
 /// @{
 
-template <typename I=double, typename C=nocondition>
-class mcdistribution: virtual public distribution<I, C>
+template <typename I, typename C>
+class mdistribution: virtual public distribution<I, C>
 {
 public:
     I draw(const C& c) const
     {
         return do_draw(c);
     }
+    I draw() const
+    {
+        static_assert(std::is_same<C,novalue>::value);
+        return do_draw(novalue());
+    }
 private:
     virtual I do_draw(const C& c) const = 0;
 };
-
-
 
 /// @}
 
@@ -72,7 +70,7 @@ private:
 /// \ingroup Distributions
 /// @{
 
-template <typename I=double>
+template <typename I>
 struct atom
 {
     using I_t = I;
@@ -80,14 +78,18 @@ struct atom
     probability p;
 };
 
-template <typename I=double, typename C=nocondition>
-class ddistribution: public distribution<I,C>,
-                     public mcdistribution<I,C>
+template <typename I, typename C>
+class ddistribution: public mdistribution<I,C>
 {
 public:
-    atom<I> operator () (unsigned int i, const C& c=C()) const
+    atom<I> operator () (unsigned int i, const C& c) const
     {
         return atom_is(i,c);
+    }
+    atom<I> operator () (unsigned int i) const
+    {
+        static_assert(std::is_same<C,novalue>::value);
+        return atom_is(i,novalue());
     }
 private:
     virtual atom<I> atom_is(unsigned int i, const C& c) const  = 0;
@@ -95,7 +97,7 @@ private:
     {
         double u = sys::uniform();
         double sum = 0;
-        for(unsigned int i=0; ; i++)
+        for(unsigned int i=0; i<numeric_limits<unsigned int>::max() ; i++)
         {
             atom<I> a = (*this)(i,c) ;
             sum += a.p;
@@ -106,21 +108,24 @@ private:
     }
 };
 
-template <typename I=double, typename C=nocondition>
-class fdistribution: public ddistribution<I,C>
+/// /p listdefined=true indicates that atoms are primarily determined by
+/// method /p atoms_are
+template <typename I, typename C, bool listdef = false>
+class fdistribution: virtual public ddistribution<I,C>
 {
 public:
+    static constexpr bool flistdef = listdef;
+
     void atoms(vector<atom<I>>& a, const C& c) const
     {
-        a.resize(0);
+        a.resize(0); // better safe than sorry
         atoms_are(a,c);
         probability p=0;
-        for(unsigned int i=0; i< a.size(); i++)
-        {
-            p += a[i].p;
-        }
-
-        assert(fabs(p-1.0) < probabilitytolerance);
+        #ifndef NDEBUG
+            for(unsigned int i=0; i< a.size(); i++)
+                p += a[i].p;
+            assert(fabs(p-1.0) < probabilitytolerance);
+        #endif
     }
 
     unsigned int natoms(const C& c) const
@@ -131,64 +136,31 @@ public:
 private:
     virtual void atoms_are(vector<atom<I>>& a, const C& c) const
     {
+        assert(!listdef);
         a.resize(0);
         unsigned int s= natoms_is(c);
         for(unsigned int i=0; i<s; i++)
             a.push_back((*this)(i,c));
     }
-    virtual unsigned int natoms_is(const C& c) const = 0;
+    virtual unsigned int natoms_is(const C& c) const
+    {
+        vector<atom<I>> a;
+        atoms_are(a,c);
+        assert(a.size());
+        return a.size();
+    }
+    virtual atom<I> atom_is(unsigned int i, const C& c) const
+    {
+        assert(listdef);
+        vector<atom<I>> a;
+        atoms_are(a,c);
+        assert(a.size());
+        return a[i];
+    }
 };
 
-
-
-/*
 template <typename I>
-class iddistribution: virtual public ddistribution<I,nocondition>
-{
-public:
-    iddistribution() {}
-
-    atom<I> operator [] (unsigned int i) const
-    {
-        assert(i < natoms_is());
-        return atom_is(i);
-    }
-
-    void atoms(vector<atom<I>>& a) const
-    {
-        a.clear();
-        atoms_are(a);
-    }
-
-    unsigned int natoms() const
-    {
-        return natoms_is();
-    }
-
-protected:
-    virtual void atoms_are(vector<atom<I>>& a, const nocondition&) const
-      { atoms_are(a); }
-    virtual void atoms_are(vector<atom<I>>& a) const
-    {
-        a.resize(0);
-        unsigned int s= natoms_is();
-        for(unsigned int i=0; i<s; i++)
-            a.push_back(atom_is(i));
-    }
-
-    virtual unsigned int natoms_is(const nocondition&) const
-      { return natoms_is(); }
-    virtual unsigned int natoms_is() const = 0;
-    virtual atom<I> atom_is(unsigned int i, const nocondition&) const
-    {
-        return atom_is(i);
-    }
-    virtual atom<I> atom_is(unsigned int i) const = 0;
-};
-*/
-
-template <typename I=double>
-class ldistribution: public fdistribution<I,nocondition>
+class ldistribution: public fdistribution<I,novalue, true>
 {   
 public:
     ldistribution(const vector<atom<I>>& atoms) :
@@ -199,7 +171,7 @@ public:
     ldistribution(const vector<I>& values) :
         fatoms(values.size())
     {
-        assert(fatoms.size());
+        assert(values.size());
         probability p=1.0/fatoms.size();
         for(unsigned int i=0; i<fatoms.size(); i++)
         {
@@ -208,17 +180,17 @@ public:
         }
     }
 private:
-    virtual void atoms_are(vector<atom<I>>& a, const nocondition&) const
+    virtual void atoms_are(vector<atom<I>>& a, const novalue&) const
     {
         a = fatoms;
-    };
+    }
 
-    virtual unsigned int natoms_is(const nocondition&) const
+    virtual unsigned int natoms_is(const novalue&) const
     {
         return fatoms.size();
     }
 
-    virtual atom<I> atom_is(unsigned int i, const nocondition&) const
+    virtual atom<I> atom_is(unsigned int i, const novalue&) const
     {
         return fatoms[i];
     }
@@ -226,54 +198,63 @@ private:
     vector<atom<I>> fatoms;
 };
 
+template <typename X>
+class lvdistribution: public ldistribution<vector<X>>,
+        public vdistribution<X,novalue>
+{
+public:
+    lvdistribution(const vector<atom<vector<X>>>& atoms) :
+        ldistribution<vector<X>>(atoms),
+        vdistribution<X,novalue>(atoms[0].x.size())
+    {
+        assert(atoms.size());
+        for(unsigned int i=1; i<atoms.size(); i++)
+            assert(atoms[i].x.size()==atoms[0].x.size());
+    }
+
+    lvdistribution(const vector<vector<X>>& values) :
+        ldistribution<vector<X>>(values), vdistribution<X,novalue>(values[0].size())
+    {
+        assert(values.size());
+        for(unsigned int i=1; i<values.size(); i++)
+            assert(values[i].size()==values[0].size());
+    }
+};
+
+
 template <typename I>
 class diracdistribution: public ldistribution<I>
 {
 public:
     diracdistribution(const I& a)
         : ldistribution<I>({a}) {}
+    I x() const
+    {
+        atom<I> a = (*this)(0);
+        return a.x;
+    }
 };
 
 
-/*
-template <typename X=double>
-class gmdddistribution: public ldistribution<rvector<X>>,
-     public mddistribution<X,nocondition>
+template <typename X, bool listdefined>
+lvdistribution<X> operator *(const fdistribution<X,novalue,listdefined>& x,
+                             const fdistribution<X,novalue,listdefined>& y)
 {
-public:
-    gmdddistribution(const vector<rvector<X>>& values) :
-        ldistribution<rvector<X>>(values),
-        mddistribution<X>(values[0].size())
-    {
-    }
-    gmdddistribution(const vector<atom<rvector<X>>>& atoms) :
-        ldistribution<rvector<X>>(atoms),
-        mddistribution<X>(atoms[0].x.size())
-     {}
-};*/
-
-
-template <typename I>
-ldistribution<vector<I>> operator *(const fdistribution<I,nocondition>& x,
-                             const fdistribution<I,nocondition>& y)
-{
-    assert(x.natoms(nocondition()));
-    assert(y.natoms(nocondition()));
-    vector<atom<vector<I>>> a(x.natoms(nocondition())*y.natoms(nocondition()));
+    assert(x.natoms(novalue()));
+    assert(y.natoms(novalue()));
+    vector<atom<vector<X>>> a(x.natoms(novalue())*y.natoms(novalue()));
 
     unsigned int dst = 0;
-    for(unsigned int i=0; i<x.natoms(nocondition()); i++)
-        for(unsigned int j=0; j<y.natoms(nocondition()); j++)
+    for(unsigned int i=0; i<x.natoms(novalue()); i++)
+        for(unsigned int j=0; j<y.natoms(novalue()); j++)
         {
-            atom<I> xa = x(i,nocondition());
-            atom<I> ya = y(j,nocondition());
-            vector<I> r = { xa.x, ya.x };
+            atom<X> xa = x(i,novalue());
+            atom<X> ya = y(j,novalue());
+            vector<X> r = { xa.x, ya.x };
             a[dst++]= { r, xa.p*ya.p};
         }
-    return ldistribution<vector<I>>(a);
+    return lvdistribution<X>(a);
 }
-
-
 
 /// @} - discrete distributions
 
@@ -282,70 +263,150 @@ ldistribution<vector<I>> operator *(const fdistribution<I,nocondition>& x,
 /// @{
 
 
-
-template <typename D, typename E,
-          typename Z=nomapping<pair<typename D::C_t,typename D::I_t>>>
-class ipdistribution:
-     public jointdistribution<typename D::I_t, typename E::I_t, typename D::C_t>
+/// Iterative joint distribution, \p M is a mapping from the condition
+/// of F into (condition of F, condition of G)
+template <typename F, typename S, typename M>
+class ijdistribution:
+     public jdistribution<typename F::I_t, typename S::I_t, typename F::C_t>
 {
 public:
-//    using I_t = pair<typename D::I_t, typename E::I_t>;
-//    using C_t = typename D::C_t;
-    ipdistribution(const D& d, const E& e) : fd(d), fe(e)
+    using F_t = F;
+    using S_t = S;
+    using M_t = M;
+
+    ijdistribution(const F& f, const S& s) : ff(f), fs(s)
     {
-        static_assert(std::is_convertible<typename Z::R_t&,typename E::C_t&>::value);
+        static_assert(std::is_base_of<mapping<typename M::D_t,typename M::R_t>,M>::value);
+        static_assert(std::is_same<typename M::D_t,
+               pair<typename F::C_t,typename F::I_t>>::value);
+        static_assert(std::is_convertible<typename M::R_t&,typename S::C_t&>::value);
     }
-    const D& d() const { return fd; }
-    const E& e() const { return fe; }
+    const F& first() const { return ff; }
+    const S& second() const { return fs; }
 private:
-    D fd;
-    E fe;
+    F ff;
+    S fs;
 };
 
-template <typename D, typename E, typename Z>
-class mcipdistribution: public ipdistribution<D,E,Z>
+// mapping for unconditional ijdistribution
+template <typename D,typename R, typename M>
+class uijmapping : public mapping<pair<nothing,D>,R>
 {
 public:
-    using I_t = typename ipdistribution<D,E>::I_t;
-    using C_t = typename ipdistribution<D,E>::C_t;
-    mcipdistribution(const D& d, const E& e) :
-      ipdistribution<D,E,Z>(d,e)
+    virtual R operator() (const pair<nothing,D>& p) const
+    {
+        return M()(p.second);
+    }
+};
+
+/// with no condition
+template <typename F, typename S, typename M>
+using uijdistribution = ijdistribution<F,S,uijmapping<typename F::I_t,typename S::C_t,M>>;
+
+template <typename F, typename S, typename M>
+class mijdistribution: public ijdistribution<F,S,M>,
+                       public mdistribution<pair<typename F::I_t,typename S::I_t>,typename F::C_t>
+{
+public:
+    using I_t = typename ijdistribution<F,S,M>::I_t;
+    using C_t = typename ijdistribution<F,S,M>::C_t;
+    mijdistribution(const F& d, const S& e) :
+      ijdistribution<F,S,M>(d,e)
     {
     }
     virtual I_t do_draw(const C_t& c) const
     {
-        typename D::I_t i = this->d().draw(c);
-        pair<C_t,typename D::I_t> p = { c, i };
-        typename E::I_t j = this->e().draw(Z()(p));
+        typename F::I_t i = this->first().draw(c);
+        pair<C_t,typename F::I_t> p = { c, i };
+        typename S::I_t j = this->second().draw(M()(p));
         return {i,j};
     }
 };
 
-
-
-template <typename D,
-          typename Z=nomapping<vector<typename D::I_t>>>
-class ivdistribution:
-     public vdistribution<typename D::I_t,typename Z::R_t>
+template <typename F, typename S, typename M>
+class fijdistribution: public mijdistribution<F,S,M>,
+        public fdistribution<pair<typename F::I_t,typename S::I_t>,
+                                          typename F::C_t>
 {
 public:
-    ivdistribution(const vector<D>& d)
-       : vdistribution<typename D::I_t,typename Z::R_t>(d.size())
+    using I_t = typename ijdistribution<F,S,M>::I_t;
+    using C_t = typename ijdistribution<F,S,M>::C_t;
+    fijdistribution(const F& d, const S& e) :
+      mijdistribution<F,S,M>(d,e)
     {
-        assert(d.size());
-        static_assert(std::is_same<typename Z::D_t,
-                           std::vector<typename D::I_t>>::value);
+        static_assert(std::is_base_of<
+            fdistribution<typename F::I_t, typename F::C_t>,F>::value);
+        static_assert(std::is_base_of<
+            fdistribution<typename S::I_t, typename S::C_t>,S>::value);
     }
-    const vector<D>& d() const { return fd; }
+private:
+    virtual void atoms_are(vector<atom<I_t>>& a, const C_t& c) const
+    {
+        a.resize(0);
+        vector<atom<typename F::I_t>> fa;
+        this->first().atoms(fa,c);
+
+        for(unsigned int i=0; i<fa.size(); i++)
+        {
+            vector<atom<typename S::I_t>> sa;
+            this->second().atoms(sa,M()(pair<C_t,typename F::I_t>(c,fa[i].x)));
+            for(unsigned int j=0; j<sa.size(); j++)
+                a.push_back({ { fa[i].x, sa[j].x}, fa[i].p * sa[j].p});
+        }
+    }
+};
+
+
+template <typename F, typename S, typename M>
+using umijdistribution = mijdistribution<F,S,uijmapping<typename F::I_t,typename S::C_t,M>>;
+
+
+/// Iterativey defined vector distribution
+/// Z is a mapping from a history into Z::R_t (the condition of D)
+/// the first (at index 0) distrubiton may be conditioned, too
+template <typename D,typename Z>
+class ivdistribution:
+    virtual public vdistribution<typename D::I_t,typename Z::R_t>
+{
+    static void constexpr check()
+    {
+        static_assert(std::is_base_of<zeta<typename Z::X_t, typename Z::R_t>,Z>::value);
+        static_assert(std::is_same<typename Z::X_t,typename D::I_t>::value);
+    }
+public:
+    using X_t = typename D::I_t;
+    using Z_t = Z;
+    ivdistribution(const vector<D>& d)
+       : vdistribution<typename D::I_t,typename Z::R_t>(d.size()), fd(d)
+    {
+        check();
+        assert(d.size());
+    }
+    ivdistribution(const D& d, unsigned int dim)
+       : vdistribution<typename D::I_t,typename Z::R_t>(dim), fd(dim,d)
+    {
+        check();
+        assert(dim);
+    }
+    void atoms(const scenario<X_t>& s, vector<atom<X_t>>& a) const
+    {
+        assert(s.size());
+        assert(s.size() <= this->dim());
+        fd[s.size()-1].atoms(a,Z()(s));
+    }
+    const D& d(unsigned int i) const
+    {
+        assert(i < fd.size());
+        return fd[i];
+    }
 private:
     vector<D> fd;
 };
 
-
 /*
 template <typename D, typename E, typename Z>
 class dipdistribution:
-        public ipdistribution<D,E,Z>,
+        public ijdistribution<D,E,Z>,
         public ddistribution<pair<typename D::I_t,typename E::I_t>,
                                                typename D::C_t>
 {
@@ -407,8 +468,6 @@ private:
 
 /// @} - iterative distributions
 
-
-
 /// @} - distribution
 
 
@@ -416,3 +475,4 @@ private:
 
 
 #endif // RANDOM_H
+

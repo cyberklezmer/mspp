@@ -6,196 +6,181 @@
 namespace mspp
 {
 
-
-
 /// \addtogroup processes Proceses
 /// @{
 
-template <typename I>
-class treedistribution: virtual vdistribution<I,nocondition>
+/// the distribution as a whole is not conditioned
+template <typename D, typename Z>
+class processdistribution :
+    public uijdistribution<
+         diracdistribution<typename D::I_t>,
+         ivdistribution<D,Z>,Z>,
+    virtual public vdistribution<typename D::I_t,novalue>
 {
+public:
+    using X_t = typename D::I_t;
+    using D_t = D;
+    using Z_t = Z;
+    processdistribution(const X_t& xi0, const D& d, unsigned int T) :
+      uijdistribution<diracdistribution<X_t>,ivdistribution<D,Z>,Z>
+         (diracdistribution<X_t>(xi0),ivdistribution<D,Z>(d,T)),
+         vdistribution<typename D::I_t,novalue>(T)
+    {
+        static_assert(std::is_base_of<
+             zeta<typename Z::X_t,typename Z::R_t>,Z>::value);
+        assert(T>=1);
+    }
+    processdistribution(const X_t& xi0, const vector<D>& d) :
+      uijdistribution<diracdistribution<X_t>,ivdistribution<D,Z>,Z>
+         (diracdistribution<X_t>(xi0),ivdistribution<D,Z>(d)),
+      vdistribution<typename D::I_t,novalue>(d.size()+1)
+    {
+        static_assert(std::is_base_of<
+             zeta<typename Z::X_t,typename Z::R_t>,Z>::value);
+        assert(d.size());
+    }
+    unsigned int T() const { return this->second().dim();}
+    const D& d(unsigned int i) const
+    { assert(i<=T()); assert(i>0); return this->second().d(i-1); }
+    const X_t x0() const
+    {
+        diracdistribution<X_t> dd=this->first();
+        X_t x = dd.x();
+        return x;
+    }
+};
 
+template<typename X, typename S=void>
+class tdcallback : public object
+{
+public:
+    virtual void callback(const scenario<X>& path,
+                          probability up, S* state=0) const = 0;
 };
 
 
+template <typename X, typename E=atom<X>, typename A=novalue>
+class treedistribution: virtual public vdistribution<X,novalue>
+{
+public:
+    using X_t = X;
+    using E_t = E;
+    using A_t = A;
 
-template <typename I>
-struct extendededatom{
-    I x;
-    probability p;
-    probatility up;
-//    unsigned int i;
+    treedistribution(unsigned int T) : vdistribution<X,novalue>(T+1) {}
+
+    template <typename S=void>
+    void foreachnode(const tdcallback<X, S> *callee, S* state=0) const
+    {
+        vector<E> e;
+        scenario<X> s;
+        A mystate;
+        beforefe(mystate);
+        doforeachnode(callee, e, s, state,mystate);
+        afterfe(mystate);
+    }
+
+    void branches(const vector<E>& e, vector<E>& es) const
+    {
+        branches_are(e, es);
+    }
+private:
+
+    template <typename S=void>
+    void doforeachnode(const tdcallback<X,S> *callee,
+                       const vector<E>& ae,
+                       const scenario<X> as,
+                       S* state,
+                       A& mystate) const
+    {
+        unsigned int k=ae.size();
+        vector<E> e(ae);
+        vector<E> es;
+
+        branches_are(e,es);
+
+        scenario<X> s(as);
+        s.resize(k+1);
+        e.resize(k+1);
+        bool rec = k < this->dim()-1;
+
+        for(unsigned int i=0;i<es.size();i++)
+        {
+            e[k]=es[i];
+            probability up;
+            index2sinfo(e,s[k],up,mystate);
+            callee->callback(s,up,state);
+            if(rec)
+                doforeachnode(callee, e, s, state, mystate);
+        }
+    }
+
+    virtual void branches_are(const vector<E>& e, vector<E>& es) const = 0;
+    virtual void beforefe(A&) const {}
+    virtual void afterfe(A&) const {}
+protected:
+    virtual void index2sinfo(const vector<E>& e,
+                                X& s,
+                                probability& up,
+                                A& ) const
+    {
+       if constexpr(std::is_same<E,atom<X_t>>::value)
+       {
+           assert(e.size());
+           up = 1;
+           for(unsigned int i=0; i<e.size(); i++)
+               up *= e[i].p;
+           s = e[e.size()-1].x;
+       }
+       else
+            assert(0);
+    }
 };
-
 
 
 template <typename D, typename Z>
-class processdistribution :
-    public ipdistribution<diracdistribution<typename D::I_t>,
-                          ivdistribution<D,Z> >
+class fdprocessdistribution :
+        public processdistribution<D,Z>,
+        public treedistribution<typename D::I_t>
 {
 public:
-    static constexpr void check()
+    using X_t=typename D::I_t;
+    fdprocessdistribution(const X_t& xi0, const D& d, unsigned int T) :
+       treedistribution<X_t>(T),
+       processdistribution<D, Z> (xi0, d, T),
+       vdistribution<X_t,novalue>(T+1)
     {
-        static_assert(std::is_same<typename D::C_t, typename Z::R_t>::value);
+        static_assert(
+           std::is_base_of<fdistribution<X_t,typename D::C_t,
+                    D::flistdef>,D>::value
+                    );
+        assert(T);
     }
-
-public:
-    using Z_t = Z;
-    using D_t = D;
-    using I_t = typename D::I_t;
-
-    processdistribution(const typename D::I_t& xi0,
-                        const D& d, unsigned int T)
-      : fxi0(xi0), fd(T,d)
+    fdprocessdistribution(const X_t& xi0, const vector<D>& d) :
+       treedistribution<X_t>(d.size()+1),
+       processdistribution<D, Z> (xi0, d),
+       vdistribution<X_t,novalue>(d.size()+1)
     {
-        check();
-    }
-    processdistribution(const D& d, unsigned int T)
-      : fxi0(0), fd(T,d)
-    {
-        check();
-    }
-
-    processdistribution(const typename D::I_t& xi0, const vector<D>& d)
-      : fxi0(xi0), fd(d)
-    {
-        check();
-    }
-
-    typename D::I_t xi0() const { return fxi0; }
-    const D& d(unsigned int k) const { assert(k); assert(k<=fd.size()); return fd[k-1]; }
-    unsigned int T() const { return fd.size(); }
-    typename D::C_t c(const scenario<typename D::I_t>& s) const
-    {
-        return Z()(s);
+        static_assert(
+           std::is_base_of<fdistribution<X_t,typename D::C_t>,D>::value
+                    );
     }
 private:
-    typename D::I_t fxi0;
-    vector<D> fd;
-};
-
-
-
-template <typename I>
-class indexedpath : public path<indexedatom<I>>
-{
-public:
-    double uncprob() const
+    virtual void branches_are(const vector<atom<X_t>>& e,
+         vector<atom<X_t>>& es) const
     {
-        assert(this->size());
-        assert((*this)[0].p==1);
-        double r = 1.0;
-        for(unsigned int i=1; i<this->size(); i++)
-            r *= (*this)[i].p;
-        return r;
-    }
-
-    path<I> pth() const
-    {
-        path<I> r(this->size());
-        for(unsigned int i=0; i<this->size(); i++)
-            r[i]=(*this)[i].x;
-        return r;
-    }
-};
-
-
-template<typename I, typename S=void>
-class ptreecallback : public object
-{
-public:
-    virtual void callback(const indexedpath<I>& path, S* state=0) const = 0;
-};
-
-template <typename I>
-class ptree: public object
-{
-public:
-    using I_t = I;
-public:
-    unsigned int T() const { return T_is(); }
-
-    template <typename S=void>
-    void foreachnode(const ptreecallback<I,S> *callee, S* state=0) const
-    {
-        indexedpath<I> s;
-        s.push_back({root_is(),1,0});
-        callee->callback(s, state);
-        if(T_is())
-            doforeachnode(callee, s, state);
-    }
-private:
-    virtual unsigned int T_is() const = 0;
-    virtual I root_is() const = 0;
-    virtual void branches_are(vector<atom<I>>& bchs, const indexedpath<I>& s) const = 0;
-
-    template <typename S=void>
-    void doforeachnode(const ptreecallback<I,S> *callee,
-                          const indexedpath<I>& as,
-                          S* state) const
-    {
-        unsigned int k=as.size();
-        indexedpath<I> s(as);
-        vector<atom<I>> itms;
-        branches_are(itms,s);
-        s.resize(k+1);
-        bool cb = k < this->T();
-        unsigned int i=0;
-        for(typename vector<atom<I>>::iterator it = itms.begin();
-              it != itms.end();
-              it++,i++)
+        unsigned int k=e.size();
+        assert(this->T());
+        if(k)
         {
-            s[k]={it->x,it->p, i};
-            callee->callback(s,state);
-            if(cb)
-                doforeachnode(callee, s, state);
+            scenario<X_t> s;
+            for(unsigned int i=0; i<k; i++)
+                s.push_back(e[i].x);
+            this->second().atoms(s,es);
         }
+        else
+            this->first().atoms(es,novalue());
     }
-};
-
-
-template<typename I, typename S=void>
-using sctreecallback=ptreecallback<I,S>;
-
-
-template <typename I=double>
-class scenariotree: public ptree<I>
-{
-public:
-    using I_t = I;
-};
-
-template <typename D>
-class distrscenariotree : public scenariotree<typename D::D_t::I_t>
-{
-public:
-    using I_t=typename D::D_t::I_t;
-    distrscenariotree(const D& p):fp(p)
-    {
-
-    }
-
-
-private:
-    virtual void branches_are(vector<atom<I_t>>& bchs,
-                              const indexedpath<I_t>& s) const
-    {
-        unsigned int k=s.size();
-        assert(k);
-        assert(fp.T());
-
-        typename D::D_t::C_t c = fp.c(s.pth());
-        fp.d(k).fdistribution<typename D::D_t::I_t,
-                     typename D::D_t::C_t>::atoms(bchs,c);
-    }
-    virtual typename D::I_t root_is() const
-    {
-        return fp.xi0();
-    }
-    virtual unsigned int  T_is() const { return fp.T(); }
-private:
-    D fp;
 };
 
 

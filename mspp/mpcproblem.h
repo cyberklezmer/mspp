@@ -35,10 +35,9 @@ private:
 
 template<class P>
 class mpmcvarequivalent: public msproblem
-               <expectation, linearfunction, typename P::G_t, typename P::V_t,
-                           typename P::I_t,
-                           mpcvprestriction<typename P::R_t>,
-                           typename P::Z_t>
+               <expectation, linearfunction, typename P::G_t,
+                             typename P::Y_t, typename P::V_t,
+                             mpcvprestriction<typename P::R_t>>
 {
     static msproblemstructure
         ps(const msproblemstructure& sps)
@@ -57,32 +56,31 @@ public:
 
     mpmcvarequivalent(const P& sp) :
         msproblem<expectation, linearfunction,
-             typename P::G_t, typename P::V_t,
-             typename P::I_t,
-             mpcvprestriction<typename P::R_t>,
-             typename P::Z_t>(ps(sp.d)),
+             typename P::G_t, typename P::Y_t,
+            typename P::V_t,
+             mpcvprestriction<typename P::R_t>>
+        (ps(sp.d())),
            fsp(new P(sp)),
            flambda( sp.rho.lambda),
            falpha( sp.rho.alpha)
     {
-        static_assert(std::is_same<typename P::C_t,mpmcvar>::value);
+        static_assert(std::is_same<typename P::O_t,mpmcvar>::value);
         assert(fsp->T()>0);
         assert(falpha > 0);
     }
 
-    mpmcvarequivalent(const P& sp,double lambda, double alpha) :
+/*    mpmcvarequivalent(const P& sp,double lambda, double alpha) :
         msproblem<expectation, linearfunction,
              typename P::G_t, typename P::V_t,
              typename P::X_t,
-             mpcvprestriction<typename P::Rx_t>,
-             typename P::Rxi_t>(ps(sp.d)),
+             mpcvprestriction<typename P::R_t>>(ps(sp.d)),
            fsp(new P(sp)),
            flambda(lambda),falpha(alpha)
     {
         static_assert(std::is_same<typename P::R_t,expectation>::value);
         assert(fsp->T()>0);
         assert(falpha > 0);
-    }
+    }*/
 
     virtual std::string varname_is(unsigned int stage, unsigned int i) const
     {
@@ -113,7 +111,7 @@ public:
 
     virtual void f_is(
             unsigned int k,
-            const typename P::Z_t::C_t& zeta,
+            const typename P::Y_t& zeta,
             linearfunction& f) const
     {
         if(k==0)
@@ -142,7 +140,7 @@ public:
 
     virtual void x_is(
             unsigned int k,
-            const typename P::Z_t::C_t& zeta,
+            const typename P::Y_t& zeta,
             ranges<typename P::V_t>& r,
             msconstraints<typename P::G_t>& g
             ) const

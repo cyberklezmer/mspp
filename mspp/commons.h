@@ -21,74 +21,6 @@ using namespace std;
 namespace mspp
 {
 
-/// \addtogroup general General Definitions
-///  @{
-
-const double probabilitytolerance = 1e-15;
-
-
-template <typename V>
-const V inf() { return std::numeric_limits<V>::infinity(); }
-
-template <typename V>
-const V minf() { return -inf<V>(); }
-
-
-template <typename V>
-const V max() { return std::numeric_limits<V>::max(); }
-
-template <typename V> const V min() {
-    return std::numeric_limits<V>::lowest();
-              }
-
-
-template <typename T>
-using ptr=std::shared_ptr<T>;
-
-//template <typename T>
-//using vector=std::vector<T>;
-
-
-template <typename T>
-class vectors : public vector<vector<T>>
-{
-public:
-    vectors() {}
-    vectors(unsigned int dim) : vector<vector<T>>(dim) {}
-    vectors(const vector<vector<T>>& v): vector<vector<T>>(v) {}
-
-    void converttoonedim(vector<T>& d)
-    {
-        d.clear();
-        for(typename vectors<T>::iterator i = this->begin();
-             i != this->end();
-             i++)
-            for(typename vector<T>::iterator j = i->begin();
-                 j != i->end();
-                 j++)
-                d.push_back(*j);
-    }
-
-    operator vector<T>() const
-    {
-        vector<T> d;
-        converttoonedim(d);
-        return d;
-    }
-    unsigned int totaldim() const
-    {
-        unsigned int r=0;
-        for(typename vectors<T>::iterator i = this->begin();
-             i != this->end();
-             i++)
-            r += (*this)[i].size();
-        return r;
-    }
-};
-
-
-/// @}
-
 /** \addtogroup sysclasses System Classes
  *  @{
  */
@@ -99,7 +31,6 @@ class object
 public:
     virtual ~object() {}
 };
-
 
 class exception : public std::exception, public object
 {
@@ -193,10 +124,68 @@ private:
 /// @}
 
 
-
-
 /// \addtogroup general General Definitions
 ///  @{
+
+
+
+template <typename V>
+const V inf() { return std::numeric_limits<V>::infinity(); }
+
+template <typename V>
+const V minf() { return -inf<V>(); }
+
+template <typename V>
+const V max() { return std::numeric_limits<V>::max(); }
+
+template <typename V>
+const V min() { return std::numeric_limits<V>::lowest(); }
+
+
+template <typename T>
+using ptr=std::shared_ptr<T>;
+
+//template <typename T>
+//using vector=std::vector<T>;
+
+
+template <typename T>
+class vectors : public vector<vector<T>>
+{
+public:
+    vectors() {}
+    vectors(unsigned int dim) : vector<vector<T>>(dim) {}
+    vectors(const vector<vector<T>>& v): vector<vector<T>>(v) {}
+
+    void converttoonedim(vector<T>& d)
+    {
+        d.clear();
+        for(typename vectors<T>::iterator i = this->begin();
+             i != this->end();
+             i++)
+            for(typename vector<T>::iterator j = i->begin();
+                 j != i->end();
+                 j++)
+                d.push_back(*j);
+    }
+
+    operator vector<T>() const
+    {
+        vector<T> d;
+        converttoonedim(d);
+        return d;
+    }
+
+    unsigned int totaldim() const
+    {
+        unsigned int r=0;
+        for(typename vectors<T>::iterator i = this->begin();
+             i != this->end();
+             i++)
+            r += (*this)[i].size();
+        return r;
+    }
+};
 
 /// \addtogroup pvar Variables
 /// @{
@@ -229,7 +218,7 @@ class range : public object
 public:
     using V_t = V;
 
-    enum type { none, realt, intt, bint };
+    enum type { realt, intt, bint };
 
     range()
     {
@@ -240,7 +229,9 @@ public:
         else if constexpr( std::is_same<V,binvar>::value)
            ft = bint;
         else
-           ft = none;
+        {
+           assert(0);
+        }
 
         setlimits();
     }
@@ -263,15 +254,17 @@ public:
             assert(t==bint);
             ft = bint;
         }
-        else
+        else if constexpr( std::is_same<V,mixedvar>::value)
         {
            assert(t==realt || t==intt || t==bint);
            ft = t;
         }
+        else
+            assert(0);
         setlimits(l,h);
     }
 
-    void setreal(realvar l=minf<realvar>(), realvar h=inf<realvar>())
+/*    void setreal(realvar l=minf<realvar>(), realvar h=inf<realvar>())
     {
         static_assert(std::is_same<V,mixedvar>::value);
         ft = realt;
@@ -284,7 +277,7 @@ public:
         ft = intt;
         setlimits(l,h);
     }
-
+*/
     void setlimits(V l=minf<V>(), V h=inf<V>())
     {
         assert(ft==realt || ft==intt);
@@ -296,7 +289,7 @@ public:
        setlimits(0);
     }
     V l() const
-    {;
+    {
         assert(ft==realt || ft==intt);
         return fl;
     }
@@ -307,7 +300,7 @@ public:
     }
     type t() const
     {
-        assert(ft != none);
+        assert(ft>= realt && ft <= bint);
         return ft;
     }
     bool ishinf() const
@@ -369,6 +362,7 @@ public:
         return is_included(i,j,s);
     }
 
+/* k vyhození
     template <typename T>
     subvectors<T> operator () (const vectors<T>& v, unsigned int s)
     {
@@ -390,7 +384,7 @@ public:
     {
         return operator ()(v,v.size());
     }
-
+*/
 private:    
     virtual bool is_included(unsigned int i, unsigned int s) const = 0;
     virtual bool is_included(unsigned int i, unsigned int j, unsigned int s) const = 0;
@@ -452,8 +446,8 @@ class criterion: public object
 /// \addtogroup fns Functions
 /// @{
 
-struct nocondition {};
-
+struct nothing {};
+using novalue = nothing;
 
 template <typename D,typename R>
 class mapping: public object
@@ -475,12 +469,11 @@ public:
 };
 
 template <typename I>
-class nomapping: public mapping<I,nocondition>
+class nomapping: public mapping<I,novalue>
 {
 public:
-    virtual nocondition operator() (const I& i) const { return nocondition(); }
+    virtual novalue operator() (const I& i) const { return novalue(); }
 };
-
 
 class efunction: public function<vector<double>>
 {
@@ -508,7 +501,7 @@ class subdifefunction: public convexefunction
 public:
     subdifefunction(unsigned int dim) : convexefunction(dim) {}
 
-    vector<double> sg(const vector<double> x) const
+    vector<double> sg(const vector<double>& x) const
     {
         return sg_is(x);
     }
@@ -540,7 +533,7 @@ public:
         assert(i < fc.size());
         return fc[i];
     }
-    vector<double> c() const
+    const vector<double>& c() const
     {
         return fc;
     }
@@ -567,56 +560,48 @@ private:
 
 
 
-
-
-
+/// \ingroup Processes
+template <typename X=double>
+using scenario = vector<X>;
 
 /// \ingroup Processes
-template <typename T>
-using path=std::vector<T>;
-
-
-/// \ingroup Processes
-template <typename I=double>
-using scenario = path<I>;
-
-/// \ingroup Processes
-template <typename I,typename C>
-class zeta: public mapping<scenario<I>,C>
+template <typename X,typename R>
+class zeta: public mapping<scenario<X>,R>
 {
 public:
-    using C_t=C;
-    using I_t=I;
+    using R_t=R;
+    using X_t=X;
 };
 
 /// \ingroup Processes
 
-template <typename I>
-class allxi: public zeta<I, scenario<I>>
+template <typename X>
+class allxi: public zeta<X, scenario<X>>
 {
 public:
-    virtual scenario<I> operator() (const scenario<I>& s) const
+    virtual scenario<X> operator() (const scenario<X>& s) const
        { return s; }
 };
 
 /// \ingroup Processes
 
-template <typename I>
-class lastxi: public zeta<I,I>
+template <typename X, typename M=idmapping<X>>
+class lastxi: public zeta<X,typename M::R_t>
 {
 public:
-    virtual I operator() (const scenario<I>& s) const
-       { assert(s.size()); return s[s.size()-1]; }
+    using M_t = M;
+    virtual typename M::R_t operator() (const scenario<X>& s) const
+       { assert(s.size()); return M()(s[s.size()-1]);}
 };
 
 /// \ingroup Processes
 
-template <typename I>
-class noxi: public zeta<I,nocondition>
+template <typename X>
+class noxi: public zeta<X,novalue>
 {
 public:
-    virtual nocondition operator() (const scenario<I>&) const
-       { return nocondition(); }
+    virtual novalue operator() (const scenario<X>&) const
+       { return novalue(); }
 };
 
 } // namespace

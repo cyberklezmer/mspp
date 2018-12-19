@@ -24,7 +24,7 @@ public:
     {
         assert(k < size());
         unsigned int s=0;
-        for(int i=0; i<=k; i++)
+        for(unsigned int i=0; i<=k; i++)
             s+=operator[](i);
         return s;
     }
@@ -97,7 +97,7 @@ private:
 
 /// Base abstract class describing multistage problems
 template<typename O, typename F, typename G,
-          typename X, typename V, typename R=allx>
+          typename Y, typename V, typename R=allx>
 class msproblem : public object
 {
     public:
@@ -105,28 +105,28 @@ class msproblem : public object
         using O_t = O;
         using F_t = F;
         using G_t = G;
-        using I_t = X;
+        using Y_t = Y;
         using V_t = V;
         using R_t = R;
 
 
         msproblem(const msproblemstructure& ps, O arho=O()):
-             d(ps), rho(arho)
+             fd(ps), rho(arho)
         {
         }
 
         msproblem(const vector<unsigned int>& ps, O arho=O()):
-             d(ps), rho(arho)
+             fd(ps), rho(arho)
         {
         }
 
         ///@{
         /// @name Accessors
-        unsigned int T() const { return d.size()-1; }
+        unsigned int T() const { return fd.size()-1; }
 
         virtual F f(
                 unsigned int k,
-                const I_t& xi) const
+                const Y_t& xi) const
         {
             F f(this->xdim(k));
             f_is(k,xi,f);
@@ -143,16 +143,16 @@ class msproblem : public object
          * @param gh return value - msconstraints
          */
 
-        void I( unsigned int k,
-                const I_t& xi,
+        void x( unsigned int k,
+                const Y_t& xi,
                 vector<range<V_t>>& v,
                 vector<G>& gh) const
         {
-            ranges<V_t> r(d[k]);
+            ranges<V_t> r(fd[k]);
             msconstraints<G_t> cs(this->barxdim(k));
             this->x_is(k,xi,r, cs);
             for(unsigned int i=0; i<gh.size(); i++)
-                assert(!(cs[i].constantinlast(d[k])));
+                assert(!(cs[i].constantinlast(fd[k])));
             v = r;
             gh=cs;
         }
@@ -176,7 +176,7 @@ class msproblem : public object
 
         const O rho;
 
-        const msproblemstructure d;
+        const msproblemstructure& d() const { return fd;}
         ///@}
 
         ///@{
@@ -185,16 +185,16 @@ public:
     bool includedinbarx(unsigned int i, unsigned int j, unsigned int k) const
     {
         assert(i<=k);
-        assert(j<=d[i]);
+        assert(j<=fd[i]);
         R r;
         return i==k ? true : r.included(i,j,k);
     }
     unsigned int barxdimupto(unsigned int i, unsigned int k) const
     {
-        assert(k<d.size());
+        assert(k<fd.size());
         unsigned int s = 0;
         for(unsigned int ii=0; ii<=i; ii++ )
-            for(unsigned int jj=0; jj<d[ii]; jj++)
+            for(unsigned int jj=0; jj<fd[ii]; jj++)
                 if(includedinbarx(ii,jj,k))
                     s++;
         return s;
@@ -213,22 +213,20 @@ public:
     unsigned int xdim(unsigned int k) const
     {
         assert(k <= this->T());
-        return d[k];
+        return fd[k];
     }
-
-
 
 private:
 
     virtual void f_is(
             unsigned int k,
-            const I_t& xi,
+            const Y_t& xi,
             F& f
             ) const = 0;
 
     virtual void x_is(
             unsigned int k,
-            const I_t& xi,
+            const Y_t& xi,
             ranges<V_t>& r,
             msconstraints<G>& g
             ) const = 0;
@@ -251,6 +249,8 @@ private:
     }
 
     ///@}
+
+    msproblemstructure fd;
 };
 
 class expectation : public criterion
