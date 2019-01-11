@@ -5,7 +5,8 @@
 #include <fstream>
 #include "mspp/lpsolver.h"
 #include "mspp/random.h"
-#include "mspp/cplex.h"
+#include "mspp/process.h"
+#include "mspp/cdists.h"
 
 using namespace mspp;
 

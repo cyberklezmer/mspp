@@ -14,6 +14,7 @@ namespace mspp
 /// \ingroup Distributions
 /// @{
 
+/// Abstract Markov chain
 class mcdistribution : virtual public ddistribution<unsigned int,unsigned int>
 {
 public:
@@ -32,6 +33,7 @@ protected:
     }
 };
 
+/// Finite Markov chain
 class fmcdistribution :
         public mcdistribution,
         public fdistribution<unsigned int, unsigned int>
@@ -54,6 +56,8 @@ private:
     virtual unsigned int nstates_is() const = 0;
 };
 
+
+/// Matrix defined Markov Chain
 class mmcdistribution : public fmcdistribution
 {
 public:

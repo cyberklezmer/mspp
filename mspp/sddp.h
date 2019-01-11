@@ -13,6 +13,8 @@
 
 #include <mcheck.h>
 
+zdalipak zobrazuju zetou?
+
 namespace mspp
 {
 
@@ -40,47 +42,69 @@ public:
     }
 };
 
-template<typename M, typename D >
-using hmcdistribution = mijdistribution<M,D,onlylaststate>;
+/// \brief Hidden Markov chain distribution
+/// \tparam M the Markov chain
+/// \tparam Y distribution conditioned by <tt>unsigned int</tt>
+template<typename M, typename Y>
+using hmcdistribution = mijdistribution<M,Y,onlylaststate>;
 
+/// Finite support hidden Markov chain distribution
 template<typename M, typename D >
 using fhmcdistribution = fijdistribution<M,D,onlylaststate>;
 
-
-template<typename M, typename D>
-class hmcprocessdistritubion: public processdistribution<hmcdistribution<M,D>,
-        laststate<typename D::I_t>>
+/// \brief Hidden Markov Chain process
+/// \tparam M Markov Chain
+/// \tparam Y distribution, conditioned by <tt>unsigned int</tt>
+///
+template<typename M, typename Y>
+class hmcprocessdistribution: public processdistribution<
+        hmcdistribution<M,Y>,
+        laststate<typename Y::I_t>>
 {
 public:
     using M_t = M;
-    using D_t = D;
-    hmcprocessdistritubion(
-                  typename D::I_t xi0,
-                  const M& md, const D& xid, unsigned int T) :
-        processdistribution<hmcdistribution<M,D>,
-                                                  laststate<typename D::I_t>>({0,xi0},hmcdistribution<M,D>(md,xid))
+    using Y_t = Y;
+    hmcprocessdistribution(
+                  typename Y::I_t xi0,
+                  const M& md, const Y& xid, unsigned int T) :
+        processdistribution<hmcdistribution<M,Y>,
+         laststate<typename Y::I_t>>({0,xi0},hmcdistribution<M,Y>(md,xid))
     {}
 
-    static vector<hmcdistribution<M,D>>
-       makexi(const vector<M>& m, const vector<D>& xi )
+    static vector<hmcdistribution<M,Y>>
+       makexi(const vector<M>& m, const vector<Y>& xi )
     {
-        vector<hmcdistribution<M,D>> ret;
+        vector<hmcdistribution<M,Y>> ret;
         assert(xi.size()==m.size());
         for(unsigned int i=0; i<xi.size(); i++)
-            ret.push_back(hmcdistribution<M,D>(m[i],xi[i]));
+            ret.push_back(hmcdistribution<M,Y>(m[i],xi[i]));
         return ret;
     }
-    hmcprocessdistritubion(
-           typename D::I_t xi0,
-            const vector<M>& m,
-           const vector<D>& xi
+    hmcprocessdistribution(
+           typename Y::I_t xi0,
+           const vector<M>& m,
+           const vector<Y>& xi
             ) :
-        processdistribution<hmcdistribution<M,D>,
-                                                  laststate<typename D::I_t>>({0,xi0},makexi(m,xi)),
-        vdistribution<typename hmcdistribution<M,D>::I_t,novalue>(m.size()+1)
+        processdistribution<hmcdistribution<M,Y>,
+           laststate<typename Y::I_t>>({0,xi0},makexi(m,xi)),
+        vdistribution<typename hmcdistribution<M,Y>::I_t,novalue>(m.size()+1)
+    {}
+
+    struct init
+    {
+        typename Y::I_t xi0;
+        const vector<M>& m;
+        const vector<Y>& xi;
+    };
+
+    hmcprocessdistribution(const init& i) :
+        processdistribution<hmcdistribution<M,Y>,
+           laststate<typename Y::I_t>>({0,i.xi0},makexi(i.m,i.xi)),
+        vdistribution<typename hmcdistribution<M,Y>::I_t,novalue>(i.m.size()+1)
     {}
 
 };
+
 
 template <typename X>
 class onlyx : public mapping<pair<unsigned int, X>, X>
@@ -93,7 +117,7 @@ public:
 };
 
 
-
+/// Scenario restriction
 template <typename X>
 using lastmdxi = lastxi<pair<unsigned int, X>,onlyx<X>>;
 
@@ -105,7 +129,7 @@ using sddpx = variables<V>;
 // for(unsigned int i=0; i<fv.size(); i++)
 //    fv[i] = fsv[i];
 
-
+/// SDDP objective value
 struct sddpobj
 {
     double lb() const { return flb; }
@@ -826,7 +850,12 @@ public:
     }
 };
 
-
+/// \brief Base class of SDDP solutions
+/// \tparam P the problem solved
+/// \tparam D the distribution (descendant of \ref processdistribution)
+/// \tparam Z the restriction (has to be \p llastxi)
+/// \tparam O the solver (has to be \p cplex<realvar>)
+///
 template <typename P, typename D, typename Z, typename O>
 class sddpsolbase : public solution<P,D,Z,sddpx<typename P::V_t>,sddpobj>
 {
@@ -860,7 +889,10 @@ public:
     {}
 };
 
-
+/// \brief Solution by plain SDDP
+/// \tparam D the process distribution (has to be stage-wise independent)
+///
+/// For other template parameters, see \ref sddpsolbase
 template <typename P, typename D, typename Z, typename O>
 class sddpsolution: public sddpsolbase<P,D,Z,O>
 {
@@ -885,6 +917,13 @@ private:
     }
 };
 
+/// \brief Solution by Markov SDDP
+///
+/// The distribution of componentso of \p D has to be
+/// a joint distribution (\ref jdistribution) of \ref fmcdistribution and a descendant
+/// of \ref mdistribution conditioned by <tt>unsigned int</tt>.
+/// For the other template parameters, see \ref sddpsolbase
+///
 template <typename P, typename D, typename Z, typename O>
 class msddpsolution: public sddpsolbase<P,D,Z,O>
 {
@@ -897,12 +936,16 @@ public:
         : sddpsolbase<P,D,Z,O>(solve(p,d))
     {
         static_assert(std::is_base_of<
-            mijdistribution
+            ijdistribution
                <typename D_t::F_t,typename D_t::S_t,typename D_t::M_t>, D_t>::value);
 
         static_assert(std::is_same<typename D_t::M_t, onlylaststate>::value);
 
         static_assert(std::is_base_of<mcdistribution,F_t>::value);
+
+        static_assert(std::is_base_of<
+             mdistribution<typename S_t::I_t, unsigned int>,
+             S_t>::value);
 
         static_assert(std::is_same
            <typename D::Z_t, laststate<vector<double>>>::value);

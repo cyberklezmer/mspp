@@ -9,46 +9,59 @@ namespace mspp
 /// \addtogroup processes Proceses
 /// @{
 
-/// the distribution as a whole is not conditioned
+/// \brief Distribution of a stochastic process with
+/// a deterministic initial value
+/// \tparam D distribution of individual stochastic components
+/// \tparam Z mapping transforming scenarios into \p D's condition
+///
+/// The distribution as a whole is not conditioned
 template <typename D, typename Z>
+using processdistribution
+ =ivdistribution<diracdistribution<typename D::I_t>,D,Z>;
+
+/*
 class processdistribution :
-    public uijdistribution<
-         diracdistribution<typename D::I_t>,
-         ivdistribution<D,Z>,Z>,
-    virtual public vdistribution<typename D::I_t,novalue>
+    public ivdistribution<diracdistribution<typename D::I_t>,D,Z,M>
 {
 public:
     using X_t = typename D::I_t;
     using D_t = D;
     using Z_t = Z;
     processdistribution(const X_t& xi0, const D& d, unsigned int T) :
-      uijdistribution<diracdistribution<X_t>,ivdistribution<D,Z>,Z>
-         (diracdistribution<X_t>(xi0),ivdistribution<D,Z>(d,T)),
-         vdistribution<typename D::I_t,novalue>(T)
+      ivdistribution<diracdistribution<X_t>,D,Z,M>
+         (diracdistribution<X_t>(xi0),d,T),
+      vdistribution<X_t,novalue>(T+1)
     {
-        static_assert(std::is_base_of<
-             zeta<typename Z::X_t,typename Z::R_t>,Z>::value);
-        assert(T>=1);
     }
     processdistribution(const X_t& xi0, const vector<D>& d) :
-      uijdistribution<diracdistribution<X_t>,ivdistribution<D,Z>,Z>
-         (diracdistribution<X_t>(xi0),ivdistribution<D,Z>(d)),
-      vdistribution<typename D::I_t,novalue>(d.size()+1)
+        ivdistribution<diracdistribution<X_t>,D,Z,M>
+          (diracdistribution<X_t>(xi0),d)
     {
-        static_assert(std::is_base_of<
-             zeta<typename Z::X_t,typename Z::R_t>,Z>::value);
-        assert(d.size());
     }
-    unsigned int T() const { return this->second().dim();}
-    const D& d(unsigned int i) const
-    { assert(i<=T()); assert(i>0); return this->second().d(i-1); }
+    unsigned int T() const { return this->dim()-1; }
+
     const X_t x0() const
     {
-        diracdistribution<X_t> dd=this->first();
-        X_t x = dd.x();
-        return x;
+        return this->e().x();
     }
 };
+*/
+
+template <typename D, typename Z, typename M>
+using mprocessdistribution
+ =mivdistribution<diracdistribution<typename D::I_t>,D,Z,M>;
+
+/// \brief I.i.d. process distribution
+/// \tparam D distribution
+template <typename D>
+using iidprocessdistribution
+  = processdistribution<D, noxi<typename D::I_t>>;
+
+/// \brief Markov process distribution
+/// \tparam D distribution
+template <typename D>
+using markovprocessdistribution
+  = processdistribution<D, lastxi<typename D::I_t>>;
 
 template<typename X, typename S=void>
 class tdcallback : public object
@@ -58,7 +71,13 @@ public:
                           probability up, S* state=0) const = 0;
 };
 
-
+/// \brief Discrete distribution with a tree structure.
+/// \tparam X type of individual time components
+/// \tparam E type of nodes
+/// \tparam A type of state variable, used during recursions
+///
+/// Its content may be gone through only by recursion.
+///
 template <typename X, typename E=atom<X>, typename A=novalue>
 class treedistribution: virtual public vdistribution<X,novalue>
 {
@@ -137,7 +156,9 @@ protected:
     }
 };
 
-
+/// \brief \ref treedistribution defined by \ref processdistribution
+/// \tparam D the components distribution (descendant of \ref fdistribution)
+/// \tparam Z the mapping transforming scenarios into the \p D's condition
 template <typename D, typename Z>
 class fdprocessdistribution :
         public processdistribution<D,Z>,
@@ -171,15 +192,10 @@ private:
     {
         unsigned int k=e.size();
         assert(this->T());
-        if(k)
-        {
-            scenario<X_t> s;
-            for(unsigned int i=0; i<k; i++)
-                s.push_back(e[i].x);
-            this->second().atoms(s,es);
-        }
-        else
-            this->first().atoms(es,novalue());
+        scenario<X_t> s;
+        for(unsigned int i=0; i<k; i++)
+            s.push_back(e[i].x);
+        this->atoms(s,es);
     }
 };
 

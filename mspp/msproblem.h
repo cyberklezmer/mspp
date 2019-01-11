@@ -11,7 +11,7 @@ namespace mspp
 /// \ingroup problems
 /// @{
 
-
+/// Determines dimensions of decision variables.
 class msproblemstructure: public vector<unsigned int>
 {
 public:
@@ -38,7 +38,8 @@ public:
     }
 };
 
-
+/// \brief Vector-like container of constraints
+/// \tparam G constraint type
 template <typename G>
 class msconstraints
 {
@@ -72,7 +73,7 @@ private:
     vector<G> fgs;
 };
 
-
+/// Container of decision variables ranges
 template <typename V>
 class ranges
 {
@@ -95,7 +96,13 @@ private:
 };
 
 
-/// Base abstract class describing multistage problems
+/// \brief Base abstract class - multistage problem
+/// \tparam O risk criterion
+/// \tparam F objective
+/// \tparam G constraint type
+/// \tparam Y random parameter type
+/// \tparam V variable type
+/// \tparam R decision variables restriction
 template<typename O, typename F, typename G,
           typename Y, typename V, typename R=allx>
 class msproblem : public object
@@ -253,11 +260,12 @@ private:
     msproblemstructure fd;
 };
 
+/// Expectation decision criterion
 class expectation : public criterion
 {
 };
 
-
+/// Multi-period mean-CVaR
 class mpmcvar: public criterion
 {
 public:
@@ -268,6 +276,7 @@ public:
     const double alpha;
 };
 
+/// Nested mean-CVaR
 class nestedmcvar: public criterion
 {
 public:
@@ -278,6 +287,10 @@ public:
     const double alpha;
 };
 
+/// \brief Multistage constraint
+///
+/// Unlike \ref constraint, \p msconstraint needs not to be constant
+/// in the ``last-stage'' decision variables
 class msconstraint : virtual public constraint
 {
 public:
@@ -286,7 +299,7 @@ public:
     virtual bool constantinlast(unsigned int i) const = 0;
 };
 
-
+/// Linear multi-stage constraint
 class linearmsconstraint : public msconstraint, public linearconstraint
 {
 public:

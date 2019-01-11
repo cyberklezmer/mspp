@@ -8,12 +8,13 @@
 #include <memory>
 #include <assert.h>
 #include <limits>
+#include <random>
 
 static_assert(std::numeric_limits<double>::is_iec559, "IEEE 754 required");
 
 static_assert(__cplusplus >= 201703, "C++17 language standard required");
 
-static_assert(RAND_MAX >=2147483647, "RAND_MAX too small");
+// static_assert(RAND_MAX >=2147483647, "RAND_MAX too small");
 
 
 using namespace std;
@@ -25,13 +26,18 @@ namespace mspp
  *  @{
  */
 
-
+/// Base class
 class object
 {
 public:
     virtual ~object() {}
 };
 
+/// \ingroup Distributions
+using probability = double;
+
+
+/// Exception
 class exception : public std::exception, public object
 {
 public:
@@ -45,7 +51,9 @@ private:
     std::string fmsg;
 };
 
-
+/// \brief System class, implementing output and random generation.
+///
+/// Has only static members, needs not to be instatiated.
 class sys : public object
 {
     static sys& self()
@@ -54,17 +62,21 @@ class sys : public object
        return s;
     }
 public:
-    sys() : fout(0), flog(0), ferr(0)
+    sys() : fout(0), flog(0), ferr(0), funiform(0.0,1.0)
     {
     }
     ~sys()
     {
     }
 
+    /// Sets an existing stream as the text output of the library.
     static void setout(std::ostream& o)
     {
         self().fout = &o;
     }
+
+    /// Resets the standard ouptut of the library,
+    /// redirecting it back to \p std::cout
     static void resetout()
     {
         self().fout = 0;
@@ -100,26 +112,38 @@ public:
     {
         return self().ferr ? *(self().ferr) : std::cerr;
     }
+
+    /// Resets the seed of the random generator according to computer time.
     static void seed()
     {
-        srand(time(0));
+        self().fengine.seed(time(0));
     }
 
-    static void seed(unsigned int seed)
+    /// Resets the seed of the random generator.
+    static void seed(unsigned int aseed)
     {
-        srand(seed);
+        self().fengine.seed(aseed);
     }
 
-    static double uniform()
+    /// Returns a pesudo-random observaton from the uniform distribution on [0,1]
+    static probability uniform()
     {
-        return ((double) rand() + 0.5) / ((double) RAND_MAX + 1);
+        return self().funiform(self().fengine);
     }
 
 private:
     std::ostream* fout;
     std::ostream* flog;
     std::ostream* ferr;
+    std::default_random_engine fengine;
+    std::uniform_real_distribution<double> funiform;
+
 };
+
+/// Heap pointer to \p T
+template <typename T>
+using ptr=std::shared_ptr<T>;
+
 
 /// @}
 
@@ -128,27 +152,27 @@ private:
 ///  @{
 
 
-
+/// Value reperesenting infinity with respect to \p V
 template <typename V>
 const V inf() { return std::numeric_limits<V>::infinity(); }
 
+/// Value reperesenting minus infinity with respect to \p V
 template <typename V>
 const V minf() { return -inf<V>(); }
 
+/// Maximal value of \p V
 template <typename V>
 const V max() { return std::numeric_limits<V>::max(); }
 
+/// Minimal value of \p V
 template <typename V>
 const V min() { return std::numeric_limits<V>::lowest(); }
 
 
-template <typename T>
-using ptr=std::shared_ptr<T>;
-
 //template <typename T>
 //using vector=std::vector<T>;
 
-
+/// Vector of vectors
 template <typename T>
 class vectors : public vector<vector<T>>
 {
@@ -190,10 +214,13 @@ public:
 /// \addtogroup pvar Variables
 /// @{
 
+/// Real decision variable
 using realvar=double;
+/// Integer decision variable
 using intvar=long;
+/// Binary decision variable
 using binvar=bool;
-
+/// Mixed decision variable
 union mixedvar
 {
     realvar x;
@@ -209,9 +236,13 @@ union mixedvar
 //    mixedvar& operator =(intvar& v) { n=v; return *this; }
 };
 
+
+/// Vector of variables of type \p V
 template <typename V>
 using variables=vector<V>;
 
+
+/// Range (interval of possible values) of variables \p V
 template <typename V>
 class range : public object
 {
@@ -345,9 +376,9 @@ private:
 /// \addtogroup cns Vector restrictions
 /// @{
 
-template <typename T>
-using subvectors = vectors<T>;
-
+/// Base class for restrictions of decision variables history
+///
+///
 class tilde: public object
 {
 public:
@@ -362,35 +393,12 @@ public:
         return is_included(i,j,s);
     }
 
-/* k vyhození
-    template <typename T>
-    subvectors<T> operator () (const vectors<T>& v, unsigned int s)
-    {
-        vectors<T> d(v.size());
-        unsigned int i=0;
-        for( ;i<s; i++)
-        {
-            for(unsigned int j=0; j<v[i].size(); j++)
-                if(included(i,j,s) )
-                    d[i].push_back(v[i][j]);
-        }
-        for( ;i<v.size(); i++)
-            d[i]=v[i];
-        return d;
-    }
-
-    template <typename T>
-    subvectors<T> operator () (const vectors<T>& v)
-    {
-        return operator ()(v,v.size());
-    }
-*/
 private:    
     virtual bool is_included(unsigned int i, unsigned int s) const = 0;
     virtual bool is_included(unsigned int i, unsigned int j, unsigned int s) const = 0;
 };
 
-
+/// Not restricting variable restriction
 class allx: public tilde
 {
 private:
@@ -398,6 +406,7 @@ private:
     virtual bool is_included(unsigned int, unsigned int, unsigned int) const { return true; }
 };
 
+/// Restriction of variables to those from the last period
 class lastx: public tilde
 {
 private:
@@ -417,6 +426,7 @@ private:
 /// \addtogroup problems Problems
 /// @{
 
+/// Base class of decision problems' constraints
 class constraint: public object
 {
 public:
@@ -436,6 +446,7 @@ const constraint::type eq = constraint::eq;
 const constraint::type leq = constraint::leq;
 const constraint::type geq = constraint::geq;
 
+/// Base class for decision criterions
 class criterion: public object
 {
 };
@@ -447,8 +458,13 @@ class criterion: public object
 /// @{
 
 struct nothing {};
+
+/// A class bearing no information (alternative to \p void)
 using novalue = nothing;
 
+/// \brief Base class for mappings
+/// \tparam D domain
+/// \tparam R range
 template <typename D,typename R>
 class mapping: public object
 {
@@ -458,9 +474,11 @@ public:
     virtual R operator() (const D& ) const = 0;
 };
 
+/// Function (mapping from \p D to real numbers)
 template <typename D>
 using function = mapping<D,double>;
 
+/// Identity mapping
 template <typename I>
 class idmapping: public mapping<I,I>
 {
@@ -468,6 +486,9 @@ public:
     virtual I operator() (const I& i) const { return i; }
 };
 
+/// \brief Mapping having no value
+///
+/// Used as a condition of unconditional distributions, for instance.
 template <typename I>
 class nomapping: public mapping<I,novalue>
 {
@@ -475,6 +496,7 @@ public:
     virtual novalue operator() (const I& i) const { return novalue(); }
 };
 
+/// Function from Eucleidean space
 class efunction: public function<vector<double>>
 {
 public:
@@ -490,12 +512,14 @@ private:
     virtual double value_is(const vector<double>& x) const = 0;
 };
 
+/// Convex function from an Eucleidean space
 class convexefunction: public efunction
 {
 public:
     convexefunction(unsigned int xdim) : efunction(xdim) {}
 };
 
+/// Function with defined subdifferential
 class subdifefunction: public convexefunction
 {
 public:
@@ -509,6 +533,7 @@ private:
    virtual vector<double> sg_is(const vector<double>& x) const = 0;
 };
 
+/// Linear function
 class linearfunction: public subdifefunction
 {
 public:
@@ -561,10 +586,21 @@ private:
 
 
 /// \ingroup Processes
+
+/// Scenario (history) of a stochastic process with values in \p X
 template <typename X=double>
 using scenario = vector<X>;
 
 /// \ingroup Processes
+/// \brief Base class for scenario restrictions
+/// of subsequent distributions
+/// \tparam X type of the scenario components
+/// \tparam R type into which the scenario is transformed
+///
+/// Scenario restrictions are mappings transforming scenarios
+/// into some other space, which server either as conditions
+/// of stochastic processes or as random parameters of decision problems.
+///
 template <typename X,typename R>
 class zeta: public mapping<scenario<X>,R>
 {
@@ -575,6 +611,10 @@ public:
 
 /// \ingroup Processes
 
+/// \brief Not restricting scenario restriction
+/// \tparam X scenario component type
+///
+/// Transforms the scenario into itself.
 template <typename X>
 class allxi: public zeta<X, scenario<X>>
 {
@@ -584,7 +624,12 @@ public:
 };
 
 /// \ingroup Processes
-
+/// \brief Restriction of a scenario into a function of its last value
+/// \tparam X scenario component type
+/// \tparam M mapping the last value is transformed with
+/// (identity by default)
+///
+/// The range of \p lastxi is the same that the one of \p M.
 template <typename X, typename M=idmapping<X>>
 class lastxi: public zeta<X,typename M::R_t>
 {
@@ -596,6 +641,8 @@ public:
 
 /// \ingroup Processes
 
+/// \brief Muting (complete restriction) of a scenario.
+/// \tparam X scenario component type
 template <typename X>
 class noxi: public zeta<X,novalue>
 {

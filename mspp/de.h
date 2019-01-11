@@ -21,15 +21,19 @@ struct dexitem
     variables<V> x;
 };
 
-/// D descendat of treedistribution
+/// \brief Solution of \ref msproblem with \ref treedistribution
+/// as stochastic parameter
+/// \tparam V type of the problems's variables
+/// \tparam D the distribution
+/// \tparam Z a mapping from scenarios into the problem's random parameters
+///
+/// \p D has to be a descendant of \ref treedistribution,
+/// \p Z has to be a descendant of \ref zeta
 template <typename V, typename D, typename Z>
 class dex : public
      treedistribution<dexitem<V,typename Z::R_t>,
         typename D::E_t, unsigned int>
 {
-
-
-
 public:
     using E_t = typename D::E_t;
     using X_t = dexitem<V,typename Z::R_t>;
@@ -244,7 +248,13 @@ public:
     }
 };
 
-
+/// \brief Optimal solution computed by DE method
+/// \tparam P the problem solution of which the class is
+/// \tparam D distribution
+/// \tparam Z mapping from scenarios to random parameters of \p P
+/// \tparam X optimal decision variables
+/// \tparam O optimal values
+/// \tparam L linear solver
 template <typename P, typename D, typename Z, typename L>
 class desolution : public solution<P,D,Z,dex<typename P::V_t,D,Z>,double>
 {

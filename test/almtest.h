@@ -1,69 +1,11 @@
 #ifndef ALMTEST_H
 #define ALMTEST_H
 
+#include "almproblem.h"
 #include "mspptest.h"
 #include "mspp/sddp.h"
 #include "mspp/de.h"
 
-
-class almproblem: public msproblem<mpmcvar, linearfunction,
-        linearmsconstraint,vector<double>,realvar,lastx>
-{
-    static std::vector<unsigned int> makeps(unsigned int t)
-    {
-        std::vector<unsigned int> res = {1};
-        for(unsigned int i=1; i<=t; i++)
-            res.push_back(2);
-        return res;
-    }
-public:
-    almproblem(double lambda, double alpha, unsigned int T) :
-        msproblem<mpmcvar, linearfunction,
-                linearmsconstraint,vector<double>,realvar,lastx>
-        (makeps(T),mpmcvar(lambda,alpha))
-    {}
-
-
-    virtual void f_is(unsigned int k,
-                      const vector<double>& zeta,
-                      linearfunction& f
-                      ) const
-    {
-        if(k)
-            f.setc(0,zeta[0]);
-        else
-            f.setc(0,1);
-    }
-
-    virtual  void x_is(
-            unsigned int k,
-            const vector<double>& zeta,
-            ranges<realvar>& xs,
-            msconstraints<linearmsconstraint>& g
-            ) const
-    {
-        if(k)
-            xs[1].setlimits(0,1);
-        else
-            xs[0].setlimits(0,1);
-        if(!k)
-            return;
-        if(k==1)
-            g.add(linearmsconstraint({1.0,1.0,-1.0},constraint::eq, 0.0));
-        else
-            g.add(linearmsconstraint({0.0,1.0,1.0,-1.0},constraint::eq, 0.0));
-        if(k==this->T())
-            xs[1].setlimits(1,1);
-    }
-    double minf_is(unsigned int) const
-    {
-        return -1000;
-    }
-    double maxf_is(unsigned int) const
-    {
-        return 1000;
-    }
-};
 
 class almdistribution:
         public vdistribution<double, unsigned int>,
@@ -81,7 +23,7 @@ private:
         return { {fsc[c] - 0.5 +  (double) (2*i+1) / (double) (2*fn)}, 1.0/ (double) fn };
     }
 
-    virtual unsigned int natoms_is(const unsigned int& c) const
+    virtual unsigned int natoms_is(const unsigned int& ) const
     { return fn; }
 
     unsigned int fn;
@@ -91,24 +33,19 @@ private:
 template <typename O>
 void alm1test(bool equivalent)
 {
-    almproblem mp(0.5,0.05,1);
-    lvdistribution<double> d({{0.5500},{0.8500}, {1.0500},{1.3500}});
+    almproblem<false> mp(0.5,0.05,1);
+    lvdistribution<double>
+        d({{0.5500,0.9},{0.8500,0.8}, {1.0500,1.1},{1.3500, 1.2}});
     using dist = fdprocessdistribution<lvdistribution<double>,noxi<vector<double>>>;
-    dist pd({1},d,1);
+    dist pd({1,0},d,1);
 
     if(!equivalent)
     {
       std::cout <<"MALMtest DE direct..." << std::endl;
 
-      desolution<almproblem,dist,lastxi<vector<double>>,O> x(mp,pd);
-      if(fabs(x.obj()-1) > 0.001)
-      {
-          std::cerr << "alm1test: opt="
-               << 1 << " expected, " << x.obj() << " achieved." << std::endl;
-          throw;
-      }
+      desolution<almproblem<false>,dist,lastxi<vector<double>>,O> x(mp,pd);
 
-      sddpsolution<almproblem,dist,lastxi<vector<double>>,O> sx(mp,pd);
+      sddpsolution<almproblem<false>,dist,lastxi<vector<double>>,O> sx(mp,pd);
       if(fabs(sx.obj().lb()-x.obj()) > 0.05)
       {
           std::cerr << "alm1test: opt="
@@ -122,18 +59,12 @@ void alm1test(bool equivalent)
     {
           std::cout <<"MALMtest DE equivalent..." << std::endl;
 
-          mpmcvarequivalent<almproblem> ep(mp);
+          mpmcvarequivalent<almproblem<false>> ep(mp);
 
-          desolution<mpmcvarequivalent<almproblem>,dist,
+          desolution<mpmcvarequivalent<almproblem<false>>,dist,
               lastxi<vector<double>>,O> x(ep,pd);
-          if(fabs(x.obj()-1) > 0.001)
-          {
-              std::cerr << "alm1test: opt="
-                   << 1 << " expected, " << x.obj() << " achieved." << std::endl;
-              throw;
-          }
 
-          sddpsolution<mpmcvarequivalent<almproblem>,dist,lastxi<vector<double>>,O> sx(ep,pd);
+          sddpsolution<mpmcvarequivalent<almproblem<false>>,dist,lastxi<vector<double>>,O> sx(ep,pd);
           if(fabs(sx.obj().lb()-x.obj()) > 0.05)
           {
               std::cerr << "alm1test: opt="
@@ -150,6 +81,7 @@ template <typename O>
 void almtest(unsigned int T=3, unsigned int nl=1)
 {
     assert(T>=1);
+    assert(T<=4);
     const double tol = 1e-5;
     double sol[]={
             0,0,0,1,1,0,1,0,1,0,1,0,1,
@@ -160,7 +92,6 @@ void almtest(unsigned int T=3, unsigned int nl=1)
             1,0.272727,1,0.272727,1};
     double obj = 0.906063;
     unsigned int k = sizeof(sol)/sizeof(sol[0]);
-
 
     using mydist = fhmcdistribution<mmcdistribution,almdistribution>;
     vector<mydist> d;
@@ -182,11 +113,11 @@ void almtest(unsigned int T=3, unsigned int nl=1)
     using pdt = fdprocessdistribution<mydist,laststate<typename almdistribution::I_t>>;
     pdt pd({0,{1}},d);
 
-    almproblem mp(0.5,0.05,T);
+    almproblem<true> mp(0.5,0.05,T);
 
     std::cout <<"MALMtest DE..." << std::endl;
 
-    desolution<almproblem,pdt,lastmdxi<vector<double>>,O> x(mp,pd);
+    desolution<almproblem<true>,pdt,lastmdxi<vector<double>>,O> x(mp,pd);
 
     if(T==3 && nl==1 && fabs(x.obj()-obj) > tol)
     {
@@ -216,11 +147,11 @@ void almtest(unsigned int T=3, unsigned int nl=1)
 
     std::cout <<"ALMtest Markov SDDP..." << std::endl;
 
-    mpmcvarequivalent<almproblem> ep(mp);
+    mpmcvarequivalent<almproblem<true>> ep(mp);
 
 
-//    msddpsolution<mpmcvarequivalent<almproblem>,pdt,lastmdxi<vector<double>>,O> sx(ep,pd);
-    msddpsolution<almproblem,pdt,lastmdxi<vector<double>>,O> sx(mp,pd);
+//    msddpsolution<mpmcvarequivalent<almproblem<true>>,pdt,lastmdxi<vector<double>>,O> sx(ep,pd);
+    msddpsolution<almproblem<true>,pdt,lastmdxi<vector<double>>,O> sx(mp,pd);
 
     if(fabs(sx.obj().lb()-x.obj()) > 0.1)
     {

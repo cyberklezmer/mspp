@@ -7,6 +7,13 @@
 namespace mspp
 {
 
+/// \brief Base abstract class of the solutions of \ref msproblem
+/// \tparam P the problem solution of which the class is
+/// \tparam D distribution
+/// \tparam Z mapping from scenarios to random parameters of \p P
+/// \tparam X optimal decision variables
+/// \tparam O optimal values
+///
 template <typename P, typename D, typename Z, typename X, typename O>
 class solution : public object
 {
