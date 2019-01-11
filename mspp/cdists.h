@@ -52,8 +52,7 @@ public:
                                normaldistribution>
           (xi0,
              ardistribution<normaldistribution>(normaldistribution(m,sd),ar),
-             T),
-      vdistribution<double,nothing>(T+1)
+             T)
     { assert(T>=1); }
 
 private:

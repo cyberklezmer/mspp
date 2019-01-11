@@ -32,10 +32,10 @@ struct dexitem
 template <typename V, typename D, typename Z>
 class dex : public
      treedistribution<dexitem<V,typename Z::R_t>,
-        typename D::E_t, unsigned int>
+        typename D::K_t, unsigned int>
 {
 public:
-    using E_t = typename D::E_t;
+    using K_t = typename D::K_t;
     using X_t = dexitem<V,typename Z::R_t>;
 
     class exportcb : public tdcallback<X_t,variables<V>>
@@ -56,13 +56,12 @@ public:
     dex(const D& d,const msproblemstructure& aps,
         const vectors<bool> excl = 0):
         treedistribution
-          <dexitem<V,typename Z::R_t>,typename D::E_t,unsigned int>(d.T()),
-        vdistribution<dexitem<V,typename Z::R_t>,nothing>(d.T()+1),
+          <dexitem<V,typename Z::R_t>,typename D::K_t,unsigned int>(d.T()),
         fxi(ptr<D>(new D(d))), fps(aps), fexcl(excl)
        {
            static_assert(std::is_base_of<
               treedistribution<typename D::X_t,
-                               typename D::E_t,
+                               typename D::K_t,
                                typename D::A_t>,D>::value);
         }
 /*    desolution(const P& p, const ptr<D> d) :
@@ -95,8 +94,8 @@ public:
     const msproblemstructure& ps() const { return fps; }
 private:
 
-    virtual void branches_are(const vector<E_t>& e,
-         vector<E_t>& es) const
+    virtual void branches_are(const vector<K_t>& e,
+         vector<K_t>& es) const
     {
         fxi->branches(e,es);
     }
@@ -111,7 +110,7 @@ private:
     }
 
 
-    virtual void index2sinfo(const vector<E_t>& e,
+    virtual void index2sinfo(const vector<K_t>& e,
                                 X_t& x,
                                 probability& up,
                                 unsigned int& s) const
@@ -289,6 +288,7 @@ public:
 
         if constexpr(std::is_same<typename P::O_t,expectation>::value)
         {
+//std::cout << "p.T" << p.T() << " xi.T " << xi.T() << std::endl;
             assert(p.T() == xi.T());
 
             destate<P,D> s={p,xi};

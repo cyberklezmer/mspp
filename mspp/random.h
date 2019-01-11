@@ -47,10 +47,9 @@ class vdistribution : virtual public distribution<vector<X>,C>
 {
 public:
     using X_t = X;
-    vdistribution(unsigned int dim) : fdim(dim) {}
-    unsigned int dim() const { return fdim; }
+    virtual unsigned int dim() const { return this->dim_is(); }
 private:
-    const unsigned int fdim;
+    virtual unsigned int dim_is() const = 0;
 };
 
 
@@ -58,7 +57,7 @@ private:
 /// \ingroup Distributions
 /// @{
 
-/// \brief Monte carlo distribution
+/// \brief Monte Carlo distribution
 /// \tparam I type of the values
 /// \tparam C type of the condition
 
@@ -410,7 +409,7 @@ public:
         fatoms(atoms), fequiprobable(false)
     {
         assert(fatoms.size());
-        probability tp = fatoms[0];
+        probability tp = fatoms[0].p;
         for(unsigned int i=1; i<fatoms.size(); i++)
         {
             if(tp != fatoms[i].p)
@@ -507,8 +506,7 @@ class lvdistribution: public ldistribution<vector<X>>,
 {
 public:
     lvdistribution(const vector<atom<vector<X>>>& atoms) :
-        ldistribution<vector<X>>(atoms),
-        vdistribution<X,nothing>(atoms[0].x.size())
+        ldistribution<vector<X>>(atoms), fdim(atoms[0].x.size())
     {
         assert(atoms.size());
         for(unsigned int i=1; i<atoms.size(); i++)
@@ -516,11 +514,17 @@ public:
     }
 
     lvdistribution(const vector<vector<X>>& values) :
-        ldistribution<vector<X>>(values), vdistribution<X,nothing>(values[0].size())
+        ldistribution<vector<X>>(values)
     {
         assert(values.size());
         for(unsigned int i=1; i<values.size(); i++)
             assert(values[i].size()==values[0].size());
+    }
+private:
+    unsigned int fdim;
+    virtual unsigned int dim_is() const
+    {
+        return fdim;
     }
 };
 
@@ -739,24 +743,26 @@ public:
     using X_t = typename D::I_t;
     using E_t = E;
     using Z_t = Z;
-//    ivdistribution(const E& e, const vector<D>& d)
-//       : vdistribution<typename D::I_t,nothing>(d.size()+1), fd(d), fe(e)
-//    {
-//       check();
-//    }
+    ivdistribution(const E& e, const vector<D>& d)
+       : fd(d), fe(e)
+    {
+       check();
+    }
     ivdistribution(const E& e, const D& d, unsigned int dim)
-       : vdistribution<typename D::I_t,nothing>(dim), fe(e), fd(dim-1,d)
+       : fe(e), fd(dim-1,d)
     {
         check();
         assert(dim);
     }
 
-    ivdistribution(const X_t& x0, const D& d, unsigned int dim)
-       : vdistribution<typename D::I_t,nothing>(dim), fe(diracdistribution<X_t>(x0)), fd(dim-1,d)
+    /// usable only if \p E is \ref diracdistribution
+/*    ivdistribution(const X_t& x0, const D& d, unsigned int dim)
+       : fe(diracdistribution<X_t>(x0)), fd(dim-1,d)
     {
         check();
         assert(dim);
     }
+*/
 
     vector<X_t> draw() const
     {
@@ -781,7 +787,7 @@ public:
         else
         {
             assert(s.size() < this->dim());
-            fd[s.size()-1].atoms(a,Z(s));
+            fd[s.size()-1].atoms(a,Z()(s));
         }
     }
     const D& d(unsigned int i) const
@@ -797,6 +803,10 @@ public:
 private:
     E fe;
     vector<D> fd;
+    virtual unsigned int dim_is() const
+    {
+        return fd.size()+1;
+    }
 };
 
 
@@ -810,18 +820,20 @@ class mivdistribution:
         static_assert( std::is_same<typename M::I_t,typename D::I_t>::value);
     }
 public:
+    using E_t = E;
     using M_t = M;
+    using D_t = D;
+    using Z_t = Z;
     mivdistribution(const E& e, const D& d, unsigned int dim)
-       : ivdistribution<E,D,Z>(e,d,dim),
-         vdistribution<typename D::I_t,nothing>(dim)
+       : ivdistribution<E,D,Z>(e,d,dim)
+
     {
         check();
         assert(dim);
     }
 
     mivdistribution(const typename E::I_t& x0, const D& d, unsigned int dim)
-        : ivdistribution<E,D,Z>(x0,d,dim),
-          vdistribution<typename D::I_t,nothing>(dim)
+        : ivdistribution<E,D,Z>(x0,d,dim)
     {
         check();
         assert(dim);

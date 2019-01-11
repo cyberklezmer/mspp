@@ -26,14 +26,15 @@ void hmctest(unsigned int T)
     double xim = -0.2;
     double xisd = 1;
 
-    normaldistribution nd(xim,xisd);
-    using arnormaldistribution = ardistribution<normaldistribution>;
+    arnormalprocessdistribution xipd(1.0,xim,xisd,1.0,T);
 
-    arnormaldistribution ar(nd,1);
+    onedcovering c1({-0.2},{-1, 0.6});
+    onedcovering c2({-1,0.2},{-1.5,-0.4, 0.7});
+    vector<onedcovering> c({c1,c2});
 
-    using xipd = markovprocessdistribution<arnormaldistribution>;
+    onedhmcapproximation<arnormalprocessdistribution,onedcovering>
+        ha(xipd,c);
 
-    xipd xip(1.0,ar,T);
 }
 
 } // namespace

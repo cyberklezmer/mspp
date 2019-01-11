@@ -50,16 +50,18 @@ public:
             return;
         double theta;
         if constexpr(CONSTL)
-            theta == this->T() ? 1 : 0;
+            theta = k==this->T() ? 1 : 0;
         else
-            theta == zeta[1];
-
+            theta = zeta[1];
         if(k==1)
-            g.add(linearmsconstraint({1.0,1.0,-1.0},constraint::eq, 0.0));
-        else
-            g.add(linearmsconstraint({0.0,1.0,1.0,-1.0},constraint::eq, theta));
-        if(k==this->T())
+            g.add(linearmsconstraint({1.0,1.0,-1.0},constraint::eq, theta));
+        else if(k==this->T())
+        {
+            g.add(linearmsconstraint({0.0,1.0,1.0,-1.0},constraint::eq, 0));
             xs[1].setlimits(theta,theta);
+        }
+        else
+          g.add(linearmsconstraint({0.0,1.0,1.0,-1.0},constraint::eq, theta));
     }
     double minf_is(unsigned int) const
     {

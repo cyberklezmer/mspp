@@ -29,8 +29,7 @@ public:
     using Z_t = Z;
     processdistribution(const X_t& xi0, const D& d, unsigned int T) :
       ivdistribution<diracdistribution<X_t>,D,Z,M>
-         (diracdistribution<X_t>(xi0),d,T),
-      vdistribution<X_t,nothing>(T+1)
+         (diracdistribution<X_t>(xi0),d,T)
     {
     }
     processdistribution(const X_t& xi0, const vector<D>& d) :
@@ -85,20 +84,23 @@ public:
 ///
 /// Its content may be gone through only by recursion.
 ///
-template <typename X, typename E=atom<X>, typename A=nothing>
+template <typename X, typename K=atom<X>, typename A=nothing>
 class treedistribution: virtual public vdistribution<X,nothing>
 {
 public:
     using X_t = X;
-    using E_t = E;
+    using K_t = K;
     using A_t = A;
 
-    treedistribution(unsigned int T) : vdistribution<X,nothing>(T+1) {}
+    treedistribution(unsigned int T) : fdim(T+1)
+    {
+        assert(T>0);
+    }
 
     template <typename S=void>
     void foreachnode(const tdcallback<X, S> *callee, S* state=0) const
     {
-        vector<E> e;
+        vector<K> e;
         scenario<X> s;
         A mystate;
         beforefe(mystate);
@@ -106,22 +108,23 @@ public:
         afterfe(mystate);
     }
 
-    void branches(const vector<E>& e, vector<E>& es) const
+    void branches(const vector<K>& e, vector<K>& es) const
     {
         branches_are(e, es);
     }
+    unsigned int T() const { return fdim-1; }
 private:
 
     template <typename S=void>
     void doforeachnode(const tdcallback<X,S> *callee,
-                       const vector<E>& ae,
+                       const vector<K>& ae,
                        const scenario<X> as,
                        S* state,
                        A& mystate) const
     {
         unsigned int k=ae.size();
-        vector<E> e(ae);
-        vector<E> es;
+        vector<K> e(ae);
+        vector<K> es;
 
         branches_are(e,es);
 
@@ -141,16 +144,16 @@ private:
         }
     }
 
-    virtual void branches_are(const vector<E>& e, vector<E>& es) const = 0;
+    virtual void branches_are(const vector<K>& e, vector<K>& es) const = 0;
     virtual void beforefe(A&) const {}
     virtual void afterfe(A&) const {}
 protected:
-    virtual void index2sinfo(const vector<E>& e,
+    virtual void index2sinfo(const vector<K>& e,
                                 X& s,
                                 probability& up,
                                 A& ) const
     {
-       if constexpr(std::is_same<E,atom<X_t>>::value)
+       if constexpr(std::is_same<K,atom<X_t>>::value)
        {
            assert(e.size());
            up = 1;
@@ -161,6 +164,9 @@ protected:
        else
             assert(0);
     }
+private:
+    unsigned int fdim;
+    virtual unsigned int dim_is() const { return fdim; }
 };
 
 /// \brief \ref treedistribution defined by \ref processdistribution
@@ -172,22 +178,21 @@ class fdprocessdistribution :
         public treedistribution<typename D::I_t>
 {
 public:
+    using D_t = D;
     using X_t=typename D::I_t;
     fdprocessdistribution(const X_t& xi0, const D& d, unsigned int T) :
        treedistribution<X_t>(T),
-       processdistribution<D, Z> (xi0, d, T),
-       vdistribution<X_t,nothing>(T+1)
+       processdistribution<D, Z> (xi0, d, T+1)
     {
         static_assert(
            std::is_base_of<fdistribution<X_t,typename D::C_t,
                     D::flistdef>,D>::value
                     );
-        assert(T);
+        assert(T>0);
     }
     fdprocessdistribution(const X_t& xi0, const vector<D>& d) :
-       treedistribution<X_t>(d.size()+1),
-       processdistribution<D, Z> (xi0, d),
-       vdistribution<X_t,nothing>(d.size()+1)
+       treedistribution<X_t>(d.size()),
+       processdistribution<D, Z> (xi0, d)
     {
         static_assert(
            std::is_base_of<fdistribution<X_t,typename D::C_t>,D>::value
@@ -204,6 +209,8 @@ private:
             s.push_back(e[i].x);
         this->atoms(s,es);
     }
+    virtual unsigned int dim_is() const
+       { return this->T()+1; }
 };
 
 

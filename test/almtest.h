@@ -8,18 +8,21 @@
 
 
 class almdistribution:
-        public vdistribution<double, unsigned int>,
+        public vdistribution<double, unsigned int>
+    ,
         public fdistribution<vector<double>, unsigned int>
 {
 public:
     using I_t = vector<double>;
     using C_t = unsigned int ;
     almdistribution(unsigned int n, const vector<double>& sc) :
-        vdistribution<double, unsigned int>(1), fn(n), fsc(sc) {}
+         fn(n), fsc(sc) {}
 private:
     virtual atom<vector<double>> atom_is(unsigned int i, const unsigned int& c) const
     {
         assert(c < fsc.size());
+//std::cout << "c=" << c << " i=" << i << " x="
+//         <<  fsc[c] - 0.5 +  (double) (2*i+1) / (double) (2*fn) << std::endl;
         return { {fsc[c] - 0.5 +  (double) (2*i+1) / (double) (2*fn)}, 1.0/ (double) fn };
     }
 
@@ -28,6 +31,7 @@ private:
 
     unsigned int fn;
     vector<double> fsc;
+    virtual unsigned int dim_is() const { return 1; }
 };
 
 template <typename O>

@@ -1,21 +1,22 @@
   #include <fstream>
 #include "mspp/random.h"
 #include "mspp/process.h"
+#include "mspp/hmcapprox.h"
 #include "test/mspptest.h"
 
 //#include "mspp/msproblem.h"
-//#include "mspp/cplex.h"
-//#include "test/tstest.h"
-//#include "test/cvartest.h"
-//#include "test/almtest.h"
-#include "test/hmctest.h"
+#include "mspp/cplex.h"
+#include "test/tstest.h"
+#include "test/cvartest.h"
+#include "test/almtest.h"
+//#include "test/hmctest.h"
 //#include "mspp/cplex.h"
 #include <mcheck.h>
 
 using namespace mspp;
 
 
-void compiletest(unsigned int T)
+/*void compiletest(unsigned int T)
 {
     assert(T>=1);
     assert(T<=4);
@@ -40,7 +41,7 @@ void compiletest(unsigned int T)
     onedhmcapproximation<arnormalprocessdistribution,onedcovering>
         ha(xipd,c);
 }
-
+*/
 
 
 int main(int, char **)
@@ -53,22 +54,21 @@ int main(int, char **)
     sys::setlog(log);
 
     sys::seed(0);
-    using O=csvlpsolver<realvar>;
-//    using O=cplex<realvar>;
+//    using O=csvlpsolver<realvar>;
+    using O=cplex<realvar>;
 //    twostagetest<O>();
 //    cvartest<O>(false,false);
 //    cvartest<O>(false,true);
 //    cvartest<O>(true,false);
 //    cvartest<O>(true,true);
 //    almtest<O>(3,1); // dává lb< ub
-//    alm1test<O>(true);
+    alm1test<O>(true);
 //    alm1test<O>(false);
 
 
-// just to check compilation
 
 
-    compiletest(2);
+//    hmctest(2);
 
     return 0;
 }

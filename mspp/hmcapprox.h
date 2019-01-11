@@ -195,7 +195,7 @@ public:
 private:
     virtual double quantile_is(probability p, const unsigned int& i) const
     {
-        assert(i<fd.k());
+        assert(i<fc.k());
         pair<double, double> r = fc.region(i);
         double arg = p * fd.cdf(r.second) + (1-p) * fd.cdf(r.first);
         assert(arg);
@@ -203,7 +203,7 @@ private:
     }
     virtual probability cdf_is(double x, const unsigned int& i) const
     {
-        assert(i<fd.k());
+        assert(i<fc.k());
         pair<double, double> r = fc.region(i);
         probability cl = fd.cdf(r.first);
         double denom=fd.cdf(r.second)-cl;
@@ -274,8 +274,7 @@ class onedhmcapproximation:
 public:
     /// \p c is indexed from zero, i.e. covering of time \p t=1 is indexed as \p 0
      onedhmcapproximation(const P& pd, const vector<C>& c) :
-       hmcprocessdistribution<mmcdistribution, omegadist>(makedists(pd,c)),
-       vdistribution<double,nothing>(pd.dim())
+       hmcprocessdistribution<mmcdistribution, omegadist>(makedists(pd,c))
      {
          static_assert(std::is_base_of
              <mmarkovprocessdistribution<typename P::D_t,typename P::M_t>,P>::value);

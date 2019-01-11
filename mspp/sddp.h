@@ -86,8 +86,7 @@ public:
            const vector<Y>& xi
             ) :
         processdistribution<hmcdistribution<M,Y>,
-           laststate<typename Y::I_t>>({0,xi0},makexi(m,xi)),
-        vdistribution<typename hmcdistribution<M,Y>::I_t,nothing>(m.size()+1)
+           laststate<typename Y::I_t>>({0,xi0},makexi(m,xi))
     {}
 
     struct init
@@ -99,10 +98,11 @@ public:
 
     hmcprocessdistribution(const init& i) :
         processdistribution<hmcdistribution<M,Y>,
-           laststate<typename Y::I_t>>({0,i.xi0},makexi(i.m,i.xi)),
-        vdistribution<typename hmcdistribution<M,Y>::I_t,nothing>(i.m.size()+1)
+           laststate<typename Y::I_t>>
+             (diracdistribution<pair<unsigned int, typename Y::I_t>>({0,i.xi0}),
+              makexi(i.m,i.xi))
     {}
-
+//
 };
 
 
@@ -871,6 +871,9 @@ protected:
                || std::is_same<typename P::O_t,nestedmcvar>::value,
                  "only problems with expectation, mp- or nested- cvar can be solved"
               );
+        static_assert(
+             std::is_base_of<processdistribution
+                <typename D::D_t, typename D::Z_t>,D>::value);
         /*        static_assert(
            (markov && std::is_same<typename D::D_t::S_t::I_t,vector<double>>::value)
              || std::is_same<typename D::X_t,vector<double>>::value,
@@ -900,6 +903,7 @@ public:
     sddpsolution(const P& p, const D& d)
         : sddpsolbase<P,D,Z,O>(solve(p,d))
     {
+
         static_assert(std::is_same
            <typename D::Z_t, noxi<typename D::X_t>>::value,
                       "D has to ve stagewise independent");
@@ -913,7 +917,7 @@ private:
             ds.push_back(&(xi.d(i)));
         return
          msppsddpmodel<P, typename D::D_t, typename Z::M_t, false>
-                ::solve(p,ds,xi.x0());
+                ::solve(p,ds,xi.e().x());
     }
 };
 
@@ -963,7 +967,7 @@ private:
         }
         return
          msppsddpmodel<P, typename D_t::S_t, typename Z::M_t, true>
-                ::solve(p,ds,ms,xi.x0().second);
+                ::solve(p,ds,ms,xi.e().x().second);
     }
 };
 
