@@ -16,7 +16,7 @@ const double probabilitytolerance = 1e-15;
 ///
 ///  \tparam I type of the values
 ///  \tparam C type of the condition
-template <typename I=double, typename C=novalue>
+template <typename I=double, typename C=nothing>
 class distribution: public object
 {
 public:
@@ -72,8 +72,8 @@ public:
     }
     I draw() const
     {
-        static_assert(std::is_same<C,novalue>::value);
-        return do_draw(novalue());
+        static_assert(std::is_same<C,nothing>::value);
+        return do_draw(na);
     }
 private:
     virtual I do_draw(const C& c) const = 0;
@@ -92,9 +92,10 @@ template <typename C>
 class cdfdistribution: virtual public realdistribution<C>
 {
 public:
+
     probability cdf(double x) const
     {
-        return this->cdf(x,novalue());
+        return this->cdf(x,na);
     }
     probability cdf(double x, const C& c) const
     {
@@ -112,7 +113,7 @@ class qdistribution: virtual public cdfdistribution<C>,
 public:
     double quantile(probability p) const
     {
-        return this->quantile(p,novalue());
+        return this->quantile(p,na);
     }
     double quantile(probability p, const C& c) const
     {
@@ -129,12 +130,12 @@ private:
 };
 
 template <typename D>
-class scaleddistribution : public qdistribution<novalue>
+class scaleddistribution : public qdistribution<nothing>
 {
     void check()
     {
         assert(fsd > 0);
-        static_assert(std::is_base_of<qdistribution<novalue>,D>::value);
+        static_assert(std::is_base_of<qdistribution<nothing>,D>::value);
     }
 
 public:
@@ -153,14 +154,14 @@ public:
     {
         return fd;
     }
-    const double m() const { return fm; }
-    const double sd() const { return fsd; }
+    double m() const { return fm; }
+    double sd() const { return fsd; }
 private:
-    virtual double quantile_is(probability p, const novalue&) const
+    virtual double quantile_is(probability p, const nothing&) const
     {
         return fm + fsd*fd.quantile(p);
     }
-    virtual probability cdf_is(double x, const novalue&) const
+    virtual probability cdf_is(double x, const nothing&) const
     {
         return fd.cdf((x-fm) / fsd);
     }
@@ -171,13 +172,58 @@ private:
 };
 
 
+/// not tested yet
+template <typename D>
+class truncateddistribution : public qdistribution<nothing>
+{
+    void check()
+    {
+        assert(fh > fl);
+        static_assert(std::is_base_of<qdistribution<nothing>,D>::value);
+    }
+
+public:
+    truncateddistribution(double l, double h) : fl(l), fh(h)
+    {
+        check();
+    }
+    truncateddistribution(double l, double h, const D& d)
+        : fl(l), fh(h), fd(d)
+    {
+        check();
+    }
+
+    /// returns the distribution which whas scalled
+    const D& srcd() const { return fd; }
+    double l() const { return fl; }
+    double h() const { return fh; }
+private:
+    virtual double quantile_is(probability p, const nothing&) const
+    {
+        double arg = p * fd.cdf(fh) + (1-p) * fd.cdf(fl);
+        assert(arg);
+        return fd.quantile(arg);
+    }
+    virtual probability cdf_is(double x, const nothing&) const
+    {
+        double cl = fd.cdf(fl);
+        double denom=fd.cdf(fh)-cl;
+        assert(denom>0);
+        return (fd.cdf(x)-cl)/denom;
+    }
+
+    double fh;
+    double fl;
+    D fd;
+};
+
 
 template <typename D>
 class ardistribution : public qdistribution<double>
 {
     void check()
     {
-        static_assert(std::is_base_of<qdistribution<novalue>,D>::value);
+        static_assert(std::is_base_of<qdistribution<nothing>,D>::value);
     }
 
 public:
@@ -238,8 +284,8 @@ public:
     }
     atom<I> operator () (unsigned int i) const
     {
-        static_assert(std::is_same<C,novalue>::value);
-        return atom_is(i,novalue());
+        static_assert(std::is_same<C,nothing>::value);
+        return atom_is(i,na);
     }
 private:
     virtual atom<I> atom_is(unsigned int i, const C& c) const  = 0;
@@ -296,8 +342,8 @@ public:
 
     void atoms(vector<atom<I>>& a) const
     {
-        static_assert(std::is_same<C,novalue>::value);
-        return atoms(a,novalue());
+        static_assert(std::is_same<C,nothing>::value);
+        return atoms(a,na);
     }
 
     unsigned int natoms(const C& c) const
@@ -307,8 +353,8 @@ public:
 
     unsigned int natoms() const
     {
-        static_assert(std::is_same<C,novalue>::value);
-        return natoms_is(novalue());
+        static_assert(std::is_same<C,nothing>::value);
+        return natoms_is(na);
     }
 
 private:
@@ -357,7 +403,7 @@ private:
 ///
 ///
 template <typename I>
-class ldistribution: public fdistribution<I,novalue, true>
+class ldistribution: public fdistribution<I,nothing, true>
 {   
 public:
     ldistribution(const vector<atom<I>>& atoms) :
@@ -385,24 +431,24 @@ public:
         }
     }
 private:
-    virtual void atoms_are(vector<atom<I>>& a, const novalue&) const
+    virtual void atoms_are(vector<atom<I>>& a, const nothing&) const
     {
         a = fatoms;
     }
 
-    virtual unsigned int natoms_is(const novalue&) const
+    virtual unsigned int natoms_is(const nothing&) const
     {
         return fatoms.size();
     }
 
-    virtual atom<I> atom_is(unsigned int i, const novalue&) const
+    virtual atom<I> atom_is(unsigned int i, const nothing&) const
     {
         return fatoms[i];
     }
 private:
     vector<atom<I>> fatoms;
     bool fequiprobable;
-    virtual bool is_equiprobable(const novalue&) const { return fequiprobable; }
+    virtual bool is_equiprobable(const nothing&) const { return fequiprobable; }
 };
 
 /// \brief Alternative list defined distribution
@@ -429,19 +475,19 @@ private:
     virtual void atoms_are(vector<atom<I>>& a, const unsigned int& c) const
     {
         assert(c<fdists.size());
-        fdists[c]->atoms(a,novalue());
+        fdists[c]->atoms(a,na);
     }
 
     virtual unsigned int natoms_is(const unsigned int& c) const
     {
         assert(c<fdists.size());
-        return fdists[c]->natoms(novalue());
+        return fdists[c]->natoms(na);
     }
 
     virtual atom<I> atom_is(unsigned int i,  unsigned int& c) const
     {
         assert(c<fdists.size());
-         return fdists[c]->atom(i,novalue());
+         return fdists[c]->atom(i,na);
     }
 
     virtual bool is_equiprobable(const unsigned int& c) const
@@ -457,12 +503,12 @@ private:
 ///
 template <typename X>
 class lvdistribution: public ldistribution<vector<X>>,
-        public vdistribution<X,novalue>
+        public vdistribution<X,nothing>
 {
 public:
     lvdistribution(const vector<atom<vector<X>>>& atoms) :
         ldistribution<vector<X>>(atoms),
-        vdistribution<X,novalue>(atoms[0].x.size())
+        vdistribution<X,nothing>(atoms[0].x.size())
     {
         assert(atoms.size());
         for(unsigned int i=1; i<atoms.size(); i++)
@@ -470,7 +516,7 @@ public:
     }
 
     lvdistribution(const vector<vector<X>>& values) :
-        ldistribution<vector<X>>(values), vdistribution<X,novalue>(values[0].size())
+        ldistribution<vector<X>>(values), vdistribution<X,nothing>(values[0].size())
     {
         assert(values.size());
         for(unsigned int i=1; i<values.size(); i++)
@@ -502,8 +548,8 @@ public:
 
 /// \brief Product distribution
 template <typename X, bool listdefined>
-lvdistribution<X> operator *(const fdistribution<X,novalue,listdefined>& x,
-                             const fdistribution<X,novalue,listdefined>& y)
+lvdistribution<X> operator *(const fdistribution<X,nothing,listdefined>& x,
+                             const fdistribution<X,nothing,listdefined>& y)
 {
     assert(x.natoms());
     assert(y.natoms());
@@ -564,7 +610,7 @@ private:
 
 /// Helper class, used as \p M in \p uijdistribution
 template <typename D,typename R, typename M>
-class uijmapping : public mapping<pair<novalue,D>,R>
+class uijmapping : public mapping<pair<nothing,D>,R>
 {
 public:
     virtual R operator() (const pair<nothing,D>& p) const
@@ -676,7 +722,7 @@ using umijdistribution = mijdistribution<F,S,uijmapping<typename F::I_t,typename
 
 template <typename E, typename D, typename Z>
 class ivdistribution:
-    virtual public vdistribution<typename D::I_t,novalue>
+    virtual public vdistribution<typename D::I_t,nothing>
 {
     static void constexpr check()
     {
@@ -684,7 +730,7 @@ class ivdistribution:
         static_assert(std::is_base_of<
                       distribution<typename D::I_t,typename D::C_t>,D>::value);
         static_assert(std::is_base_of<
-                   distribution<typename E::I_t,novalue>,E>::value);
+                   distribution<typename E::I_t,nothing>,E>::value);
         static_assert(std::is_same<typename Z::R_t,typename D::C_t>::value);
         static_assert(std::is_same<typename Z::X_t,typename D::I_t>::value);
         static_assert(std::is_same<typename E::I_t,typename D::I_t>::value);
@@ -694,19 +740,19 @@ public:
     using E_t = E;
     using Z_t = Z;
 //    ivdistribution(const E& e, const vector<D>& d)
-//       : vdistribution<typename D::I_t,novalue>(d.size()+1), fd(d), fe(e)
+//       : vdistribution<typename D::I_t,nothing>(d.size()+1), fd(d), fe(e)
 //    {
 //       check();
 //    }
     ivdistribution(const E& e, const D& d, unsigned int dim)
-       : vdistribution<typename D::I_t,novalue>(dim), fe(e), fd(dim-1,d)
+       : vdistribution<typename D::I_t,nothing>(dim), fe(e), fd(dim-1,d)
     {
         check();
         assert(dim);
     }
 
     ivdistribution(const X_t& x0, const D& d, unsigned int dim)
-       : vdistribution<typename D::I_t,novalue>(dim), fe(diracdistribution<X_t>(x0)), fd(dim-1,d)
+       : vdistribution<typename D::I_t,nothing>(dim), fe(diracdistribution<X_t>(x0)), fd(dim-1,d)
     {
         check();
         assert(dim);
@@ -715,7 +761,7 @@ public:
     vector<X_t> draw() const
     {
         vector<X_t> ret;
-        X_t x = fe.draw(novalue());
+        X_t x = fe.draw(na);
         ret.push_back(x);
         typename Z::R_t c = Z(ret);
         for(unsigned int i=0; i<this->dim()-1; i++)
@@ -760,13 +806,14 @@ class mivdistribution:
 {
     static void constexpr check()
     {
-        static_assert( std::is_base_of<distribution<typename M::I_t,novalue>, M>::value);
+        static_assert( std::is_base_of<distribution<typename M::I_t,nothing>, M>::value);
         static_assert( std::is_same<typename M::I_t,typename D::I_t>::value);
     }
 public:
+    using M_t = M;
     mivdistribution(const E& e, const D& d, unsigned int dim)
        : ivdistribution<E,D,Z>(e,d,dim),
-         vdistribution<typename D::I_t,novalue>(dim)
+         vdistribution<typename D::I_t,nothing>(dim)
     {
         check();
         assert(dim);
@@ -774,7 +821,7 @@ public:
 
     mivdistribution(const typename E::I_t& x0, const D& d, unsigned int dim)
         : ivdistribution<E,D,Z>(x0,d,dim),
-          vdistribution<typename D::I_t,novalue>(dim)
+          vdistribution<typename D::I_t,nothing>(dim)
     {
         check();
         assert(dim);

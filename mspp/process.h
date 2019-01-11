@@ -30,7 +30,7 @@ public:
     processdistribution(const X_t& xi0, const D& d, unsigned int T) :
       ivdistribution<diracdistribution<X_t>,D,Z,M>
          (diracdistribution<X_t>(xi0),d,T),
-      vdistribution<X_t,novalue>(T+1)
+      vdistribution<X_t,nothing>(T+1)
     {
     }
     processdistribution(const X_t& xi0, const vector<D>& d) :
@@ -63,6 +63,13 @@ template <typename D>
 using markovprocessdistribution
   = processdistribution<D, lastxi<typename D::I_t>>;
 
+/// \brief Markov process distribution with known marginals
+/// \tparam D distribution
+template <typename D, typename M>
+using mmarkovprocessdistribution
+  = mprocessdistribution<D, lastxi<typename D::I_t>, M>;
+
+
 template<typename X, typename S=void>
 class tdcallback : public object
 {
@@ -78,15 +85,15 @@ public:
 ///
 /// Its content may be gone through only by recursion.
 ///
-template <typename X, typename E=atom<X>, typename A=novalue>
-class treedistribution: virtual public vdistribution<X,novalue>
+template <typename X, typename E=atom<X>, typename A=nothing>
+class treedistribution: virtual public vdistribution<X,nothing>
 {
 public:
     using X_t = X;
     using E_t = E;
     using A_t = A;
 
-    treedistribution(unsigned int T) : vdistribution<X,novalue>(T+1) {}
+    treedistribution(unsigned int T) : vdistribution<X,nothing>(T+1) {}
 
     template <typename S=void>
     void foreachnode(const tdcallback<X, S> *callee, S* state=0) const
@@ -169,7 +176,7 @@ public:
     fdprocessdistribution(const X_t& xi0, const D& d, unsigned int T) :
        treedistribution<X_t>(T),
        processdistribution<D, Z> (xi0, d, T),
-       vdistribution<X_t,novalue>(T+1)
+       vdistribution<X_t,nothing>(T+1)
     {
         static_assert(
            std::is_base_of<fdistribution<X_t,typename D::C_t,
@@ -180,7 +187,7 @@ public:
     fdprocessdistribution(const X_t& xi0, const vector<D>& d) :
        treedistribution<X_t>(d.size()+1),
        processdistribution<D, Z> (xi0, d),
-       vdistribution<X_t,novalue>(d.size()+1)
+       vdistribution<X_t,nothing>(d.size()+1)
     {
         static_assert(
            std::is_base_of<fdistribution<X_t,typename D::C_t>,D>::value

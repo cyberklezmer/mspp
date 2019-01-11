@@ -8,14 +8,14 @@
 //#include "test/tstest.h"
 //#include "test/cvartest.h"
 //#include "test/almtest.h"
-//#include "test/hmctest.h"
+#include "test/hmctest.h"
 //#include "mspp/cplex.h"
 #include <mcheck.h>
 
 using namespace mspp;
 
 
-void hmctest(unsigned int T)
+void compiletest(unsigned int T)
 {
     assert(T>=1);
     assert(T<=4);
@@ -33,6 +33,12 @@ void hmctest(unsigned int T)
 
     arnormalprocessdistribution xipd(1.0,xim,xisd,1.0,T);
 
+    onedcovering c1({-0.2},{-1, 0.6});
+    onedcovering c2({-1,0.2},{-1.5,-0.4, 0.7});
+    vector<onedcovering> c({c1,c2});
+
+    onedhmcapproximation<arnormalprocessdistribution,onedcovering>
+        ha(xipd,c);
 }
 
 
@@ -62,7 +68,7 @@ int main(int, char **)
 // just to check compilation
 
 
-    hmctest(2);
+    compiletest(2);
 
     return 0;
 }

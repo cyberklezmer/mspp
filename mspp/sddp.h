@@ -13,7 +13,7 @@
 
 #include <mcheck.h>
 
-zdalipak zobrazuju zetou?
+// zdalipak zobrazuju zetou?
 
 namespace mspp
 {
@@ -87,7 +87,7 @@ public:
             ) :
         processdistribution<hmcdistribution<M,Y>,
            laststate<typename Y::I_t>>({0,xi0},makexi(m,xi)),
-        vdistribution<typename hmcdistribution<M,Y>::I_t,novalue>(m.size()+1)
+        vdistribution<typename hmcdistribution<M,Y>::I_t,nothing>(m.size()+1)
     {}
 
     struct init
@@ -100,7 +100,7 @@ public:
     hmcprocessdistribution(const init& i) :
         processdistribution<hmcdistribution<M,Y>,
            laststate<typename Y::I_t>>({0,i.xi0},makexi(i.m,i.xi)),
-        vdistribution<typename hmcdistribution<M,Y>::I_t,novalue>(i.m.size()+1)
+        vdistribution<typename hmcdistribution<M,Y>::I_t,nothing>(i.m.size()+1)
     {}
 
 };
@@ -284,7 +284,7 @@ public:
                sys::log() << "stages = " << p.d().size() << endl;
 
            assert(!fmarkov);
-           static_assert(std::is_same<typename D::C_t,novalue>::value);
+           static_assert(std::is_same<typename D::C_t,nothing>::value);
            initandcheck();
        }
 
@@ -312,7 +312,7 @@ public:
                 return new msspDistribution(fdistrs[stage-2],state-1);
             else
             {
-                novalue n;
+                nothing n;
                 return new msspDistribution(fdistrs[stage-2],n);
             }
        }

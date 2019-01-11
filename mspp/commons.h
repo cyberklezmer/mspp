@@ -154,19 +154,19 @@ using ptr=std::shared_ptr<T>;
 
 /// Value reperesenting infinity with respect to \p V
 template <typename V>
-const V inf() { return std::numeric_limits<V>::infinity(); }
+constexpr V inf() { return std::numeric_limits<V>::infinity(); }
 
 /// Value reperesenting minus infinity with respect to \p V
 template <typename V>
-const V minf() { return -inf<V>(); }
+constexpr V minf() { return -inf<V>(); }
 
 /// Maximal value of \p V
 template <typename V>
-const V max() { return std::numeric_limits<V>::max(); }
+constexpr V max() { return std::numeric_limits<V>::max(); }
 
 /// Minimal value of \p V
 template <typename V>
-const V min() { return std::numeric_limits<V>::lowest(); }
+constexpr V min() { return std::numeric_limits<V>::lowest(); }
 
 
 //template <typename T>
@@ -457,10 +457,10 @@ class criterion: public object
 /// \addtogroup fns Functions
 /// @{
 
+/// A class bearing no information (alternative to \p void)
 struct nothing {};
 
-/// A class bearing no information (alternative to \p void)
-using novalue = nothing;
+constexpr nothing na;
 
 /// \brief Base class for mappings
 /// \tparam D domain
@@ -490,10 +490,10 @@ public:
 ///
 /// Used as a condition of unconditional distributions, for instance.
 template <typename I>
-class nomapping: public mapping<I,novalue>
+class nomapping: public mapping<I,nothing>
 {
 public:
-    virtual novalue operator() (const I& i) const { return novalue(); }
+    virtual nothing operator() (const I& i) const { return na; }
 };
 
 /// Function from Eucleidean space
@@ -644,11 +644,11 @@ public:
 /// \brief Muting (complete restriction) of a scenario.
 /// \tparam X scenario component type
 template <typename X>
-class noxi: public zeta<X,novalue>
+class noxi: public zeta<X,nothing>
 {
 public:
-    virtual novalue operator() (const scenario<X>&) const
-       { return novalue(); }
+    virtual nothing operator() (const scenario<X>&) const
+       { return na; }
 };
 
 } // namespace

@@ -4,26 +4,26 @@
 #include "mspp/commons.h"
 #include "mspp/process.h"
 #include "mspp/sddp.h"
+#include "mspp/cdists.h"
 
 using namespace mspp;
 
 template<typename I>
-class covering
+class covering : public object
 {
 public:
     using I_t = I;
 
-    virtual unsigned int dim() const = 0;
     virtual unsigned int k() const = 0;
     virtual unsigned int i(const I& x) const = 0;
     virtual I e(unsigned int i) const = 0;
 };
 
-/// \brief Hidden MC approximation
+/// \brief General Monte Carlo hidden Markov chain approximation
 /// \tparam P process to be approximated (descendant of \ref markovprocessdistribution)
 /// \tparam C covering (descentat of \ref covering)
 template<typename P, typename C>
-class hmcapproximation:
+class mchmcapproximation:
         public hmcprocessdistribution<mmcdistribution,
               altldistribution<typename P::D_t::I_t>>
 {
@@ -78,7 +78,7 @@ class hmcapproximation:
     }
 public:
     /// \p c is indexed from zero, i.e. covering of time \p t=1 is indexed as \p 0
-     hmcapproximation(const P& pd, const vector<C>& c, unsigned int numsc) :
+     mchmcapproximation(const P& pd, const vector<C>& c, unsigned int numsc) :
        hmcprocessdistribution<mmcdistribution, D_t>(makedists(pd,c,numsc))
      {
          static_assert(std::is_base_of<markovprocessdistribution<typename P::D_t>,P>::value);
@@ -131,7 +131,7 @@ class onedcovering : public covering<double>
 {
 public:
     /// the thresholds have to be ordered
-    onedcovering(vector<double>& ths, vector<double>& es) :
+    onedcovering(const vector<double>& ths, const vector<double>& es) :
       fths(ths), fes(es)
     {
         assert(fths.size()+1 == fes.size());
@@ -163,9 +163,132 @@ public:
         assert(i<fes.size());
         return fes[i];
     }
+    pair<double,double> region(unsigned int i) const
+    {
+        unsigned int k = fes.size();
+        assert(i<k);
+        double lb = i==0 ? mspp::min<double>(): fths[i-1];
+        double hb = i==k-1 ? mspp::max<double>() : fths[i];
+        return { lb,hb };
+    }
 private:
     vector<double> fths;
     vector<double> fes;
 };
+
+
+/// conditional distribution given a region
+template <typename D, typename C>
+class regconddistribution : public qdistribution<unsigned int>
+{
+public:
+    regconddistribution(const D& d, const C& c)
+        : fd(d), fc(c)
+    {
+        static_assert(std::is_base_of<onedcovering,C>::value);
+        static_assert(std::is_base_of<qdistribution<nothing>,D>::value);
+    }
+
+    /// returns the source distribution
+    const D& srcd() const { return fd; }
+    const C& c() const { return fc; }
+private:
+    virtual double quantile_is(probability p, const unsigned int& i) const
+    {
+        assert(i<fd.k());
+        pair<double, double> r = fc.region(i);
+        double arg = p * fd.cdf(r.second) + (1-p) * fd.cdf(r.first);
+        assert(arg);
+        return fd.quantile(arg);
+    }
+    virtual probability cdf_is(double x, const unsigned int& i) const
+    {
+        assert(i<fd.k());
+        pair<double, double> r = fc.region(i);
+        probability cl = fd.cdf(r.first);
+        double denom=fd.cdf(r.second)-cl;
+        assert(denom>0);
+        return (fd.cdf(x)-cl)/denom;
+    }
+
+    C fc;
+    D fd;
+};
+
+
+
+/// \brief Hidden Markov chain approximation of a 1d process
+/// \tparam P process to be approximated (descendant of \ref mmarkovprocessdistribution)
+/// \tparam C covering (descentat of \ref onecovering)
+///
+/// Both the marginal and conditional distributions defining P
+/// have to be descendants \ref qdistribution<double>
+template<typename P, typename C>
+class onedhmcapproximation:
+        public hmcprocessdistribution<mmcdistribution,
+                  regconddistribution<typename P::M_t,C>>
+{
+    using omegadist = regconddistribution<typename P::M_t,C>;
+
+    typename hmcprocessdistribution
+              <mmcdistribution,omegadist >::init
+             makedists(const P& pd, const vector<C>& c)
+    {
+        assert(pd.dim()==c.size()+1);
+        unsigned int d=c.size();
+        using pmatrix = vector<vector<probability>>;
+        vector<pmatrix> p;
+        double xi0 = pd.e().x();
+
+        unsigned int rows = 1;
+        for(unsigned int t=0; t<d; t++)
+        {
+            unsigned int cols = c[t].k();
+            for(unsigned int i=0; i<rows; i++)
+            {
+                p[t].push_back(vector<probability>(cols,0.0));
+                for(unsigned int j=0; j<cols; j++)
+                {
+                    double e=t==0 ? xi0 : c[t-1].e(i);
+                    const cdfdistribution<double>& cd = pd.d(i+1);
+                    pair<double,double> region = c[t].region(j);
+                    probability pij =
+                       cd.cdf(region.second,e)-cd.cdf(region.first,e);
+                    p[t][i][j] = pij;
+                }
+            }
+            rows = cols;
+        }
+
+        vector<mmcdistribution> m;
+        vector<omegadist> omega;
+        for(unsigned int t=0; t<d; t++)
+        {
+            m.push_back(mmcdistribution(p[t]));
+
+            const omegadist o(pd.md(t+1),c[t]);
+            omega.push_back(omegadist(pd.md(t+1),c[t]));
+        }
+        return {xi0,m,omega};
+    }
+public:
+    /// \p c is indexed from zero, i.e. covering of time \p t=1 is indexed as \p 0
+     onedhmcapproximation(const P& pd, const vector<C>& c) :
+       hmcprocessdistribution<mmcdistribution, omegadist>(makedists(pd,c)),
+       vdistribution<double,nothing>(pd.dim())
+     {
+         static_assert(std::is_base_of
+             <mmarkovprocessdistribution<typename P::D_t,typename P::M_t>,P>::value);
+         static_assert(std::is_base_of<onedcovering,C>::value);
+         static_assert(
+             std::is_base_of<qdistribution<nothing>,
+                        typename P::M_t>::value);
+         static_assert(
+             std::is_base_of<qdistribution<double>,
+                        typename P::D_t>::value);
+     }
+};
+
+
 
 #endif // HMCAPPROX_H

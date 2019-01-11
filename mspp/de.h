@@ -57,7 +57,7 @@ public:
         const vectors<bool> excl = 0):
         treedistribution
           <dexitem<V,typename Z::R_t>,typename D::E_t,unsigned int>(d.T()),
-        vdistribution<dexitem<V,typename Z::R_t>,novalue>(d.T()+1),
+        vdistribution<dexitem<V,typename Z::R_t>,nothing>(d.T()+1),
         fxi(ptr<D>(new D(d))), fps(aps), fexcl(excl)
        {
            static_assert(std::is_base_of<

@@ -13,23 +13,23 @@ namespace mspp
 /// @{
 
 template <typename B>
-class boostdistribution : virtual public qdistribution<novalue>
+class boostdistribution : virtual public qdistribution<nothing>
 {
 public:
     boostdistribution() {}
     boostdistribution(const B& d) : fd(d) {}
 private:
-    virtual probability cdf_is(double x, const novalue& ) const
+    virtual probability cdf_is(double x, const nothing& ) const
     {
         return boost::math::cdf(fd,x);
     }
-    virtual double quantile_is(probability p, const novalue& ) const
+    virtual double quantile_is(probability p, const nothing& ) const
     {
         return boost::math::quantile(fd,p);
     }
     B fd;
 // tbd
-//      virtual double do_draw(const novalue&) const
+//      virtual double do_draw(const nothing&) const
 //    {
 //        generator(,fd)
 //        return fd();
@@ -42,18 +42,18 @@ using stdnormaldistribution
 using normaldistribution=scaleddistribution<stdnormaldistribution>;
 
 class arnormalprocessdistribution :
-        public mprocessdistribution
-          <ardistribution<normaldistribution>, lastxi<double>, normaldistribution>
+        public mmarkovprocessdistribution
+          <ardistribution<normaldistribution>, normaldistribution>
 {
 public:
     arnormalprocessdistribution
          (double xi0, double m, double sd, double ar, unsigned int T):
-      mprocessdistribution<ardistribution<normaldistribution>,
-                               lastxi<double>, normaldistribution>
+      mmarkovprocessdistribution<ardistribution<normaldistribution>,
+                               normaldistribution>
           (xi0,
              ardistribution<normaldistribution>(normaldistribution(m,sd),ar),
              T),
-      vdistribution<double,novalue>(T+1)
+      vdistribution<double,nothing>(T+1)
     { assert(T>=1); }
 
 private:

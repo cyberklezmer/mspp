@@ -12,22 +12,22 @@ namespace mspp
 /// @{
 
 template <typename B>
-class boostdistribution : virtual public qdistribution<novalue>
+class boostdistribution : virtual public qdistribution<nothing>
 {
 public:
     boostdistribution() {}
     boostdistribution(const B& d) : fd(d) {}
-    virtual probability cdf(double x, const novalue& ) const
+    virtual probability cdf(double x, const nothing& ) const
     {
         return boost::math::cdf(fd,x);
     }
-    virtual double quantile(probability p, const novalue& ) const
+    virtual double quantile(probability p, const nothing& ) const
     {
         return boost::math::quantile(fd,p);
     }
 private:
     B fd;
-    virtual double do_draw(const novalue&) const
+    virtual double do_draw(const nothing&) const
     {
         return fd();
     }
