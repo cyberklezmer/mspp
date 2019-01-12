@@ -1,4 +1,4 @@
-  #include <fstream>
+#include <fstream>
 #include "mspp/random.h"
 #include "mspp/process.h"
 #include "mspp/hmcapprox.h"

@@ -912,9 +912,9 @@ private:
     static pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve
         (const P& p,const D& xi)
     {
-        vector<const typename D::D_t&> ds;
+        vector<const typename D::D_t*> ds;
         for(unsigned int i=1; i<=xi.T(); i++)
-            ds.push_back(xi.d(i));
+            ds.push_back(&(xi.d(i)));
         return
          msppsddpmodel<P, typename D::D_t, typename Z::M_t, false>
                 ::solve(p,ds,xi.e().x());
