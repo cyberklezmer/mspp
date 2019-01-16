@@ -109,8 +109,7 @@ void almtest(unsigned int T=3, unsigned int nl=1)
     using mydist = fhmcdistribution<mmcdistribution,almdistribution>;
     vector<mydist> d;
 
-//    mydist d1(mmcdistribution({{0.5,0.5}}),almdistribution(nl,{ 0.8, 1.1}));
-mydist d1(mmcdistribution({{0.5,0.5}}),almdistribution(nl,{ 0.4, 0.9}));
+    mydist d1(mmcdistribution({{0.5,0.5}}),almdistribution(nl,{ 0.8, 1.1}));
 
     d.push_back(d1);
 

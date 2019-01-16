@@ -289,12 +289,12 @@ public:
 
 
 template<typename P, typename C>
-using conthmcapproximation=hmcapproximation<P,C,
+using chmcapproximation=hmcapproximation<P,C,
   regconddistribution<typename P::M_t,C>>;
 
 /// not tested yet
 template<typename P>
-class epconthmcapproximation: public conthmcapproximation<P,onedcovering>
+class epconthmcapproximation: public chmcapproximation<P,onedcovering>
 {
     static vector<onedcovering> makec(const P& pd, const vector<unsigned int>& ns)
     {
@@ -326,7 +326,7 @@ class epconthmcapproximation: public conthmcapproximation<P,onedcovering>
     }
 public:
     epconthmcapproximation(const P& pd, const vector<unsigned int>& ns) :
-        conthmcapproximation<P,onedcovering>(pd, makec(pd, ns)) {}
+        chmcapproximation<P,onedcovering>(pd, makec(pd, ns)) {}
 };
 
 

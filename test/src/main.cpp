@@ -38,10 +38,9 @@ int main(int, char **)
 //    alm1test<O>(true);
 //    alm1test<O>(false);
 
-almtest<O>(1,2);
 
 
-//    hmctest<O>(1);
+    hmctest<O>(2,false);
 
     return 0;
 }

@@ -65,6 +65,7 @@ private:
         probability cp= static_cast<double> (2*i+1) / static_cast<double>(2*N);
 
         probability p=l+cp*(h-l);
+        assert(p<1.0);
         return {fd.quantile(p) , 1.0 / static_cast<double> (N) };
     }
 
@@ -132,67 +133,102 @@ private:
 };
 
 
-template <typename O>
-void hmctest(unsigned int T)
+template <typename O, bool stocheta=false>
+void hmctest(unsigned int T, bool cont = false)
 {
     assert(T>=1);
     assert(T<=2);
-    const double tol = 1e-5;
 
-/*    using etapd = iidprocessdistribution<normaldistribution>;
-
-    double etam = -0.5;
-    double etasd = 0.2;
-
-    etapd etap(0.0,normaldistribution(etam,etasd),T);*/
-
-    double xim = -1;
-    double xisd = 1;
+    double xim = -0.3;
+    double xisd = 0.5;
 
     arnormalprocessdistribution xipd(0,xim,xisd,1.0,T);
 
-//    onedcovering c1({-0.2},{-1, 0.6});
-//    onedcovering c2({-1,0.2},{-1.5,-0.4, 0.7});
     onedcovering c1({0+xim},{-0.67+xim, 0.67+xim});
-    onedcovering c2({-1,0.2},{-1.5,-0.4, 0.7});
+    onedcovering c2({-0.2+2*xim,0.2+2*xim},{-0.33+2*xim,2*xim, 0.33+ 2*xim});
 
     vector<onedcovering> c({c1});
     if(T==2)
         c.push_back(c2);
 
-    using hat
-       = dhmcapproximation<arnormalprocessdistribution,onedcovering,2>;
+    using dhat
+       = dhmcapproximation<arnormalprocessdistribution,onedcovering,20>;
 
-    hat ha(xipd,c);
+    dhat dha(xipd,c);
 
-    using zetat = hmczeta<double,expmapping>;
-static_assert(std::is_same<zetat::R_t,vector<double>>::value);
-    using apt = almproblem<true, /* nestedmcvar */ mpmcvar>;
-    apt ap(0.5,0.05,T);
-
-    desolution<apt,hat,zetat,O> dx(ap,ha);
-
-    std::cout <<  "obj=." << dx.obj() << std::endl;
-
-    msddpsolution<apt,hat, zetat,O> sx(ap,ha);
-
-    if(fabs(sx.obj().lb()-dx.obj()) > 0.01)
+    if constexpr(stocheta)
     {
-        std::cerr << "malmtest: opt="
-             << dx.obj() << " expected, " <<
-             sx.obj().lb() << "<" << sx.obj().ubm() <<
-             " achieved." << std::endl;
-        throw;
+       double etam = -0.5;
+       double etasd = 0.2;
+
+       using apn = discretization<normaldistribution,nothing>;
+
+       using etapd = iidprocessdistribution<apn>;
+
+       constexpr double  minf = -std::numeric_limits<double>::infinity();
+
+       etapd etap(minf,apn(normaldistribution(etam,etasd),10),T);
+
+       using xietat = xietaprocessdist<dhat,etapd>;
+//       xietat xieta(dhat,etap);
+//       using zetat = hmczeta<pair<double, doube>,exppmapping>;
+
     }
+    else
+    {
+      using zetat = hmczeta<double,expmapping>;
+  static_assert(std::is_same<zetat::R_t,vector<double>>::value);
+      using apt = almproblem<true, /* nestedmcvar */ mpmcvar>;
+      apt ap(0.5,0.05,T);
 
-    std::cout << "hmctest: lb=" <<
-         sx.obj().lb() << " < " << "opt=" << dx.obj()
-              << " < ub=" << sx.obj().ubm() << std::endl;
 
+      desolution<apt,dhat,zetat,O> dx(ap,dha);
+
+      std::cout <<  "obj=." << dx.obj() << std::endl;
+
+      if(!cont)
+      {
+          msddpsolution<apt,dhat, zetat,O> sx(ap,dha);
+
+          std::cout << "hmctest disc: lb=" <<
+               sx.obj().lb() << " < " << "opt=" << dx.obj()
+                    << " < ubm=" << sx.obj().ubm() << ", ubb="
+                    << sx.obj().ubb() << std::endl;
+
+          if(fabs(sx.obj().lb()-dx.obj()) > 0.01)
+          {
+              std::cerr << "malmtest: opt="
+                   << dx.obj() << " expected, " <<
+                   sx.obj().lb() << "<" << sx.obj().ubm() <<
+                   " achieved." << std::endl;
+              throw;
+          }
+      }
+      else
+      {
+          using chat
+             = chmcapproximation<arnormalprocessdistribution,onedcovering>;
+
+          chat cha(xipd,c);
+
+          msddpsolution<apt,chat, zetat,O> cx(ap,cha);
+
+          std::cout << "hmctest cont: lb=" <<
+               cx.obj().lb() << " < " << "opt=" << dx.obj()
+                    << " < ubm=" << cx.obj().ubm() << ", ubb="
+                    << cx.obj().ubb() << std::endl;
+
+          if(fabs(cx.obj().lb()-dx.obj()) > 0.1)
+          {
+              std::cerr << "malmtest: opt="
+                   << dx.obj() << " expected, " <<
+                   cx.obj().lb() << "<" << cx.obj().ubm() <<
+                   " achieved." << std::endl;
+              throw;
+          }
+      }
+    } // stocheta
     std::cout <<  "passed." << std::endl;
-
-
-
 }
 
 } // namespace

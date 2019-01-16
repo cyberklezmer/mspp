@@ -588,7 +588,7 @@ private:
   virtual atom<double> atom_is(unsigned int i, const C& c) const
   {
       probability p= static_cast<double> (2*i+1) / static_cast<double>(fn);
-      return { fd.q(p), 1.0 / static_cast<double> (fn) };
+      return { fd.quantile(p,c), 1.0 / static_cast<double> (fn) };
   }
   virtual bool is_equiprobable(const C& c) const { return true; }
   D fd;
