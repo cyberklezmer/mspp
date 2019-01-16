@@ -47,7 +47,7 @@ class vdistribution : virtual public distribution<vector<X>,C>
 {
 public:
     using X_t = X;
-    virtual unsigned int dim() const { return this->dim_is(); }
+    unsigned int dim() const { return this->dim_is(); }
 private:
     virtual unsigned int dim_is() const = 0;
 };
@@ -218,7 +218,7 @@ private:
 
 
 template <typename D>
-class ardistribution : public qdistribution<double>
+class arqdistribution : public qdistribution<double>
 {
     void check()
     {
@@ -226,12 +226,12 @@ class ardistribution : public qdistribution<double>
     }
 
 public:
-    ardistribution(double a=1) : fa(a)
+    arqdistribution(double a=1) : fa(a)
     {
         check();
     }
 
-    ardistribution(const D& d, double a=1) : fa(a), fd(d)
+    arqdistribution(const D& d, double a=1) : fa(a), fd(d)
     {
         check();
     }
@@ -502,13 +502,14 @@ private:
 ///
 template <typename X>
 class lvdistribution: public ldistribution<vector<X>>,
-        public vdistribution<X,nothing>
+        virtual public vdistribution<X,nothing>
 {
 public:
     lvdistribution(const vector<atom<vector<X>>>& atoms) :
-        ldistribution<vector<X>>(atoms), fdim(atoms[0].x.size())
+        ldistribution<vector<X>>(atoms)
     {
         assert(atoms.size());
+        assert(atoms[0].size());
         for(unsigned int i=1; i<atoms.size(); i++)
             assert(atoms[i].x.size()==atoms[0].x.size());
     }
@@ -517,14 +518,14 @@ public:
         ldistribution<vector<X>>(values)
     {
         assert(values.size());
+        assert(values[0].size());
         for(unsigned int i=1; i<values.size(); i++)
             assert(values[i].size()==values[0].size());
     }
 private:
-    unsigned int fdim;
     virtual unsigned int dim_is() const
     {
-        return fdim;
+        return (*this)(0).x.size();
     }
 };
 
@@ -570,6 +571,29 @@ lvdistribution<X> operator *(const fdistribution<X,nothing,listdefined>& x,
         }
     return lvdistribution<X>(a);
 }
+
+template <typename D, typename C>
+class discretization : public fdistribution<double, C>
+{
+public:
+  discretization(const D& d, unsigned int n) : fd(d), fn(n)
+  {
+      assert(fn);
+  }
+private:
+  virtual unsigned int natoms_is(const C& c) const
+  {
+      return fn;
+  }
+  virtual atom<double> atom_is(unsigned int i, const C& c) const
+  {
+      probability p= static_cast<double> (2*i+1) / static_cast<double>(fn);
+      return { fd.q(p), 1.0 / static_cast<double> (fn) };
+  }
+  virtual bool is_equiprobable(const C& c) const { return true; }
+  D fd;
+  unsigned int fn;
+};
 
 /// @} - discrete distributions
 
@@ -743,6 +767,7 @@ public:
     using X_t = typename D::I_t;
     using E_t = E;
     using Z_t = Z;
+    using D_t = D;
     ivdistribution(const E& e, const vector<D>& d)
        : fd(d), fe(e)
     {

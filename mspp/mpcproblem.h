@@ -45,7 +45,7 @@ class mpmcvarequivalent: public msproblem
         assert(sps.size()>0);
         msproblemstructure r(sps.size());
         r[0]=sps[0]+1;
-        int i=1;
+        unsigned int i=1;
         for(; i< sps.size()-1; i++)
             r[i]=sps[i]+2;
         r[i] = sps[i]+1;

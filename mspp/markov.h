@@ -69,6 +69,7 @@ public:
             for(unsigned int j=1; j<fm.size(); j++)
                 assert(fm[i].size()==fm[0].size());
     }
+    const vector<vector<double>>& m() const { return fm; }
 private:
     virtual probability transprob(unsigned int from, unsigned int to) const
     {

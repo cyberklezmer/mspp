@@ -593,7 +593,6 @@ using scenario = vector<X>;
 
 /// \ingroup Processes
 /// \brief Base class for scenario restrictions
-/// of subsequent distributions
 /// \tparam X type of the scenario components
 /// \tparam R type into which the scenario is transformed
 ///
@@ -635,8 +634,13 @@ class lastxi: public zeta<X,typename M::R_t>
 {
 public:
     using M_t = M;
+    lastxi() {}
+    lastxi(const M& m) : fm(m) {}
+    const M& m() const { return fm; }
     virtual typename M::R_t operator() (const scenario<X>& s) const
-       { assert(s.size()); return M()(s[s.size()-1]);}
+       { assert(s.size()); return fm(s[s.size()-1]);}
+private:
+   M fm;
 };
 
 /// \ingroup Processes

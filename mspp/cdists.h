@@ -43,23 +43,23 @@ using normaldistribution=scaleddistribution<stdnormaldistribution>;
 
 class arnormalprocessdistribution :
         public mmarkovprocessdistribution
-          <ardistribution<normaldistribution>, normaldistribution>
+          <arqdistribution<normaldistribution>, normaldistribution>
 {
 public:
     arnormalprocessdistribution
          (double xi0, double m, double sd, double ar, unsigned int T):
-      mmarkovprocessdistribution<ardistribution<normaldistribution>,
+      mmarkovprocessdistribution<arqdistribution<normaldistribution>,
                                normaldistribution>
           (xi0,
-             ardistribution<normaldistribution>(normaldistribution(m,sd),ar),
-             T)
+             arqdistribution<normaldistribution>(normaldistribution(m,sd),ar),
+             T+1)
     { assert(T>=1); }
 
 private:
     virtual normaldistribution md_is(unsigned int i) const
     {
         assert(i>0);
-        const auto& ard=this->d(1);
+        const auto& ard=this->d(i);
         const auto& nd = ard.srcd();
         const auto& dd = this->e();
         double a = ard.a();

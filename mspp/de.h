@@ -170,6 +170,8 @@ public:
                           destate<P,D>* state) const
     {
         unsigned int stage = xi.size()-1;
+//std::cout << "size=" << xi.size() << " m=" << xi[stage].first
+//          << " xi=" << xi[stage].second << std::endl;
 
         unsigned int thisstagedim = state->p.d()[stage];
 

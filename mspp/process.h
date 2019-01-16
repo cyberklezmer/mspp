@@ -19,32 +19,6 @@ template <typename D, typename Z>
 using processdistribution
  =ivdistribution<diracdistribution<typename D::I_t>,D,Z>;
 
-/*
-class processdistribution :
-    public ivdistribution<diracdistribution<typename D::I_t>,D,Z,M>
-{
-public:
-    using X_t = typename D::I_t;
-    using D_t = D;
-    using Z_t = Z;
-    processdistribution(const X_t& xi0, const D& d, unsigned int T) :
-      ivdistribution<diracdistribution<X_t>,D,Z,M>
-         (diracdistribution<X_t>(xi0),d,T)
-    {
-    }
-    processdistribution(const X_t& xi0, const vector<D>& d) :
-        ivdistribution<diracdistribution<X_t>,D,Z,M>
-          (diracdistribution<X_t>(xi0),d)
-    {
-    }
-    unsigned int T() const { return this->dim()-1; }
-
-    const X_t x0() const
-    {
-        return this->e().x();
-    }
-};
-*/
 
 template <typename D, typename Z, typename M>
 using mprocessdistribution

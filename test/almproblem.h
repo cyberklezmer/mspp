@@ -6,8 +6,8 @@
 namespace mspp
 
 {
-template <bool CONSTL = true>
-class almproblem: public msproblem<mpmcvar, linearfunction,
+template <bool CONSTL = true, typename O=mpmcvar>
+class almproblem: public msproblem<O, linearfunction,
         linearmsconstraint,vector<double>,realvar,lastx>
 {
     static std::vector<unsigned int> makeps(unsigned int t)
@@ -19,9 +19,9 @@ class almproblem: public msproblem<mpmcvar, linearfunction,
     }
 public:
     almproblem(double lambda, double alpha, unsigned int T) :
-        msproblem<mpmcvar, linearfunction,
+        msproblem<O, linearfunction,
                 linearmsconstraint,vector<double>,realvar,lastx>
-        (makeps(T),mpmcvar(lambda,alpha))
+        (makeps(T),O(lambda,alpha))
     {}
 
     virtual void f_is(unsigned int k,

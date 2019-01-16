@@ -1,6 +1,9 @@
 #ifndef HMCAPPROX_H
 #define HMCAPPROX_H
 
+// temporary!!
+#include "test/mspptest.h"
+
 #include "mspp/commons.h"
 #include "mspp/process.h"
 #include "mspp/sddp.h"
@@ -66,7 +69,6 @@ class mchmcapproximation:
                 omegas[t][newi].push_back(s);
             }
         }
-
         vector<mmcdistribution> m;
         vector<D_t> xi;
         for(unsigned int t=0; t<d; t++)
@@ -215,29 +217,26 @@ private:
     D fd;
 };
 
-
-
-/// \brief Hidden Markov chain approximation of a 1d process
+/// \brief Hidden Markov chain approximation of a 1d AR process
 /// \tparam P process to be approximated (descendant of \ref mmarkovprocessdistribution)
 /// \tparam C covering (descentat of \ref onecovering)
+/// \tparam R region approximating distribution
 ///
 /// Both the marginal and conditional distributions defining P
 /// have to be descendants \ref qdistribution<double>
-template<typename P, typename C>
-class onedhmcapproximation:
-        public hmcprocessdistribution<mmcdistribution,
-                  regconddistribution<typename P::M_t,C>>
-{
-    using omegadist = regconddistribution<typename P::M_t,C>;
 
-    typename hmcprocessdistribution
-              <mmcdistribution,omegadist >::init
+template<typename P, typename C, typename R>
+class hmcapproximation:
+        public hmcprocessdistribution<mmcdistribution,R>
+{
+   typename hmcprocessdistribution
+              <mmcdistribution,R>::init
              makedists(const P& pd, const vector<C>& c)
     {
         assert(pd.dim()==c.size()+1);
         unsigned int d=c.size();
         using pmatrix = vector<vector<probability>>;
-        vector<pmatrix> p;
+        vector<pmatrix> p(d);
         double xi0 = pd.e().x();
 
         unsigned int rows = 1;
@@ -246,7 +245,7 @@ class onedhmcapproximation:
             unsigned int cols = c[t].k();
             for(unsigned int i=0; i<rows; i++)
             {
-                p[t].push_back(vector<probability>(cols,0.0));
+                p[t].push_back(vector<probability>(cols));
                 for(unsigned int j=0; j<cols; j++)
                 {
                     double e=t==0 ? xi0 : c[t-1].e(i);
@@ -261,20 +260,20 @@ class onedhmcapproximation:
         }
 
         vector<mmcdistribution> m;
-        vector<omegadist> omega;
+        vector<R> omega;
         for(unsigned int t=0; t<d; t++)
         {
             m.push_back(mmcdistribution(p[t]));
 
-            const omegadist o(pd.md(t+1),c[t]);
-            omega.push_back(omegadist(pd.md(t+1),c[t]));
+            R o(pd.md(t+1),c[t]);
+            omega.push_back(o);
         }
         return {xi0,m,omega};
     }
 public:
     /// \p c is indexed from zero, i.e. covering of time \p t=1 is indexed as \p 0
-     onedhmcapproximation(const P& pd, const vector<C>& c) :
-       hmcprocessdistribution<mmcdistribution, omegadist>(makedists(pd,c))
+     hmcapproximation(const P& pd, const vector<C>& c) :
+       hmcprocessdistribution<mmcdistribution, R>(makedists(pd,c))
      {
          static_assert(std::is_base_of
              <mmarkovprocessdistribution<typename P::D_t,typename P::M_t>,P>::value);
@@ -287,6 +286,49 @@ public:
                         typename P::D_t>::value);
      }
 };
+
+
+template<typename P, typename C>
+using conthmcapproximation=hmcapproximation<P,C,
+  regconddistribution<typename P::M_t,C>>;
+
+/// not tested yet
+template<typename P>
+class epconthmcapproximation: public conthmcapproximation<P,onedcovering>
+{
+    static vector<onedcovering> makec(const P& pd, const vector<unsigned int>& ns)
+    {
+        unsigned int d=pd.dim()-1;
+        assert(ns.size()==d);
+        vector<onedcovering> ret;
+        for(unsigned int i=0; i<d; i++)
+        {
+            const typename P::M_t& distr = pd.mp(i+1);
+            unsigned int n=ns[i];
+            assert(n);
+            double p = 1.0 / static_cast<double>(n);
+            double cp=0.0;
+            vector<double> es, ths;
+
+            for(unsigned int j=0;;)
+            {
+                double e=distr.q(cp+p/2.0);
+                es.push_back(e);
+                cp+=p;
+                if(++j==n)
+                    break;
+                double h=distr.q(cp);
+                ths.push_back(h);
+            }
+            ret.push_back(onedcovering(ths,es));
+        }
+        return ret;
+    }
+public:
+    epconthmcapproximation(const P& pd, const vector<unsigned int>& ns) :
+        conthmcapproximation<P,onedcovering>(pd, makec(pd, ns)) {}
+};
+
 
 
 

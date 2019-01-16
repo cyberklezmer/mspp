@@ -50,6 +50,13 @@ void alm1test(bool equivalent)
       desolution<almproblem<false>,dist,lastxi<vector<double>>,O> x(mp,pd);
 
       sddpsolution<almproblem<false>,dist,lastxi<vector<double>>,O> sx(mp,pd);
+
+      std::cerr << "alm1test: lb="
+           <<
+           sx.obj().lb() << "< opt=" << x.obj() << " <  " << sx.obj().ubm() <<
+           " achieved." << std::endl;
+
+
       if(fabs(sx.obj().lb()-x.obj()) > 0.05)
       {
           std::cerr << "alm1test: opt="
@@ -62,6 +69,8 @@ void alm1test(bool equivalent)
     else
     {
           std::cout <<"MALMtest DE equivalent..." << std::endl;
+
+
 
           mpmcvarequivalent<almproblem<false>> ep(mp);
 
@@ -100,7 +109,8 @@ void almtest(unsigned int T=3, unsigned int nl=1)
     using mydist = fhmcdistribution<mmcdistribution,almdistribution>;
     vector<mydist> d;
 
-    mydist d1(mmcdistribution({{0.5,0.5}}),almdistribution(nl,{ 0.8, 1.1}));
+//    mydist d1(mmcdistribution({{0.5,0.5}}),almdistribution(nl,{ 0.8, 1.1}));
+mydist d1(mmcdistribution({{0.5,0.5}}),almdistribution(nl,{ 0.4, 0.9}));
 
     d.push_back(d1);
 
@@ -121,7 +131,7 @@ void almtest(unsigned int T=3, unsigned int nl=1)
 
     std::cout <<"MALMtest DE..." << std::endl;
 
-    desolution<almproblem<true>,pdt,lastmdxi<vector<double>>,O> x(mp,pd);
+    desolution<almproblem<true>,pdt,hmczeta<vector<double>>,O> x(mp,pd);
 
     if(T==3 && nl==1 && fabs(x.obj()-obj) > tol)
     {
@@ -133,6 +143,7 @@ void almtest(unsigned int T=3, unsigned int nl=1)
     vector<double> xs;
     x.x()->exportlinear(xs);
 
+    std::cout << "X11=" << xs[0] << std::endl;
 
     if(T==3 && nl==1)
         for(unsigned int i=0; i<k; i++)
@@ -155,7 +166,7 @@ void almtest(unsigned int T=3, unsigned int nl=1)
 
 
 //    msddpsolution<mpmcvarequivalent<almproblem<true>>,pdt,lastmdxi<vector<double>>,O> sx(ep,pd);
-    msddpsolution<almproblem<true>,pdt,lastmdxi<vector<double>>,O> sx(mp,pd);
+    msddpsolution<almproblem<true>,pdt,hmczeta<vector<double>>,O> sx(mp,pd);
 
     if(fabs(sx.obj().lb()-x.obj()) > 0.1)
     {
@@ -171,5 +182,6 @@ void almtest(unsigned int T=3, unsigned int nl=1)
               << " < ub=" << sx.obj().ubm() << std::endl;
     std::cout <<  "passed." << std::endl;
 }
+
 
 #endif // ALMTEST_H

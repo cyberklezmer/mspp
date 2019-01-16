@@ -88,7 +88,7 @@ public:
 };
 
 template <typename T>
-void print(std::ostream& o, vectors<T> v)
+void print(std::ostream& o, vector<vector<T>> v)
 {
     o << "[";
     for(unsigned int i=0; i<v.size(); i++)
