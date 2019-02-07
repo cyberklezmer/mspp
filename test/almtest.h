@@ -49,7 +49,10 @@ void alm1test(bool equivalent)
 
       desolution<almproblem<false>,dist,lastxi<vector<double>>,O> x(mp,pd);
 
-      sddpsolution<almproblem<false>,dist,lastxi<vector<double>>,O> sx(mp,pd);
+      almproblem<false,nestedmcvar> nmp(0.5,0.05,1);
+
+
+      sddpsolution<almproblem<false,nestedmcvar>,dist,lastxi<vector<double>>,O> sx(nmp,pd,{2});
 
       std::cerr << "alm1test: lb="
            <<
@@ -70,14 +73,12 @@ void alm1test(bool equivalent)
     {
           std::cout <<"MALMtest DE equivalent..." << std::endl;
 
-
-
           mpmcvarequivalent<almproblem<false>> ep(mp);
 
           desolution<mpmcvarequivalent<almproblem<false>>,dist,
               lastxi<vector<double>>,O> x(ep,pd);
 
-          sddpsolution<mpmcvarequivalent<almproblem<false>>,dist,lastxi<vector<double>>,O> sx(ep,pd);
+          sddpsolution<mpmcvarequivalent<almproblem<false>>,dist,lastxi<vector<double>>,O> sx(ep,pd,{2});
           if(fabs(sx.obj().lb()-x.obj()) > 0.05)
           {
               std::cerr << "alm1test: opt="

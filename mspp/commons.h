@@ -41,14 +41,16 @@ using probability = double;
 class exception : public std::exception, public object
 {
 public:
-    exception(const std::string &error = "unknown mspp error")
-        : fmsg(error)
+    exception(const std::string &error = "unknown mspp error", unsigned int erno = 0)
+        : fmsg(error), ferno(erno)
     {
     }
 
-    const std::string& msg() { return fmsg; }
+    const std::string& msg() const  { return fmsg; }
+    unsigned int erno() const { return ferno; }
 private:
     std::string fmsg;
+    unsigned int ferno;
 };
 
 /// \brief System class, implementing output and random generation.

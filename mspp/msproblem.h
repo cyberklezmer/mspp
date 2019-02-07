@@ -90,7 +90,7 @@ public:
     {
         return frs;
     }
-
+    unsigned int size() const { return frs.size(); }
 private:
     vector<range<V>> frs;
 };
@@ -164,21 +164,33 @@ class msproblem : public object
             gh=cs;
         }
 
-        double maxf(unsigned int stage) const
+        double maxf() const
         {
-            assert(stage <= T());
-            return maxf_is(stage);
+            return maxf_is();
         }
 
-        double minf(unsigned int stage) const
+        double minf() const
         {
-            assert(stage <= T());
-            return minf_is(stage);
+            return minf_is();
         }
 
         std::string varname(unsigned int stage, unsigned int i) const
         {
-            return varname_is(stage,i);
+            std::ostringstream s;
+            s << varname_is(stage,i) << "_" << stage;
+            return s.str();
+        }
+
+        void varnames(vector<vector<std::string>>& n) const
+        {
+           n.resize(T()+1);
+           for(unsigned int i=0; i<=T(); i++)
+           {
+               unsigned int m=d()[i];
+               n[i].resize(m);
+               for(unsigned int j=0; j<m; j++)
+                   n[i][j] = varname(i,j);
+           }
         }
 
         const O rho;
@@ -238,12 +250,12 @@ private:
             msconstraints<G>& g
             ) const = 0;
 
-    virtual double maxf_is(unsigned int) const
+    virtual double maxf_is() const
     {
         return max<double>();
     }
 
-    virtual double minf_is(unsigned int) const
+    virtual double minf_is() const
     {
         return min<double>();
     }
@@ -251,7 +263,7 @@ private:
     virtual std::string varname_is(unsigned int stage, unsigned int i) const
     {
         std::ostringstream s;
-        s << "I" << stage << "_" << i;
+        s << "X" << "_" << i;
         return s.str();
     }
 

@@ -53,11 +53,65 @@ public:
         }
     };
 
+    struct printcbinfo
+    {
+        vectors<string> fnames;
+        ostream& output;
+    };
+
+
+    class printcb : public tdcallback<X_t,printcbinfo>
+    {
+        virtual void callback(const scenario<X_t>& xi,
+                              probability up,
+                              printcbinfo* state) const
+        {
+            assert(xi.size());
+            unsigned int k=xi.size()-1;
+
+            variables<V> src = xi[k].x;
+
+            state->output << k;
+            for(unsigned int i=0; i<src.size(); i++)
+                state->output << "," << state->fnames[k][i] << "=" << src[i];
+            state->output << endl;
+        }
+    };
+
+
+    struct statscbinfo
+    {
+        vectors<unsigned int> counts;
+        vectors<V> sums;
+    };
+
+
+    class statscb : public tdcallback<X_t,statscbinfo>
+    {
+        virtual void callback(const scenario<X_t>& xi,
+                              probability up,
+                              statscbinfo* state) const
+        {
+            assert(xi.size());
+            unsigned int k=xi.size()-1;
+
+            variables<V> src = xi[k].x;
+
+            for(unsigned int i=0; i<src.size(); i++)
+            {
+                state->counts[k][i]++;
+                state->sums[k][i]+=src[i];
+            }
+        }
+    };
+
+
     dex(const D& d,const msproblemstructure& aps,
+        const vectors<string>& names,
         const vectors<bool> excl = 0):
         treedistribution
           <dexitem<V,typename Z::R_t>,typename D::K_t,unsigned int>(d.T()),
-        fxi(ptr<D>(new D(d))), fps(aps), fexcl(excl)
+        fxi(ptr<D>(new D(d))), fps(aps), fnames(names), fexcl(excl)
        {
            static_assert(std::is_base_of<
               treedistribution<typename D::X_t,
@@ -75,6 +129,52 @@ public:
     {
         fx=x;
     }
+
+
+    void print(ostream& o) const
+    {
+        printcb cb;
+        unsigned int T = this->T();
+        printcbinfo cbi = {vectors<string>(T+1),o};
+        for(unsigned int k=0; k<=T; k++)
+            for(unsigned int i=0; i< fps[k]; i++)
+            {
+                if(k>=fexcl.size() || i >= fexcl[k].size()
+                      || !fexcl[k][i])
+                    cbi.fnames[k].push_back(fnames[k][i]);
+            }
+        this->foreachnode(&cb,&cbi);
+    }
+
+    void stats(vectors<unsigned int>& counts, vectors<V>& aves) const
+    {
+        unsigned int T = this->T();
+        statscbinfo cbi;
+        cbi.counts.resize(T+1);
+        cbi.sums.resize(T+1);
+        for(unsigned int k=0; k<=T; k++)
+            for(unsigned int i=0; i< fps[k]; i++)
+            {
+                if(k>=fexcl.size() || i >= fexcl[k].size()
+                      || !fexcl[k][i])
+                {
+                    cbi.counts[k].push_back(0);
+                    cbi.sums[k].push_back(0.0);
+                }
+            }
+        statscb cb;
+        this->foreachnode(&cb,&cbi);
+        counts = cbi.counts;
+        aves.resize(T+1);
+        for(unsigned int k=0; k<=T; k++)
+            for(unsigned int i=0; i< counts[k].size(); i++)
+            {
+                double ave = counts[k][i] ? cbi.sums[k][i] / counts[k][i] : 0.0;
+                aves[k].push_back(ave);
+            }
+    }
+
+
 
     void exportlinear(variables<V>& v) const
     {
@@ -144,6 +244,7 @@ private:
     ptr<variables<V>> fx;
     vectors<bool> fexcl;
     ptr<D> fxi;
+    vectors<string> fnames;
     msproblemstructure fps;
 };
 
@@ -309,9 +410,16 @@ public:
             double optimal;
 
             L solver;
-            solver.solve(*(s.lp),x,optimal);
-            ptr<dex<V_t,D,Z>> sol(new dex<V_t,D,Z>(xi,p.d()));
-            sol->set(x);
+            solver.solve(*(s.lp),x,optimal);            
+            if(optimal <= p.minf())
+            {
+                sys::err() << "Lower bound attained" << std::endl;
+                throw exception("Lower bound attained!");
+            }
+            vector<vector<string>> vn;
+            p.varnames(vn);
+            ptr<dex<V_t,D,Z>> sol(new dex<V_t,D,Z>(xi,p.d(),vn));
+            sol->set(x);            
             return {sol,optimal};
         }
         else if constexpr(std::is_same<typename P::O_t,mpmcvar>::value)
@@ -325,9 +433,15 @@ public:
             for(unsigned int i=1; i<p.T(); i++)
                 excl[i].push_back(true);
             sol->set(excl);
+
             return { sol, es.obj() };
         }
+        else
+        {
+            assert(0); //de method is unable to solve nested cvar yet
+        }
     }
+
 };
 
 /// @}

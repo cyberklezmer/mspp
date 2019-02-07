@@ -104,8 +104,8 @@ public:
            int serr;
            if ( !(serr = cplex.solve()) )
            {
-              env.error() << "Error " << serr << " when optimizing LP" << std::endl;
-              throw(-1);
+              sys::err() << "Error " << serr << " when optimizing LP" << std::endl;
+              throw exception("Error  when optimizing LP", serr);
            }
 
            for(int i=0; i<lp.vars.size(); i++)

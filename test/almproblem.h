@@ -50,7 +50,7 @@ public:
             return;
         double theta;
         if constexpr(CONSTL)
-            theta = k==this->T() ? 1 : 0;
+            theta = 1;
         else
             theta = zeta[1];
         if(k==1)

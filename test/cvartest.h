@@ -180,7 +180,7 @@ void cvartest(bool sddp=false, bool indirect=false)
     {
         std::cout << "CVaRtest direct by SDDP... ";
 
-        sddpsolution<cvarproblem,dist, lastxi<vector<double>>,O> x(p,pd);
+        sddpsolution<cvarproblem,dist, lastxi<vector<double>>,O> x(p,pd,{2});
 
         if(fabs(x.obj().lb()-obj) > 0.1 || fabs(x.obj().ubb()-obj) > 0.1)
         {
@@ -201,7 +201,7 @@ void cvartest(bool sddp=false, bool indirect=false)
     {
         std::cout << "CVaRtest indirect by SDDP... ";
 
-        sddpsolution<mpmcvarequivalent<cvarproblem>,dist, lastxi<vector<double>>,O> x(p,pd);
+        sddpsolution<mpmcvarequivalent<cvarproblem>,dist, lastxi<vector<double>>,O> x(p,pd,{2});
 
 
         if(fabs(x.obj().lb()-obj) > 0.01 || fabs(x.obj().ubb()-obj) > 0.01)

@@ -22,8 +22,13 @@ public:
     {
         return nstates_is();
     }
+    probability transprob(unsigned int from, unsigned int to) const
+    {
+        assert(to<nstates());
+        return transprob_is(from,to);
+    }
 private:
-    virtual probability transprob(unsigned int from, unsigned int to) const = 0;
+    virtual probability transprob_is(unsigned int from, unsigned int to) const = 0;
     virtual unsigned int nstates_is() const = 0;
 protected:
     virtual atom<unsigned int>
@@ -71,7 +76,7 @@ public:
     }
     const vector<vector<double>>& m() const { return fm; }
 private:
-    virtual probability transprob(unsigned int from, unsigned int to) const
+    virtual probability transprob_is(unsigned int from, unsigned int to) const
     {
         assert(from < fm.size());
         assert(to<fm[0].size());

@@ -39,7 +39,6 @@ protected:
         static_assert(
              std::is_convertible<typename Z::X_t,typename D::X_t>::value,
                         "Z and D are incompatible");
-
     }
 public:
     const O& obj() const { return fo; }

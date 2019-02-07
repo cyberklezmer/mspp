@@ -46,7 +46,7 @@ using mmarkovprocessdistribution
 template<typename X, typename S=void>
 class tdcallback : public object
 {
-public:
+public:    
     virtual void callback(const scenario<X>& path,
                           probability up, S* state=0) const = 0;
 };

@@ -112,6 +112,8 @@ class qdistribution: virtual public cdfdistribution<C>,
 public:
     double quantile(probability p) const
     {
+        assert(p<1);
+        assert(p>0);
         return this->quantile(p,na);
     }
     double quantile(probability p, const C& c) const
@@ -509,7 +511,7 @@ public:
         ldistribution<vector<X>>(atoms)
     {
         assert(atoms.size());
-        assert(atoms[0].size());
+        assert(atoms.size());
         for(unsigned int i=1; i<atoms.size(); i++)
             assert(atoms[i].x.size()==atoms[0].x.size());
     }
@@ -587,7 +589,7 @@ private:
   }
   virtual atom<double> atom_is(unsigned int i, const C& c) const
   {
-      probability p= static_cast<double> (2*i+1) / static_cast<double>(fn);
+      probability p= static_cast<double> (2*i+1) / static_cast<double>(2*fn);
       return { fd.quantile(p,c), 1.0 / static_cast<double> (fn) };
   }
   virtual bool is_equiprobable(const C& c) const { return true; }
@@ -596,6 +598,125 @@ private:
 };
 
 /// @} - discrete distributions
+
+/// \addtogroup multidim Multidimensional distributions
+/// \ingroup Distributions
+/// @{
+
+template <typename  D>
+class meanvardistribution:
+        public mdistribution<vector<double>,nothing>,
+        virtual public vdistribution<double,nothing>
+{
+    void check()
+    {
+        static_assert(std::is_base_of
+          <mdistribution<typename D::I_t,nothing>,D>::value);
+        static_assert(std::is_convertible
+           <typename D::I_t,double>::value);
+        assert(fm.size() == fsqV.size());
+        for(unsigned int i=0; i<fsqV.size(); i++)
+            assert(fsqV[i].size()==fm.size());
+    }
+public:
+    meanvardistribution(const vector<double>& m,
+                        const vector<vector<double>>& sqV
+                        )
+        : fm(m), fsqV(sqV)
+    {
+        check();
+    }
+
+    meanvardistribution(const vector<double>& m,
+                        const vector<vector<double>>& sqV,
+                        const D& d
+                        )
+        : fm(m), fsqV(sqV),fd(d)
+    {
+        check();
+    }
+    const D& d() const { return fd; }
+    const vector<double>& m() const {return fm; }
+    const vector<vector<double>>& sqV() const { return fsqV; }
+
+private:
+    virtual unsigned int dim_is() const { return fm.size(); }
+    virtual vector<double> do_draw(const nothing&) const
+    {
+        unsigned int d = this->dim();
+        vector<double> r(fm);
+        for(unsigned i=0; i<d; i++)
+        {
+            double u = fd.draw();
+            for(unsigned int j=0; j<d; j++)
+                r[j] += fsqV[j][i] * u;
+        }
+        return r;
+    }
+    vector<double> fm;
+    vector<vector<double>> fsqV;
+    D fd;
+};
+
+template <typename  D>
+class fmeanvardistribution:
+        public meanvardistribution<D>,
+        public fdistribution<vector<double>,nothing,false>
+{
+    void init(unsigned int dim)
+    {
+        static_assert(std::is_base_of
+          <fdistribution<double,nothing,D::flistdef>,D>::value);
+        fn = this->d().natoms(na);
+        fN = 1;
+        for(unsigned int i=0; i<dim; i++)
+            fN *= fn;
+    }
+public:
+    fmeanvardistribution(const vector<double>& m,
+                        const vector<vector<double>>& sqV
+                        ) :
+        meanvardistribution<D>(m,sqV)
+    {
+        init(m.size());
+    }
+
+    fmeanvardistribution(const vector<double>& m,
+                        const vector<vector<double>>& sqV,
+                        const D& d
+                        ):
+        meanvardistribution<D>(m,sqV,d)
+    {
+        init(m.size());
+    }
+
+private:
+    virtual unsigned int dim_is() const { return meanvardistribution<D>::dim(); }
+    virtual atom<vector<double>> atom_is(unsigned int i, const nothing&) const
+    {
+        unsigned int d=this->dim();
+        vector<double> r(this->m());
+        unsigned int ind = i;
+        for(unsigned int j=0; j<d; j++)
+        {
+            unsigned int k = ind % fn;
+
+            double u=this->d()(k).x;
+            for(unsigned int j=0; j<d; j++)
+                r[j] += this->sqV()[j][i] * u;
+            ind /= fn;
+        }
+        return { r,1.0 / (double) fN};
+    }
+    virtual unsigned int natoms_is(const nothing& ) const { return fN;}
+    unsigned int fn;
+    unsigned int fN;
+};
+
+
+
+/// @} - multidimensional distributions
+
 
 /// \addtogroup iterativedists Iteratively defined distributions
 /// \ingroup Distributions
@@ -788,7 +909,12 @@ public:
         assert(dim);
     }
 */
+    typename Z::R_t z(const scenario<X_t>& s) const
+    {
+        return Z_t()(s);
+    }
 
+    /// not sure whether I use it
     vector<X_t> draw() const
     {
         vector<X_t> ret;
@@ -805,6 +931,8 @@ public:
     }
 
     /// may be used only if \p D is a descendant of \ref fdistribution
+    ///
+    /// TBD maybe adding this functionality to fdistribution wwould be more clean...
     void atoms(const vector<X_t>& s, vector<atom<X_t>>& a) const
     {
         if(!s.size())
