@@ -79,3 +79,5 @@ Thumbs.db
 /test/mspptest.cbp
 /test/CMakeLists.txt.user
 /Doxyfile.bak
+
+build-test-Desktop_Qt_5_7_0_GCC_64bit-Debug/
