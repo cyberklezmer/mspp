@@ -59,11 +59,11 @@ public:
                           constraint::eq, 0));
         }
     }
-    virtual double minf_is(unsigned int) const
+    virtual double minf_is() const
     {
         return -1e10;
     }
-    virtual double maxf_is(unsigned int) const
+    virtual double maxf_is() const
     {
         return 1e10;
     }
@@ -105,14 +105,15 @@ void cvartest(bool sddp=false, bool indirect=false)
         vector<double> x;
         s.x()->exportlinear(x);
 
+        for(unsigned int i=0; i<2+9*2; i++)
+            cerr << x[i] << endl;
+
         if(fabs(s.obj()-obj) > tol)
         {
             std::cerr << "opt="
              << obj << " expected, " << s.obj() << " achieved."
              << std::endl;
 
-            for(unsigned int i=0; i<2+9*2; i++)
-                cerr << x[i] << endl;
             throw;
         }
 
@@ -182,14 +183,21 @@ void cvartest(bool sddp=false, bool indirect=false)
 
         sddpsolution<cvarproblem,dist, lastxi<vector<double>>,O> x(p,pd,{2});
 
+        assert(x.x()->vars[0].size()==2);
+        for(unsigned int i=0; i<x.x()->vars[0].size(); i++)
+        {
+           cout << "x" << i << "=" << x.x()->vars[0][i] << "("
+                    << x.x()->sterrs[0][i] << ") ";
+           cout  << " - " << sol[i+1];
+           cout << endl;
+        }
+
         if(fabs(x.obj().lb()-obj) > 0.1 || fabs(x.obj().ubb()-obj) > 0.1)
         {
             std::cerr << "obj="
                << obj << " expected, " << x.obj().lb()
                << "-" << x.obj().ubb() << " achieved." << std::endl;
 
-            for(unsigned int i=0; i<x.x()->size(); i++)
-               cerr << "x" << i << "=" << (*x.x())[i] << endl;
 
             throw;
         }
@@ -203,6 +211,14 @@ void cvartest(bool sddp=false, bool indirect=false)
 
         sddpsolution<mpmcvarequivalent<cvarproblem>,dist, lastxi<vector<double>>,O> x(p,pd,{2});
 
+        assert(x.x()->vars[0].size()==3);
+        for(unsigned int i=0; i<x.x()->vars[0].size(); i++)
+        {
+           cout << "x" << i << "=" << x.x()->vars[0][i] << "("
+                    << x.x()->sterrs[0][i] << ") ";
+           cout  << " - " << sol[i];
+           cout << endl;
+        }
 
         if(fabs(x.obj().lb()-obj) > 0.01 || fabs(x.obj().ubb()-obj) > 0.01)
         {
@@ -210,8 +226,8 @@ void cvartest(bool sddp=false, bool indirect=false)
                << obj << " expected, " << x.obj().lb()
                << "-" << x.obj().ubb() << " achieved." << std::endl;
 
-            for(unsigned int i=0; i<x.x()->size(); i++)
-               cerr << "x" << i << "=" << (*x.x())[i] << endl;
+            for(unsigned int i=0; i<x.x()->vars[0].size(); i++)
+               cerr << "x" << i << "=" << x.x()->vars[0][i] << endl;
 
             throw;
         }

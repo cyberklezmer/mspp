@@ -51,7 +51,6 @@ public:
                     break;
                 default: assert(0);
                 }
-
                 x.add(IloNumVar(env,l,h,t,lp.varnames[i].c_str()));
             }
 
@@ -109,8 +108,17 @@ public:
            }
 
            for(int i=0; i<lp.vars.size(); i++)
-               sol[i] = cplex.getValue(x[i]);
-           objvalue = cplex.getObjValue();
+            {
+               try
+               {
+                  sol[i] = cplex.getValue(x[i]);
+               }
+               catch(...)
+               {
+                   sol[i] = nan<V>();
+               }
+              }
+               objvalue = cplex.getObjValue();
 //std::cout << std::endl << "ov:" << cplex.getObjValue() <<std::endl<< std::endl;
         }
         catch (IloException& e)

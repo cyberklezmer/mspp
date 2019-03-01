@@ -146,6 +146,14 @@ public:
         this->foreachnode(&cb,&cbi);
     }
 
+    vector<V> firststage() const
+    {
+        vector<V> r;
+        assert(fx.size()>=fps[0]);
+        for(unsigned int i; i<fps[0]; i++)
+            r.push_back(fx[i]);
+        return r;
+    }
     void stats(vectors<unsigned int>& counts, vectors<V>& aves) const
     {
         unsigned int T = this->T();
@@ -427,11 +435,12 @@ public:
             mpmcvarequivalent<P> e(p);
             desolution<mpmcvarequivalent<P>,D,Z,L> es(e,xi);
             ptr<dex<typename P::V_t,D,Z>> sol = es.x();
-            vectors<bool> excl(p.T()+1);
-            for(unsigned int i=0; i<=p.T(); i++)
-                excl[i].push_back(true);
-            for(unsigned int i=1; i<p.T(); i++)
-                excl[i].push_back(true);
+
+            vectors<bool> excl(e.T()+1);
+            for(unsigned int i=0; i<=e.T(); i++)
+                for(unsigned int j=0; j<e.addedvars(i); j++)
+                    excl[i].push_back(true);
+
             sol->set(excl);
 
             return { sol, es.obj() };

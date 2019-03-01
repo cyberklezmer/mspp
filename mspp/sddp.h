@@ -88,6 +88,15 @@ public:
            laststate<typename Y::I_t>>(
             diracdistribution<pair<unsigned int,typename Y::I_t>>({0,xi0}),makexi(m,xi))
     {}
+    const M& md(unsigned int i) const
+    {
+        return this->d(i).first();
+    }
+
+    const Y& dd(unsigned int i) const
+    {
+        return this->d(i).second();
+    }
 
     struct init
     {
@@ -135,7 +144,13 @@ public:
 
 
 template <typename V>
-using sddpx = variables<V>;
+struct sddpx
+{
+    sddpx(unsigned int k) : means(k), sterrs(k), x(k) {}
+    vectors<V> means;
+    vectors<double> sterrs;
+    vector<vector<vector<double>>> x;
+};
 
 //         assert(fsv.size()==fv.size());
 // for(unsigned int i=0; i<fv.size(); i++)
@@ -167,7 +182,10 @@ template<typename P, typename S, typename M, bool markov>
 class msppsddpmodel : public ScenarioModel
 {
     static constexpr bool fdebug = false;
+    static constexpr bool frsoutput = true;
+
     static constexpr bool fmarkov = markov;
+
     static unsigned int countDebugModel()
     {
         static unsigned int cnt=0;
@@ -178,7 +196,7 @@ class msppsddpmodel : public ScenarioModel
     using D_t = typename S::D_t;
     class msspDistribution : public DiscreteDistribution
     {
-        static constexpr bool fdebug = true;
+
     public:
         msspDistribution(const D_t& d, C_t c, const M& m,
                  unsigned int dim) :
@@ -186,13 +204,14 @@ class msppsddpmodel : public ScenarioModel
             fd(d), fc(c), fm(m), fdim(dim) {}
         virtual void GenerateAnalytic(mat &sample, int count)
         {
-            if(fdebug)
+            if(frsoutput)
             {
-                sys::log() << "GenerateAnalytic called" << endl
-                           << "(count=" << count << ")" << endl;
+                sys::log() << "GenerateAnalytic called" << endl;
             }
             if constexpr(fmarkov)
             {
+                if(frsoutput)
+                    sys::log() << fc << endl;
                 sample.set_size(count,fdim );
                 for(unsigned int i=0; i<count; i++)
                 {
@@ -211,7 +230,7 @@ class msppsddpmodel : public ScenarioModel
                     sample.row(i) = rowvec(x);
                 }
             }
-            if(fdebug)
+            if(frsoutput)
                 sys::log() << sample <<  " returned" << endl;
         }
 
@@ -292,8 +311,6 @@ public:
            initandcheck();
        }
 
-
-
        virtual ~msppsddpmodel() {}
 
        // would be much easier if I provided only the sample
@@ -305,10 +322,14 @@ public:
 
             assert(stage > 0);
             assert(stage-1 <= fpd.dim()-1);
+            if(frsoutput);
+                sys::log() << "GetDistribution stage " << stage << endl;
             if(stage==1)
             {
                 mat sample(1,fxi0().size());
                 sample.row(0)= rowvec(fxi0());
+                if(frsoutput)
+                    sys::log() << sample << endl;
                 DiscreteDistribution* d = new DiscreteDistribution(sample);
                 d->UnbiasedEstimate(); // to initialize mu_, which is later used in
                              // determining the dimension of rv.'s
@@ -428,7 +449,7 @@ public:
 
         virtual unsigned int GetDecisionSize(unsigned int stage) const
         {
-           if(0 && fdebug)
+           if(fdebug)
                sys::log() << "GetDecisionSize called (may be my call, too)" << endl
                           << "(" << stage << ")" << endl;
 
@@ -446,7 +467,7 @@ public:
             }
             else
             {
-                if(0 && fdebug)
+                if(fdebug)
                     sys::log() << nx << " returned" << endl;
                 return nx;
             }
@@ -799,11 +820,11 @@ public:
            }
         }
 
-   pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve()
+   pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve(const vector<unsigned int> exclude = vector<unsigned int>())
    {
        const unsigned int SEED = 350916502;
 
-       const unsigned int DESCENDANTS = 100; //100
+       const unsigned int DESCENDANTS = 250; //100
        const unsigned int REDUCED_DESCENDANTS = 0; //0 == no reduction
        const unsigned int DERIVATIVE_ITERATIONS = 10;
        //vectors for collecting stats and printout
@@ -821,39 +842,62 @@ public:
        double lb_o;
        double ub_o_m;
        double ub_o_b;
+       vector<mat> fut_sol;
+
        time_t time_o;
 
        time_o = time(NULL);
 
        //configure the SddpSolver
        SddpSolverConfig config;
-       config.debug_solver = 1;
+       config.debug_solver = 0;
        config.samples_per_stage = DESCENDANTS;
        config.reduced_samples_per_stage = REDUCED_DESCENDANTS;
        config.solver_strategy = STRATEGY_DEFAULT; // STRATEGY_CONDITIONAL
+       config.calculate_future_solutions = true;
+       config.calculate_future_solutions_count = 1000;
+       config.max_iterations = 200;
        // config.cut_nodes_not_tail = true;
        //there are more settings, for instace:
        //config.debug_solver = true;
        SddpSolver solver(this, config);
-       solver.Solve(weights_o, lb_o, ub_o_m, ub_o_b);
+       solver.Solve(weights_o, lb_o, ub_o_m, ub_o_b, fut_sol);
        time_o = time(NULL) - time_o;
 
        //printout
        sys::log() << "Original problem: " << weights_o << endl;
        sys::log() << "Original problem @ " << time_o << "s, lb: " << lb_o << ", ub_mean:" << ub_o_m << ", ub_bound:" << ub_o_b << endl;
 
-       ptr<sddpx<typename P::V_t>> vars(new sddpx<typename P::V_t>);
-       unsigned int sn;
-       if constexpr(std::is_same<typename P::O_t,nestedmcvar>::value ||
-                    std::is_same<typename P::O_t,mpmcvar>::value)
-           sn = weights_o.n_cols - 1;
-       else
-           sn = weights_o.n_cols;
-       for(unsigned int i=0; i<sn; i++)
-           vars->push_back(weights_o(i));
+       ptr<sddpx<typename P::V_t>> x(new sddpx<typename P::V_t>(this->fp.T()+1));
+       bool constexpr nestedp = std::is_same<typename P::O_t,mpmcvar>::value;
+       for(unsigned int k=0; k<=this->fp.T(); k++)
+       {
+           unsigned int sn = this->fp.d()[k];
+           unsigned int exc = k<exclude.size() ? exclude [k] : 0;
+           mat m = mean(fut_sol[k]);
+           mat s = stddev(fut_sol[k]);
+           unsigned int nfs = k == 0 ? 1 : fut_sol[k].n_rows;
+           x->x[k].resize(nfs);
+           for(unsigned int i=exc; i<sn; i++)
+           {
+               if(k==0)
+               {
+                  x->means[k].push_back(weights_o(i));
+                  x->sterrs[k].push_back(0.0);
+                  x->x[k][0].push_back(weights_o(i));
+               }
+               else
+               {
+                   x->means[k].push_back(m(i));
+                   x->sterrs[k].push_back(s(i) / sqrt(nfs));
+                   for(unsigned int j=0; j<nfs; j++)
+                       x->x[k][j].push_back(fut_sol[k](j,i));
+               }
+           }
+        }
        sddpobj obj;
        obj.set(lb_o, ub_o_m, ub_o_b, time_o);
-       return { vars, obj};
+       return { x, obj};
    }
 
 private:
@@ -878,7 +922,12 @@ public:
        {
             mpmcvarequivalent<P> e(p);
             msppsddpmodel<mpmcvarequivalent<P>,S,M,false> mm(e,pd,zetadims,m);
-            return mm.solve();
+            vector<unsigned int> exclude;
+            for(unsigned int i =0; i<=e.T(); i++)
+                exclude.push_back(e.addedvars(i));
+
+            pair<ptr<sddpx<typename P::V_t>>,sddpobj> res = mm.solve(exclude);
+            return res;
        }
        else
        {
@@ -895,7 +944,13 @@ public:
        {
            mpmcvarequivalent<P> e(p);
            msppsddpmodel<mpmcvarequivalent<P>,S,M,true> mm(e,pd,zetadims,m);
-           return mm.solve();
+
+           vector<unsigned int> exclude;
+           for(unsigned int i =0; i<=e.T(); i++)
+               exclude.push_back(e.addedvars(i));
+
+           pair<ptr<sddpx<typename P::V_t>>,sddpobj> res = mm.solve(exclude);
+           return res;
        }
        else
        {

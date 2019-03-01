@@ -63,11 +63,11 @@ public:
         else
           g.add(linearmsconstraint({0.0,1.0,1.0,-1.0},constraint::eq, theta));
     }
-    double minf_is(unsigned int) const
+    double minf_is() const
     {
         return -1000;
     }
-    double maxf_is(unsigned int) const
+    double maxf_is() const
     {
         return 1000;
     }

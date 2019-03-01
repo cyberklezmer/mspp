@@ -30,16 +30,16 @@ int main(int, char **)
     using O=cplex<realvar>;
 //    twostagetest<O>();
 //    cvartest<O>(false,false);
-    cvartest<O>(false,true);
-    cvartest<O>(true,false);
-//    cvartest<O>(true,true);
+//    cvartest<O>(false,true);
+//    cvartest<O>(true,false);
+    cvartest<O>(true,true);
 //    almtest<O>(3,1); // dává lb< ub
-//    almtest<O>(2,5);
+//    almtest<O>(2,1);
 //    alm1test<O>(true);
+//      alm1test<O>(false);
+
+
 //    alm1test<O>(false);
-
-
-//  alm1test<O>(false);
 //    hmctestetastoch<O,false>(1);
 //    hmctestetadet<O,false>(2);
 

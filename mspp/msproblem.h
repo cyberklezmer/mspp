@@ -6,7 +6,6 @@
 namespace mspp
 {
 
-
 /// \addtogroup msproblems Multistage Problems
 /// \ingroup problems
 /// @{

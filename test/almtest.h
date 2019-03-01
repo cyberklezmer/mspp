@@ -97,15 +97,6 @@ void almtest(unsigned int T=3, unsigned int nl=1)
     assert(T>=1);
     assert(T<=4);
     const double tol = 1e-5;
-    double sol[]={
-            0,0,0,1,1,0,1,0,1,0,1,0,1,
-            0.727273,0.727273,0.272727,1,0.272727,
-            1,0.272727,1,0.272727,1,0,0,1,1,1,1,1,
-            1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,1,0,1,0,
-            1,0,1,0.727273,0.727273,0.272727,1,0.272727,
-            1,0.272727,1,0.272727,1};
-    double obj = 0.906063;
-    unsigned int k = sizeof(sol)/sizeof(sol[0]);
 
     using mydist = fhmcdistribution<mmcdistribution,almdistribution>;
     vector<mydist> d;
@@ -133,32 +124,11 @@ void almtest(unsigned int T=3, unsigned int nl=1)
 
     desolution<almproblem<true>,pdt,hmczeta<vector<double>>,O> x(mp,pd);
 
-    if(T==3 && nl==1 && fabs(x.obj()-obj) > tol)
-    {
-        std::cerr << "almtest: opt="
-             << obj << " expected, " << x.obj() << " achieved." << std::endl;
-        throw;
-    }
-
-    vector<double> xs;
-    x.x()->exportlinear(xs);
-
-    std::cout << "X11=" << xs[0] << std::endl;
-
-    if(T==3 && nl==1)
-        for(unsigned int i=0; i<k; i++)
-        {
-            if(fabs(xs[i]-sol[i]) > tol)
-            {
-                std::cerr << "x[" << i << "]="
-                     << sol[i] << " expected, " << xs[i]
-                     << " achieved." << std::endl;
-                std::cerr << endl;
-                throw;
-            }
-        }
-
     std::cout <<  "obj=." <<x.obj() << std::endl;
+
+    vectors<unsigned int> counts;
+    vectors<double> aves;
+    x.x()->stats(counts, aves);
 
     std::cout <<"ALMtest Markov SDDP..." << std::endl;
 
@@ -166,7 +136,20 @@ void almtest(unsigned int T=3, unsigned int nl=1)
 
 
 //    msddpsolution<mpmcvarequivalent<almproblem<true>>,pdt,lastmdxi<vector<double>>,O> sx(ep,pd);
-    msddpsolution<almproblem<true>,pdt,hmczeta<vector<double>>,O> sx(mp,pd);
+    msddpsolution<almproblem<true>,pdt,hmczeta<vector<double>>,O> sx(mp,pd,vector<unsigned int>(T,1));
+
+    cout << "Solution comparison" << endl;
+    assert(aves.size()==sx.x()->vars.size());
+    for(unsigned int k=0; k<aves.size(); k++)
+    {
+        assert(aves[k].size()==sx.x()->vars[k].size());
+        cout << "Stage " << k << endl;
+        for(unsigned int i=0; i<aves[k].size(); i++)
+        {
+          cout << aves[k][i] << "="  << sx.x()->vars[k][i]
+             << "(" << sx.x()->sterrs[k][i] << ")" << endl;
+        }
+    }
 
     if(fabs(sx.obj().lb()-x.obj()) > 0.1)
     {

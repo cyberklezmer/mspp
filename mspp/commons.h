@@ -162,6 +162,13 @@ constexpr V inf() { return std::numeric_limits<V>::infinity(); }
 template <typename V>
 constexpr V minf() { return -inf<V>(); }
 
+/// Undefined value with of \p V
+/// TBD Implement for integer and binary vars!!!
+template <typename V>
+constexpr V nan() { return std::numeric_limits<V>::quiet_NaN(); }
+
+
+
 /// Maximal value of \p V
 template <typename V>
 constexpr V max() { return std::numeric_limits<V>::max(); }

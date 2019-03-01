@@ -10,7 +10,7 @@ namespace mspp
 /// \addtogroup Distributions
 /// @{
 
-const double probabilitytolerance = 1e-15;
+const double probabilitytolerance = 1e-6;
 
 /// \brief Base class.
 ///
@@ -85,7 +85,23 @@ private:
 /// @{
 
 template <typename C>
-using realdistribution=distribution<double, C>;
+class realdistribution: virtual public distribution<double, C>
+{
+public:
+    double mean(const C& c) const
+    {
+        return mean_is(c);
+    }
+    double mean() const
+    {
+        return mean(na);
+    }
+protected:
+    virtual double mean_is(const C& ) const
+    {
+        throw mspp::exception("Mean undefined!");
+    }
+};
 
 template <typename C>
 class cdfdistribution: virtual public realdistribution<C>
@@ -107,7 +123,7 @@ private:
 
 template <typename C>
 class qdistribution: virtual public cdfdistribution<C>,
-        public mdistribution<double,C>
+        virtual public mdistribution<double,C>
 {
 public:
     double quantile(probability p) const
@@ -165,6 +181,11 @@ private:
     virtual probability cdf_is(double x, const nothing&) const
     {
         return fd.cdf((x-fm) / fsd);
+    }
+
+    virtual double mean_is(const nothing&) const
+    {
+        return (fd.mean() + fm) * fsd;
     }
 
     double fm;
@@ -276,7 +297,7 @@ struct atom
 /// \tparam I type of the values
 /// \tparam C type of the condition
 template <typename I, typename C>
-class ddistribution: public mdistribution<I,C>
+class ddistribution: virtual public mdistribution<I,C>
 {
 public:
     atom<I> operator () (unsigned int i, const C& c) const
@@ -357,7 +378,16 @@ public:
         static_assert(std::is_same<C,nothing>::value);
         return natoms_is(na);
     }
-
+    double mean(const C& c) const
+    {
+        static_assert(std::is_convertible<I,double>::value);
+        vector<atom<I>> a;
+        this->atoms(a,c);
+        double sum = 0;
+        for(unsigned int i=0; i<a.size(); i++)
+            sum += a[i].p * a[i].x;
+        return sum;
+    }
 private:
     virtual void atoms_are(vector<atom<I>>& a, const C& c) const
     {
@@ -605,7 +635,7 @@ private:
 
 template <typename  D>
 class meanvardistribution:
-        public mdistribution<vector<double>,nothing>,
+        virtual public mdistribution<vector<double>,nothing>,
         virtual public vdistribution<double,nothing>
 {
     void check()
@@ -639,7 +669,7 @@ public:
     const vector<double>& m() const {return fm; }
     const vector<vector<double>>& sqV() const { return fsqV; }
 
-private:
+protected:
     virtual unsigned int dim_is() const { return fm.size(); }
     virtual vector<double> do_draw(const nothing&) const
     {
@@ -653,6 +683,7 @@ private:
         }
         return r;
     }
+private:
     vector<double> fm;
     vector<vector<double>> fsqV;
     D fd;
@@ -691,24 +722,41 @@ public:
     }
 
 private:
-    virtual unsigned int dim_is() const { return meanvardistribution<D>::dim(); }
-    virtual atom<vector<double>> atom_is(unsigned int i, const nothing&) const
+    virtual unsigned int dim_is() const { return meanvardistribution<D>::dim_is(); }
+    virtual atom<vector<double>> atom_is(unsigned int a, const nothing&) const
     {
         unsigned int d=this->dim();
+if(0)
+{
+    for(unsigned int i=0;i<d;i++)
+    {
+        for(unsigned int j=0;j<d;j++)
+            cout << this->sqV()[j][i] << " ";
+        cout << endl;
+    }
+}
         vector<double> r(this->m());
-        unsigned int ind = i;
-        for(unsigned int j=0; j<d; j++)
+        unsigned int ind = a;
+//sys::log() << a ;
+        for(unsigned int i=0; i<d; i++)
         {
             unsigned int k = ind % fn;
-
             double u=this->d()(k).x;
+//sys::log() << "," << u;
             for(unsigned int j=0; j<d; j++)
                 r[j] += this->sqV()[j][i] * u;
             ind /= fn;
         }
+//for(unsigned int i=0; i<r.size(); i++)
+//   sys::log() << "," << r[i];
+//sys::log() << endl;
         return { r,1.0 / (double) fN};
     }
     virtual unsigned int natoms_is(const nothing& ) const { return fN;}
+    virtual vector<double> do_draw(const nothing&) const
+    {
+        return meanvardistribution<D>::do_draw(na);
+    }
     unsigned int fn;
     unsigned int fN;
 };
@@ -726,7 +774,7 @@ private:
 /// \brief Iterative joint distribution,
 /// \tparam F the first distribution
 /// \tparam S the second distribution
-/// \tparam M a mapping from the
+/// \tparam M a mapping om the
 /// <tt>pair<condition of F, condition of S></tt> into
 /// <tt>condition of \p F</tt>
 ///
@@ -788,7 +836,7 @@ using uijdistribution = ijdistribution<F,S,uijmapping<typename F::I_t,typename S
 /// See \ref ijdistribution
 template <typename F, typename S, typename M>
 class mijdistribution: public ijdistribution<F,S,M>,
-                       public mdistribution<pair<typename F::I_t,typename S::I_t>,typename F::C_t>
+                       virtual public mdistribution<pair<typename F::I_t,typename S::I_t>,typename F::C_t>
 {
 public:
     using I_t = typename ijdistribution<F,S,M>::I_t;
@@ -797,6 +845,7 @@ public:
       ijdistribution<F,S,M>(d,e)
     {
     }
+protected:
     virtual I_t do_draw(const C_t& c) const
     {
         typename F::I_t i = this->first().draw(c);
@@ -844,6 +893,11 @@ private:
                 a.push_back({ { fa[i].x, sa[j].x}, fa[i].p * sa[j].p});
         }
     }
+    virtual I_t do_draw(const C_t& c) const
+    {
+        return mijdistribution<F,S,M>::do_draw(c);
+    }
+
 };
 
 /// \brief Unconditional MS iterative distribution
@@ -956,6 +1010,7 @@ public:
 private:
     E fe;
     vector<D> fd;
+protected:
     virtual unsigned int dim_is() const
     {
         return fd.size()+1;
@@ -991,6 +1046,7 @@ public:
         check();
         assert(dim);
     }
+    // marginal distribution
     M md(unsigned int i) const
     {
         assert(i>0);

@@ -88,28 +88,88 @@ public:
     }
 };
 
+
 template <typename T>
-void print(std::ostream& o, vector<vector<T>> v)
+inline ostream& operator<<(ostream& o, const std::vector<T>& v)
 {
-    o << "[";
-    for(unsigned int i=0; i<v.size(); i++)
+    o << "{";
+    if(v.size())
+        for(unsigned int j=0; ; j++)
+        {
+            o << v[j];
+            if(j==v.size()-1)
+                break;
+            o << ",";
+        }
+    o << "}";
+
+    return o;
+}
+
+template <typename T>
+inline ostream& operator<<(ostream& o, const vectors<T>& v)
+{
+    o << "{";
+    if(v.size())
+    for(unsigned int i=0;;)
     {
-        o << "[";
-        if(v[i].size())
-            for(unsigned int j=0; ; j++)
-            {
-                o << v[i][j];
-                if(j==v[i].size()-1)
-                    break;
-                o << ",";
-            }
-        o << "]";
+        o << v[i];
+        if(++i == v.size())
+            break;
+        o << ",";
     }
-    o << "]" << std::endl;
+    o << "}" << std::endl;
+}
+
+template <typename F, typename S>
+inline ostream& operator<<(ostream& o, const pair<F,S>& p)
+{
+    o << "{" << p.first << "," << p.second << "}";
+    return o;
 }
 
 
 
+template <typename X>
+class printtreedistcb : public tdcallback<X,ostream>
+{
+    virtual void callback(const scenario<X>& xi,
+                          probability up,
+                          ostream* os) const
+    {
+        assert(xi.size());
+        unsigned int k=xi.size()-1;
 
+        for(unsigned int i; i<k; i++)
+            *os << '\t';
+//        double x = xi[k-1];
+        *os << "{" << k << "," << up << "," << xi[k] << "}"  << endl;
+    }
+};
+
+
+
+template <typename P>
+inline void printtreed(ostream& o, const P& v)
+{
+    static_assert(is_base_of<
+       treedistribution<typename P::X_t,typename P::K_t,typename P::A_t>,
+                   P>::value);
+    printtreedistcb<typename P::X_t> cb;
+    v.foreachnode(&cb,&o);
+}
+
+/*
+ * template <typename P>
+inline ostream& operator<<(ostream& o, const P& v)
+{
+//    static_assert(is_base_of<
+//       treedistribution<typename P::X_t,typename P::K_t,typename P::A_t>,
+//                   P>::value);
+//    printtreedistcb<typename P::X_t> cb;
+//    v.foreachnode(&cb,&o);
+    return o;
+}
+*/
 
 #endif // MSPPTEST_H

@@ -69,18 +69,11 @@ public:
         assert(falpha > 0);
     }
 
-/*    mpmcvarequivalent(const P& sp,double lambda, double alpha) :
-        msproblem<expectation, linearfunction,
-             typename P::G_t, typename P::V_t,
-             typename P::X_t,
-             mpcvprestriction<typename P::R_t>>(ps(sp.d)),
-           fsp(new P(sp)),
-           flambda(lambda),falpha(alpha)
+    unsigned int addedvars(unsigned int k) const
     {
-        static_assert(std::is_same<typename P::R_t,expectation>::value);
-        assert(fsp->T()>0);
-        assert(falpha > 0);
-    }*/
+       assert(k<=this->T());
+       return k== 0 || k==this->T() ? 1 : 2;
+    }
 
     virtual std::string varname_is(unsigned int stage, unsigned int i) const
     {
