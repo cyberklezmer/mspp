@@ -7,9 +7,9 @@
 //#include "mspp/msproblem.h"
 #include "mspp/cplex.h"
 #include "test/tstest.h"
-#include "test/cvartest.h"
-#include "test/almtest.h"
-#include "test/hmctest.h"
+//#include "test/cvartest.h"
+//#include "test/almtest.h"
+//#include "test/hmctest.h"
 #include <mcheck.h>
 
 using namespace mspp;
@@ -28,11 +28,11 @@ int main(int, char **)
     sys::seed(0);
 //    using O=csvlpsolver<realvar>;
     using O=cplex<realvar>;
-//    twostagetest<O>();
+    twostagetest<O>();
 //    cvartest<O>(false,false);
 //    cvartest<O>(false,true);
 //    cvartest<O>(true,false);
-    cvartest<O>(true,true);
+//    cvartest<O>(true,true);
 //    almtest<O>(3,1); // dává lb< ub
 //    almtest<O>(2,1);
 //    alm1test<O>(true);

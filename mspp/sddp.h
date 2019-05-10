@@ -822,9 +822,8 @@ public:
 
    pair<ptr<sddpx<typename P::V_t>>,sddpobj> solve(const vector<unsigned int> exclude = vector<unsigned int>())
    {
-       const unsigned int SEED = 350916502;
-
-       const unsigned int DESCENDANTS = 250; //100
+//const unsigned int SEED = 0;
+       const unsigned int DESCENDANTS = 1200; //100
        const unsigned int REDUCED_DESCENDANTS = 0; //0 == no reduction
        const unsigned int DERIVATIVE_ITERATIONS = 10;
        //vectors for collecting stats and printout
@@ -833,9 +832,6 @@ public:
        sys::log() << "Starting solving:" << endl;
 
        //set the seed
-       if (SEED > 0) {
-               sys::seed(SEED + 1); //fixes the tree for each iteration
-       }
 
        //vector for statistics and output
        rowvec weights_o;
@@ -856,7 +852,7 @@ public:
        config.solver_strategy = STRATEGY_DEFAULT; // STRATEGY_CONDITIONAL
        config.calculate_future_solutions = true;
        config.calculate_future_solutions_count = 1000;
-       config.max_iterations = 200;
+       config.max_iterations = 100;
        // config.cut_nodes_not_tail = true;
        //there are more settings, for instace:
        //config.debug_solver = true;

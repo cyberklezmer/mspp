@@ -7,6 +7,8 @@
 #include "mspp/cdists.h"
 #include "mspp/hmcapprox.h"
 
+/*
+
 namespace mspp
 {
 
@@ -56,7 +58,7 @@ void hmctestetadet(unsigned int T)
 
     using zetat = hmczeta<double,expmapping>;
 static_assert(std::is_same<zetat::R_t,vector<double>>::value);
-    using apt = almproblem<true, /* nestedmcvar */ mpmcvar>;
+    using apt = almproblem<true,mpmcvar>;
     apt ap(0.5,0.05,T);
 
 
@@ -109,6 +111,7 @@ static_assert(std::is_same<zetat::R_t,vector<double>>::value);
     std::cout <<  "passed." << std::endl;
 }
 
+
 template <typename O, bool diraceta = false>
 void hmctestetastoch(unsigned int T)
 {
@@ -127,7 +130,7 @@ void hmctestetastoch(unsigned int T)
     if(T==2)
         c.push_back(c2);
 
-    using apt = almproblem<false, /* nestedmcvar */ mpmcvar>;
+    using apt = almproblem<false,mpmcvar>;
     apt ap(0.5,0.05,T);
 
     double etam = 0;
@@ -163,7 +166,7 @@ void hmctestetastoch(unsigned int T)
     {
         using zetat = hmczeta<double,expmapping>;
 
-        using apt = almproblem<true, /* nestedmcvar */ mpmcvar>;
+        using apt = almproblem<true, mpmcvar>;
         apt ap(0.5,0.05,T);
 
         desolution<apt,dhat,zetat,O> dx(ap,dha);
@@ -218,6 +221,6 @@ void hmctestetastoch(unsigned int T)
 
 
 } // namespace
-
+*/
 
 #endif // HMCTEST_H

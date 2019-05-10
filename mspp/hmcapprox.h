@@ -519,10 +519,10 @@ private:
                     }
                     double tr = t < trend.size() ? trend[t] : 0.0;
                     makeEe(es,pr,M()(e)+tr);
-cout << t << ","
-     << (M()(e)+tr) << endl;
-for(unsigned int i=0; i<es.size(); i++)
-    cout << i << "," << pr[i] << "," << es[i] << endl;
+//cout << t << ","
+//     << (M()(e)+tr) << endl;
+//for(unsigned int i=0; i<es.size(); i++)
+//    cout << i << "," << pr[i] << "," << es[i] << endl;
 
                 }
             }

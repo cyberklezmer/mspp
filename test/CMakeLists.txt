@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ###required for sddp
 
 include_directories(../sddp/source)
-set( COIN_HEADER_DIR "/usr/local/lib/coin/build/include/coin" )
+set( COIN_HEADER_DIR "/usr/include/coin" )
 
 #COIN-OR headers, put your directory
 set( COIN_LIB_DIR "/usr/local/lib/coin/build/lib" )
@@ -25,7 +25,7 @@ find_library(COINOSICLP libOsiClp.so ${COIN_LIB_DIR} )
 find_library(COINOSICBC libOsiCbc.so ${COIN_LIB_DIR} )
 
 #Boost libraries
-find_package(Boost 1.61 COMPONENTS system filesystem REQUIRED)
+find_package(Boost 1.67 COMPONENTS system filesystem REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
 #Armadillo library
@@ -35,12 +35,13 @@ include_directories(${ARMADILLO_INCLUDE_DIRS})
 
 ###required for cplex
 
-set( CPLEX_VER "1263" )
-set( CPLEX_HEADER_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/include" )
-set( CONCERT_HEADER_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/concert/include" )
-set( CPLEX_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/lib/x86-64_linux/static_pic" )
-set( CPLEX_BIN_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/bin/x86-64_linux" )
-set( CONCERT_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/concert/lib/x86-64_linux/static_pic" )
+set( CPLEX_VER "1280" )
+set( CPLEX_HOME "/opt/ibm/ILOG/CPLEX_Studio_Community128" )
+set( CPLEX_HEADER_DIR "${CPLEX_HOME}/cplex/include" )
+set( CONCERT_HEADER_DIR "${CPLEX_HOME}/concert/include" )
+set( CPLEX_LIB_DIR "${CPLEX_HOME}/cplex/lib/x86-64_linux/static_pic" )
+set( CPLEX_BIN_DIR "${CPLEX_HOME}/cplex/bin/x86-64_linux" )
+set( CONCERT_LIB_DIR "${CPLEX_HOME}/concert/lib/x86-64_linux/static_pic" )
 
 #CPLEX - force it to use STD headers like <iostream> instead of <iostream.h>
 add_definitions( -DIL_STD )
